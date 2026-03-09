@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BROKE | ROOT ACCESS</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+    <div id="ban-screen" class="overlay hidden bg-red">
+        <div class="auth-card glass border-red">
+            <h1 class="red-glow">ACCESS DENIED</h1>
+            <p>Ваше устройство заблокировано администратором <b>xeone</b>.</p>
+            <div class="ban-icon"><i data-lucide="shield-alert"></i></div>
+        </div>
+    </div>
+
+    <div id="maintenance-screen" class="overlay hidden">
+        <div class="auth-card glass">
+            <h1 class="blue-glow">SYSTEM LOCK</h1>
+            <p id="lock-reason">Идет подготовка обновления...</p>
+            <div class="loader-bar"></div>
+        </div>
+    </div>
+
+    <div id="auth-screen" class="overlay">
+        <div class="auth-card glass">
+            <h1>BROKE</h1>
+            <p>P2P Encrypted Network</p>
+            <div class="input-group">
+                <input type="text" id="username-input" placeholder="Никнейм..." autocomplete="off">
+                <button id="login-btn">Войти в сеть</button>
+            </div>
+            <div id="auth-error" class="error-msg">Ошибка: ник занят</div>
+        </div>
+    </div>
+
+    <div id="main-app" class="hidden">
+        <aside class="sidebar glass">
+            <div class="user-profile">
+                <div class="avatar" id="my-avatar"></div>
+                <div class="info">
+                    <span id="my-id-display">ID: ---</span>
+                    <span id="admin-badge" class="hidden">★ XEONE ROOT</span>
+                </div>
+            </div>
+
+            <div id="admin-panel" class="admin-ui hidden">
+                <p class="admin-label">NETWORK CONTROL</p>
+                <button class="adm-btn red" id="btn-lock-all">LOCK NETWORK</button>
+                <button class="adm-btn green" id="btn-unlock-all">RELEASE</button>
+                <button class="adm-btn orange" id="btn-purge-chat">REMOTE PURGE</button>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="target-id-input" placeholder="ID цели...">
+                <button id="add-chat-btn"><i data-lucide="plus"></i></button>
+            </div>
+            <div id="contacts-list" class="contacts"></div>
+        </aside>
+
+        <main class="chat-area glass">
+            <header class="chat-header">
+                <h2 id="chat-with-title">BROKE P2P</h2>
+                <div class="call-actions hidden" id="top-controls">
+                    <button class="icon-btn" id="call-v"><i data-lucide="video"></i></button>
+                    <button class="icon-btn red-text hidden admin-only" id="btn-ban-peer" title="BAN DEVICE"><i data-lucide="gavel"></i></button>
+                </div>
+            </header>
+            <div id="messages-container" class="messages"></div>
+            <footer class="input-area">
+                <input type="text" id="message-input" placeholder="Сообщение..." disabled>
+                <button id="send-btn" disabled><i data-lucide="send"></i></button>
+            </footer>
+        </main>
+    </div>
+
+    <div id="call-modal" class="modal glass hidden">
+        <div class="modal-content">
+            <h3 id="caller-name">Входящий звонок</h3>
+            <div class="modal-buttons">
+                <button id="call-accept" class="btn-green">Принять</button>
+                <button id="call-reject" class="btn-red">Отклонить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="video-overlay" class="video-window glass hidden">
+        <video id="remote-video" autoplay playsinline></video>
+        <video id="local-video" autoplay playsinline muted></video>
+        <div class="video-btns">
+            <button class="v-btn" id="hangup"><i data-lucide="phone-off"></i></button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
