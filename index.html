@@ -3,87 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BROKE | Autonomous P2P</title>
+    <title>BROKE | P2P Messenger</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
 </head>
-<body class="dark-theme">
+<body>
 
-    <div id="ban-screen" class="modal-overlay hidden">
-        <div class="glass-card critical">
-            <h1>ACCESS DENIED</h1>
-            <p>Your Peer ID has been permanently terminated by Network Control.</p>
+    <div id="ban-screen" class="hidden">
+        <div class="shield-icon">🛡️</div>
+        <h1>ACCESS DENIED</h1>
+        <p>Ваше устройство заблокировано администратором.</p>
+    </div>
+
+    <div id="login-modal" class="modal">
+        <div class="modal-content glass">
+            <h2>Authentication</h2>
+            <input type="text" id="admin-id-input" placeholder="Enter ID (or press Enter for Guest)">
+            <button id="start-btn">Join Network</button>
         </div>
     </div>
 
-    <div id="admin-auth" class="modal-overlay">
-        <div class="glass-card auth-box">
-            <h2>ENTER ACCESS ID</h2>
-            <input type="password" id="admin-id-input" placeholder="Enter ID...">
-            <button onclick="app.auth()">CONNECT TO NETWORK</button>
-        </div>
-    </div>
-
-    <div id="app-interface" class="app-container hidden">
-        <header>
+    <div id="app" class="hidden">
+        <header class="glass">
             <div class="user-info">
-                <span id="my-id-display">Connecting...</span>
-                <span id="admin-badge" class="badge hidden">GOLD ADMIN</span>
-                <span id="premium-badge" class="badge hidden">GHOST</span>
+                <span id="my-status-badge" class="badge">USER</span>
+                <span id="my-peer-id">ID: ...</span>
             </div>
-            <div class="actions">
-                <button id="panic-btn" class="ghost-only">PANIC (ESC)</button>
-                <button id="fake-history-btn" class="ghost-only">SAFE VIEW</button>
+            <div class="header-controls">
+                <button id="call-btn" class="icon-btn">📞</button>
+                <button id="panic-btn" class="icon-btn">🔒</button>
             </div>
         </header>
 
-        <main>
-            <aside class="sidebar">
-                <div class="connection-box">
-                    <input type="text" id="remote-id-input" placeholder="Remote Peer ID">
-                    <button onclick="app.connectToPeer()">CONNECT</button>
-                </div>
+        <div id="admin-panel" class="glass hidden">
+            <h3>NETWORK CONTROL</h3>
+            <div class="admin-grid">
+                <input type="text" id="target-id" placeholder="Target Peer ID">
+                <button onclick="adminAction('GIVE_PREMIUM')" class="btn-gold">Give Premium</button>
+                <button onclick="adminAction('BAN')" class="btn-red">The Ban Hammer</button>
+                <button onclick="adminAction('PURGE')" class="btn-outline">Remote Purge</button>
+                <button onclick="adminAction('LOCK')" class="btn-outline">Global Lock</button>
+            </div>
+        </div>
 
-                <div id="network-control" class="admin-panel hidden">
-                    <h3>NETWORK CONTROL</h3>
-                    <input type="text" id="target-id" placeholder="Target Peer ID">
-                    <div class="admin-actions">
-                        <button class="btn-danger" onclick="app.adminAction('BAN')">BAN</button>
-                        <button class="btn-gold" onclick="app.adminAction('GIVE_PREMIUM')">PREMIUM</button>
-                        <button class="btn-warn" onclick="app.adminAction('LOCK')">LOCK NET</button>
-                        <button class="btn-danger" onclick="app.adminAction('PURGE')">REMOTE PURGE</button>
-                    </div>
-                </div>
+        <main id="chat-box" class="chat-container"></main>
 
-                <div id="peer-list">
-                    </div>
-            </aside>
+        <footer class="glass">
+            <div id="typing-indicator"></div>
+            <div class="input-area">
+                <input type="text" id="msg-input" placeholder="Write a message...">
+                <button id="send-btn">Send</button>
+            </div>
+        </footer>
+    </div>
 
-            <section class="chat-section">
-                <div id="chat-messages"></div>
-                
-                <div id="call-ui" class="hidden">
-                    <video id="remote-video" autoplay playsinline></video>
-                    <video id="local-video" autoplay playsinline muted></video>
-                    <div class="call-controls">
-                        <button onclick="app.endCall()">HANG UP</button>
-                    </div>
-                </div>
+    <div id="call-overlay" class="hidden glass">
+        <div class="call-info">
+            <div class="avatar">👤</div>
+            <p>Входящий звонок...</p>
+        </div>
+        <div class="call-btns">
+            <button id="accept-call" class="btn-green">Accept</button>
+            <button id="reject-call" class="btn-red">Decline</button>
+        </div>
+    </div>
 
-                <div class="input-area">
-                    <select id="destruct-timer" class="ghost-only">
-                        <option value="0">No Timer</option>
-                        <option value="5000">5s</option>
-                        <option value="10000">10s</option>
-                        <option value="30000">30s</option>
-                    </select>
-                    <input type="text" id="msg-input" placeholder="Write a message...">
-                    <button onclick="app.sendMessage()">SEND</button>
-                    <button onclick="app.startCall()">CALL</button>
-                </div>
-            </section>
-        </main>
+    <div id="video-container" class="hidden">
+        <video id="remote-video" autoplay playsinline></video>
+        <video id="local-video" autoplay muted playsinline></video>
+        <button id="hangup-btn">✕</button>
     </div>
 
     <script src="script.js"></script>
