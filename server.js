@@ -1,169 +1,181 @@
-const ADMIN_ID = "xeone";
+// Database Configuration
 const db = new Dexie("BrokeDB");
-db.version(1).stores({ messages: '++id, chatId, sender, text, timestamp' });
+db.version(1).stores({
+    messages: '++id, peerId, text, timestamp, isGhost'
+});
 
-let peer = null;
-let currentConn = null;
-let myStream = null;
-let activeChatId = null;
-let connections = {};
+const app = {
+    peer: null,
+    connections: {},
+    isAdmin: false,
+    isPremium: localStorage.getItem('broke_premium') === 'true',
+    activeChatId: null,
 
-// ПРОВЕРКА ВЕЧНОГО БАНА
-if (localStorage.getItem('broke_banned') === 'true') {
-    document.getElementById('ban-screen').classList.remove('hidden');
-    throw new Error("Device is banned");
-}
-
-function initPeer(id) {
-    peer = new Peer(id, {
-        debug: 1,
-        config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }]}
-    });
-
-    peer.on('open', (openedId) => {
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('main-app').classList.remove('hidden');
-        document.getElementById('my-id-display').innerText = `ID: ${openedId}`;
-
-        if (openedId === ADMIN_ID) {
-            document.getElementById('admin-panel').classList.remove('hidden');
-            document.getElementById('admin-badge').classList.remove('hidden');
-            document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
-        }
-        startHeartbeat();
-    });
-
-    peer.on('connection', (conn) => {
-        connections[conn.peer] = conn;
-        setupConn(conn);
-        addContact(conn.peer);
-    });
-
-    peer.on('call', (call) => {
-        document.getElementById('call-modal').classList.remove('hidden');
-        document.getElementById('caller-name').innerText = call.peer;
-        document.getElementById('call-accept').onclick = async () => {
-            myStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
-            document.getElementById('local-video').srcObject = myStream;
-            call.answer(myStream);
-            handleCall(call);
-            document.getElementById('call-modal').classList.add('hidden');
-        };
-    });
-}
-
-function setupConn(conn) {
-    conn.on('data', (data) => {
-        // КОМАНДЫ АДМИНИСТРАТОРА
-        if (data.type === 'SYS') {
-            if (data.cmd === 'BAN') {
-                localStorage.setItem('broke_banned', 'true');
-                location.reload();
-            }
-            if (data.cmd === 'LOCK') {
-                document.getElementById('main-app').classList.add('hidden');
-                document.getElementById('maintenance-screen').classList.remove('hidden');
-                document.getElementById('lock-reason').innerText = data.text;
-            }
-            if (data.cmd === 'UNLOCK') {
-                document.getElementById('main-app').classList.remove('hidden');
-                document.getElementById('maintenance-screen').classList.add('hidden');
-            }
-            if (data.cmd === 'PURGE') {
-                db.messages.clear();
-                location.reload();
-            }
+    init() {
+        // Check Ban Status
+        if (localStorage.getItem('broke_banned') === 'true') {
+            document.getElementById('ban-screen').classList.remove('hidden');
             return;
         }
 
-        if (data.type === 'msg') {
-            saveAndRender(conn.peer, data.text, 'received');
+        this.setupEventListeners();
+        this.heartbeat();
+    },
+
+    auth() {
+        const id = document.getElementById('admin-id-input').value;
+        if (!id) return;
+
+        if (id === 'xeone') {
+            this.isAdmin = true;
+            document.getElementById('admin-badge').classList.remove('hidden');
+            document.getElementById('network-control').classList.remove('hidden');
         }
-    });
-}
 
-// АДМИН-ФУНКЦИИ
-const broadcast = (data) => Object.values(connections).forEach(c => c.open && c.send(data));
+        this.startPeer(id === 'xeone' ? 'admin-' + Math.random().toString(36).substr(2, 5) : null);
+        document.getElementById('admin-auth').classList.add('hidden');
+        document.getElementById('app-interface').classList.remove('hidden');
+    },
 
-document.getElementById('btn-lock-all').onclick = () => 
-    broadcast({type: 'SYS', cmd: 'LOCK', text: 'Технические работы. Доступ ограничен.'});
-
-document.getElementById('btn-unlock-all').onclick = () => 
-    broadcast({type: 'SYS', cmd: 'UNLOCK'});
-
-document.getElementById('btn-purge-chat').onclick = () => {
-    if(confirm("Очистить историю у всех?")) broadcast({type: 'SYS', cmd: 'PURGE'});
-};
-
-document.getElementById('btn-ban-peer').onclick = () => {
-    if(activeChatId && connections[activeChatId]) {
-        connections[activeChatId].send({type: 'SYS', cmd: 'BAN'});
-        alert(`Пользователь ${activeChatId} забанен навсегда.`);
-    }
-};
-
-// БАЗОВАЯ ЛОГИКА
-async function saveAndRender(chatId, text, type) {
-    const m = { chatId, sender: type === 'sent' ? 'me' : chatId, text, timestamp: Date.now() };
-    await db.messages.add(m);
-    if (activeChatId === chatId) {
-        const d = document.createElement('div');
-        d.className = `msg ${m.sender === 'me' ? 'sent' : 'received'}`;
-        d.innerText = m.text;
-        document.getElementById('messages-container').appendChild(d);
-        document.getElementById('messages-container').scrollTop = 99999;
-    }
-}
-
-function addContact(id) {
-    if (document.getElementById(`c-${id}`)) return;
-    const div = document.createElement('div');
-    div.id = `c-${id}`;
-    div.className = 'contact-item glass';
-    div.innerHTML = `<span>${id}</span>`;
-    div.onclick = () => {
-        activeChatId = id;
-        document.getElementById('chat-with-title').innerText = id;
-        document.getElementById('messages-container').innerHTML = '';
-        db.messages.where('chatId').equals(id).each(msg => {
-            const d = document.createElement('div');
-            d.className = `msg ${msg.sender === 'me' ? 'sent' : 'received'}`;
-            d.innerText = msg.text;
-            document.getElementById('messages-container').appendChild(d);
+    startPeer(customId) {
+        this.peer = new Peer(customId, {
+            debug: 2
         });
-        if(!connections[id]) {
-            const c = peer.connect(id);
-            connections[id] = c;
-            setupConn(c);
+
+        this.peer.on('open', (id) => {
+            document.getElementById('my-id-display').innerText = `ID: ${id}`;
+        });
+
+        this.peer.on('connection', (conn) => this.handleConnection(conn));
+        
+        this.peer.on('call', (call) => {
+            if(confirm("Incoming Call... Accept?")) {
+                navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
+                    call.answer(stream);
+                    this.handleStream(call);
+                });
+            }
+        });
+    },
+
+    handleConnection(conn) {
+        this.connections[conn.peer] = conn;
+        conn.on('data', (data) => this.handleData(data, conn.peer));
+    },
+
+    handleData(data, fromPeer) {
+        // System Commands Logic
+        if (data.type === 'CMD_BAN') {
+            localStorage.setItem('broke_banned', 'true');
+            location.reload();
         }
-        document.getElementById('message-input').disabled = false;
-        document.getElementById('send-btn').disabled = false;
-        document.getElementById('top-controls').classList.remove('hidden');
-    };
-    document.getElementById('contacts-list').appendChild(div);
-}
+        if (data.type === 'CMD_GIVE_PREMIUM') {
+            localStorage.setItem('broke_premium', 'true');
+            this.isPremium = true;
+            location.reload();
+        }
+        if (data.type === 'CMD_PURGE') {
+            db.messages.clear();
+            alert("History purged by admin.");
+        }
 
-function startHeartbeat() {
-    setInterval(() => peer && peer.socket.send({type:'HEARTBEAT'}), 15000);
-}
+        // Chat Logic
+        if (data.type === 'TEXT') {
+            this.displayMessage(fromPeer, data.text, data.isGhost);
+            if (data.destruct) {
+                setTimeout(() => {
+                    // Logic to remove from UI
+                    console.log("Self-destructed");
+                }, data.destruct);
+            }
+        }
+    },
 
-document.getElementById('login-btn').onclick = () => {
-    const nick = document.getElementById('username-input').value.trim();
-    if(nick) initPeer(nick);
-};
+    sendMessage() {
+        const text = document.getElementById('msg-input').value;
+        const target = document.getElementById('remote-id-input').value;
+        const destruct = parseInt(document.getElementById('destruct-timer').value);
 
-document.getElementById('send-btn').onclick = () => {
-    const el = document.getElementById('message-input');
-    if(el.value && connections[activeChatId]) {
-        connections[activeChatId].send({type: 'msg', text: el.value});
-        saveAndRender(activeChatId, el.value, 'sent');
-        el.value = '';
+        if (!text || !target) return;
+
+        const payload = {
+            type: 'TEXT',
+            text: text,
+            isGhost: this.isPremium,
+            destruct: destruct > 0 ? destruct : null
+        };
+
+        if (this.connections[target]) {
+            this.connections[target].send(payload);
+            this.displayMessage('You', text, this.isPremium);
+            document.getElementById('msg-input').value = '';
+        }
+    },
+
+    adminAction(action) {
+        const target = document.getElementById('target-id').value;
+        if (!target) return alert("Enter Target ID");
+
+        let conn = this.connections[target];
+        if (!conn) {
+            conn = this.peer.connect(target);
+        }
+
+        setTimeout(() => {
+            if (action === 'BAN') conn.send({ type: 'CMD_BAN' });
+            if (action === 'GIVE_PREMIUM') conn.send({ type: 'CMD_GIVE_PREMIUM' });
+            if (action === 'PURGE') conn.send({ type: 'CMD_PURGE' });
+        }, 1000);
+    },
+
+    displayMessage(sender, text, isGhost) {
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = `message ${isGhost ? 'msg-ghost' : ''}`;
+        div.innerHTML = `<b>${sender}:</b> ${text}`;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        
+        db.messages.add({ peerId: sender, text, timestamp: Date.now(), isGhost });
+    },
+
+    setupEventListeners() {
+        // Panic Button (Esc)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.isPremium) {
+                document.body.classList.toggle('panic-active');
+            }
+        });
+
+        // Anti-Spy (Blur on focus loss)
+        window.addEventListener('blur', () => {
+            if (this.isPremium) document.body.classList.add('panic-active');
+        });
+        window.addEventListener('focus', () => {
+            document.body.classList.remove('panic-active');
+        });
+
+        if (this.isPremium) {
+            document.getElementById('premium-badge').classList.remove('hidden');
+            document.querySelectorAll('.ghost-only').forEach(el => el.style.display = 'block');
+        }
+    },
+
+    heartbeat() {
+        // Keep connection alive for Render.com/Static hosts
+        setInterval(() => {
+            if (this.peer && !this.peer.destroyed) {
+                this.peer.socket.send({type: 'HEARTBEAT'});
+            }
+        }, 15000);
+    },
+
+    connectToPeer() {
+        const id = document.getElementById('remote-id-input').value;
+        const conn = this.peer.connect(id);
+        this.handleConnection(conn);
     }
 };
 
-document.getElementById('add-chat-btn').onclick = () => {
-    const id = document.getElementById('target-id-input').value.trim();
-    if(id) { addContact(id); }
-};
-
-lucide.createIcons();
+// Start the engine
+app.init();
