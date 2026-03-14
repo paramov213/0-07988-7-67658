@@ -1,181 +1,217 @@
 // Database Configuration
 const db = new Dexie("BrokeDB");
 db.version(1).stores({
-    messages: '++id, peerId, text, timestamp, isGhost'
+    messages: '++id, sender, text, timestamp'
 });
 
-const app = {
-    peer: null,
-    connections: {},
-    isAdmin: false,
-    isPremium: localStorage.getItem('broke_premium') === 'true',
-    activeChatId: null,
+const ADMIN_ID = "xeone";
+let peer, conn, myPeerId;
+let isPremium = localStorage.getItem('broke_premium') === 'true';
 
-    init() {
-        // Check Ban Status
-        if (localStorage.getItem('broke_banned') === 'true') {
-            document.getElementById('ban-screen').classList.remove('hidden');
-            return;
-        }
-
-        this.setupEventListeners();
-        this.heartbeat();
-    },
-
-    auth() {
-        const id = document.getElementById('admin-id-input').value;
-        if (!id) return;
-
-        if (id === 'xeone') {
-            this.isAdmin = true;
-            document.getElementById('admin-badge').classList.remove('hidden');
-            document.getElementById('network-control').classList.remove('hidden');
-        }
-
-        this.startPeer(id === 'xeone' ? 'admin-' + Math.random().toString(36).substr(2, 5) : null);
-        document.getElementById('admin-auth').classList.add('hidden');
-        document.getElementById('app-interface').classList.remove('hidden');
-    },
-
-    startPeer(customId) {
-        this.peer = new Peer(customId, {
-            debug: 2
-        });
-
-        this.peer.on('open', (id) => {
-            document.getElementById('my-id-display').innerText = `ID: ${id}`;
-        });
-
-        this.peer.on('connection', (conn) => this.handleConnection(conn));
-        
-        this.peer.on('call', (call) => {
-            if(confirm("Incoming Call... Accept?")) {
-                navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
-                    call.answer(stream);
-                    this.handleStream(call);
-                });
-            }
-        });
-    },
-
-    handleConnection(conn) {
-        this.connections[conn.peer] = conn;
-        conn.on('data', (data) => this.handleData(data, conn.peer));
-    },
-
-    handleData(data, fromPeer) {
-        // System Commands Logic
-        if (data.type === 'CMD_BAN') {
-            localStorage.setItem('broke_banned', 'true');
-            location.reload();
-        }
-        if (data.type === 'CMD_GIVE_PREMIUM') {
-            localStorage.setItem('broke_premium', 'true');
-            this.isPremium = true;
-            location.reload();
-        }
-        if (data.type === 'CMD_PURGE') {
-            db.messages.clear();
-            alert("History purged by admin.");
-        }
-
-        // Chat Logic
-        if (data.type === 'TEXT') {
-            this.displayMessage(fromPeer, data.text, data.isGhost);
-            if (data.destruct) {
-                setTimeout(() => {
-                    // Logic to remove from UI
-                    console.log("Self-destructed");
-                }, data.destruct);
-            }
-        }
-    },
-
-    sendMessage() {
-        const text = document.getElementById('msg-input').value;
-        const target = document.getElementById('remote-id-input').value;
-        const destruct = parseInt(document.getElementById('destruct-timer').value);
-
-        if (!text || !target) return;
-
-        const payload = {
-            type: 'TEXT',
-            text: text,
-            isGhost: this.isPremium,
-            destruct: destruct > 0 ? destruct : null
-        };
-
-        if (this.connections[target]) {
-            this.connections[target].send(payload);
-            this.displayMessage('You', text, this.isPremium);
-            document.getElementById('msg-input').value = '';
-        }
-    },
-
-    adminAction(action) {
-        const target = document.getElementById('target-id').value;
-        if (!target) return alert("Enter Target ID");
-
-        let conn = this.connections[target];
-        if (!conn) {
-            conn = this.peer.connect(target);
-        }
-
-        setTimeout(() => {
-            if (action === 'BAN') conn.send({ type: 'CMD_BAN' });
-            if (action === 'GIVE_PREMIUM') conn.send({ type: 'CMD_GIVE_PREMIUM' });
-            if (action === 'PURGE') conn.send({ type: 'CMD_PURGE' });
-        }, 1000);
-    },
-
-    displayMessage(sender, text, isGhost) {
-        const container = document.getElementById('chat-messages');
-        const div = document.createElement('div');
-        div.className = `message ${isGhost ? 'msg-ghost' : ''}`;
-        div.innerHTML = `<b>${sender}:</b> ${text}`;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
-        
-        db.messages.add({ peerId: sender, text, timestamp: Date.now(), isGhost });
-    },
-
-    setupEventListeners() {
-        // Panic Button (Esc)
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.isPremium) {
-                document.body.classList.toggle('panic-active');
-            }
-        });
-
-        // Anti-Spy (Blur on focus loss)
-        window.addEventListener('blur', () => {
-            if (this.isPremium) document.body.classList.add('panic-active');
-        });
-        window.addEventListener('focus', () => {
-            document.body.classList.remove('panic-active');
-        });
-
-        if (this.isPremium) {
-            document.getElementById('premium-badge').classList.remove('hidden');
-            document.querySelectorAll('.ghost-only').forEach(el => el.style.display = 'block');
-        }
-    },
-
-    heartbeat() {
-        // Keep connection alive for Render.com/Static hosts
-        setInterval(() => {
-            if (this.peer && !this.peer.destroyed) {
-                this.peer.socket.send({type: 'HEARTBEAT'});
-            }
-        }, 15000);
-    },
-
-    connectToPeer() {
-        const id = document.getElementById('remote-id-input').value;
-        const conn = this.peer.connect(id);
-        this.handleConnection(conn);
+// 1. Initialization & Ban Check
+window.onload = () => {
+    if (localStorage.getItem('broke_banned') === 'true') {
+        document.getElementById('ban-screen').classList.remove('hidden');
+        return;
     }
+    document.getElementById('login-modal').style.display = 'flex';
 };
 
-// Start the engine
-app.init();
+// Start Connection
+document.getElementById('start-btn').onclick = () => {
+    const inputId = document.getElementById('admin-id-input').value.trim();
+    initPeer(inputId);
+};
+
+function initPeer(id) {
+    const peerConfig = id === ADMIN_ID ? id : null;
+    peer = new Peer(peerConfig, {
+        host: '0.peerjs.com',
+        port: 443,
+        secure: true,
+        debug: 1
+    });
+
+    peer.on('open', (id) => {
+        myPeerId = id;
+        document.getElementById('my-peer-id').innerText = `ID: ${id}`;
+        document.getElementById('login-modal').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        
+        if (id === ADMIN_ID) {
+            enableAdminUI();
+        } else if (isPremium) {
+            enablePremiumUI();
+        }
+        
+        startHeartbeat();
+    });
+
+    // Handle Connections
+    peer.on('connection', (connection) => {
+        conn = connection;
+        setupDataListeners();
+    });
+
+    // Handle Calls
+    peer.on('call', handleIncomingCall);
+}
+
+// 2. Admin Logic
+function enableAdminUI() {
+    const badge = document.getElementById('my-status-badge');
+    badge.innerText = '[ADMIN]';
+    badge.classList.add('admin-badge');
+    document.getElementById('admin-panel').classList.remove('hidden');
+}
+
+function adminAction(type) {
+    const targetId = document.getElementById('target-id').value;
+    if (!targetId) return alert("Enter Target ID");
+
+    const tempConn = peer.connect(targetId);
+    tempConn.on('open', () => {
+        tempConn.send({ type: 'SYSTEM_CMD', action: type });
+        alert(`Command ${type} sent to ${targetId}`);
+    });
+}
+
+// 3. Premium & Special Features
+function enablePremiumUI() {
+    isPremium = true;
+    const badge = document.getElementById('my-status-badge');
+    badge.innerText = '[GHOST]';
+    badge.classList.add('ghost-badge');
+}
+
+// Panic Button (Esc)
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.body.style.filter = document.body.style.filter ? '' : 'blur(50px)';
+    }
+});
+
+// Anti-Spy (Visibility Change)
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        document.title = "System Update...";
+        document.getElementById('app').style.opacity = "0";
+    } else {
+        document.title = "BROKE";
+        document.getElementById('app').style.opacity = "1";
+    }
+});
+
+// 4. Messaging Logic
+function sendMessage() {
+    const input = document.getElementById('msg-input');
+    const text = input.value.trim();
+    if (!text || !conn) return;
+
+    const msgData = {
+        type: 'CHAT',
+        sender: myPeerId,
+        text: text,
+        premium: isPremium,
+        timestamp: Date.now()
+    };
+
+    conn.send(msgData);
+    appendMessage(msgData);
+    db.messages.add(msgData);
+    input.value = '';
+}
+
+document.getElementById('send-btn').onclick = sendMessage;
+
+function setupDataListeners() {
+    conn.on('data', (data) => {
+        if (data.type === 'CHAT') {
+            appendMessage(data);
+            db.messages.add(data);
+            
+            // Self-Destruct Logic (Premium)
+            if (data.selfDestruct) {
+                setTimeout(() => { /* logic to remove from DOM */ }, 10000);
+            }
+        } else if (data.type === 'SYSTEM_CMD') {
+            handleSystemCommand(data.action);
+        }
+    });
+}
+
+function handleSystemCommand(action) {
+    if (action === 'BAN') {
+        localStorage.setItem('broke_banned', 'true');
+        location.reload();
+    } else if (action === 'GIVE_PREMIUM') {
+        localStorage.setItem('broke_premium', 'true');
+        location.reload();
+    } else if (action === 'PURGE') {
+        db.messages.clear();
+        location.reload();
+    } else if (action === 'LOCK') {
+        document.body.innerHTML = "<h1 style='text-align:center; margin-top:20%;'>MAINTENANCE MODE</h1>";
+    }
+}
+
+// 5. Utility
+function appendMessage(data) {
+    const box = document.getElementById('chat-box');
+    const div = document.createElement('div');
+    div.className = `message ${data.sender === myPeerId ? 'sent' : 'received'} ${data.premium ? 'premium-msg' : ''}`;
+    div.style.alignSelf = data.sender === myPeerId ? 'flex-end' : 'flex-start';
+    div.style.background = data.sender === myPeerId ? 'var(--accent)' : 'rgba(255,255,255,0.1)';
+    div.innerText = data.text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+}
+
+function startHeartbeat() {
+    setInterval(() => {
+        if (conn && conn.open) conn.send({ type: 'HEARTBEAT' });
+    }, 15000);
+}
+
+// 6. WebRTC Calls
+function handleIncomingCall(call) {
+    const overlay = document.getElementById('call-overlay');
+    overlay.classList.remove('hidden');
+    
+    document.getElementById('accept-call').onclick = () => {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+            call.answer(stream);
+            overlay.classList.add('hidden');
+            showVideoUI(call, stream);
+        });
+    };
+}
+
+function showVideoUI(call, localStream) {
+    const container = document.getElementById('video-container');
+    container.classList.remove('hidden');
+    document.getElementById('local-video').srcObject = localStream;
+    
+    call.on('stream', remoteStream => {
+        document.getElementById('remote-video').srcObject = remoteStream;
+    });
+    
+    document.getElementById('hangup-btn').onclick = () => {
+        location.reload();
+    };
+}
+
+// Connect to Peer by ID from input (for users)
+document.getElementById('msg-input').onkeypress = (e) => {
+    if (e.key === 'Enter') {
+        if (!conn) {
+            const peerIdToConnect = prompt("Enter Peer ID to chat:");
+            if (peerIdToConnect) {
+                conn = peer.connect(peerIdToConnect);
+                setupDataListeners();
+            }
+        } else {
+            sendMessage();
+        }
+    }
+};
