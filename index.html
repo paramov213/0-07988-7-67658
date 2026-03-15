@@ -1,274 +1,90 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BROKE — Autonomous P2P Messenger</title>
-  <link rel="stylesheet" href="style.css" />
-
-  <!-- PeerJS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
-  <!-- Dexie.js (IndexedDB wrapper) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BROKE | P2P Encrypted Messenger</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
 </head>
 <body>
 
-  <!-- ═══════════════════════════════════════════════
-       ACCESS DENIED SCREEN
-  ════════════════════════════════════════════════ -->
-  <div id="access-denied-screen" class="hidden">
-    <div class="denied-inner">
-      <div class="denied-icon">⛔</div>
-      <h1>ACCESS DENIED</h1>
-      <p>Your node has been permanently terminated by network administration.</p>
-      <span class="denied-code">ERR_PEER_BANNED_0x4E</span>
+    <div id="ban-screen" class="hidden-overlay">
+        <h1>ACCESS DENIED</h1>
+        <p>Your ID has been blacklisted by Network Control.</p>
     </div>
-  </div>
 
-  <!-- ═══════════════════════════════════════════════
-       MAINTENANCE SCREEN
-  ════════════════════════════════════════════════ -->
-  <div id="maintenance-screen" class="hidden">
-    <div class="maintenance-inner">
-      <div class="maintenance-icon">🔧</div>
-      <h1>MAINTENANCE MODE</h1>
-      <p>Network is temporarily locked by administrator. Stand by.</p>
-      <div class="maintenance-pulse"></div>
+    <div id="admin-modal" class="modal-overlay">
+        <div class="modal-content glass">
+            <h2>NETWORK ACCESS</h2>
+            <input type="password" id="admin-input" placeholder="Enter Admin ID...">
+            <button onclick="checkAdmin()">AUTHENTICATE</button>
+        </div>
     </div>
-  </div>
 
-  <!-- ═══════════════════════════════════════════════
-       ADMIN ID MODAL (shown first on page load)
-  ════════════════════════════════════════════════ -->
-  <div id="admin-modal" class="modal-overlay">
-    <div class="modal-box">
-      <div class="modal-logo">
-        <span class="logo-b">B</span><span class="logo-rest">ROKE</span>
-      </div>
-      <p class="modal-subtitle">Autonomous P2P Mesh Network</p>
-      <div class="modal-field-group">
-        <label class="modal-label">Node Identity</label>
-        <input id="modal-peer-id" type="text" placeholder="Enter your Peer ID (or leave blank for auto)" autocomplete="off" />
-      </div>
-      <div class="modal-field-group">
-        <label class="modal-label">Admin Passphrase</label>
-        <input id="modal-admin-id" type="password" placeholder="Leave blank if not admin" autocomplete="off" />
-      </div>
-      <button id="modal-connect-btn" class="btn-primary">INITIALIZE NODE</button>
-      <p class="modal-hint">Your Peer ID will be shared to allow connections</p>
+    <div id="app" class="app-container hidden">
+        <aside class="sidebar glass">
+            <div class="user-profile">
+                <div id="user-badge" class="badge">USER</div>
+                <p id="my-id-display">Connecting...</p>
+            </div>
+
+            <div class="admin-panel hidden" id="admin-controls">
+                <h3>NETWORK CONTROL</h3>
+                <input type="text" id="target-peer-id" placeholder="Target Peer ID">
+                <div class="admin-btns">
+                    <button class="btn-ban" onclick="sendAdminCmd('CMD_BAN')">BAN</button>
+                    <button class="btn-prem" onclick="sendAdminCmd('CMD_GIVE_PREMIUM')">GIVE PREMIUM</button>
+                    <button class="btn-purge" onclick="sendAdminCmd('REMOTE_PURGE')">PURGE DB</button>
+                </div>
+                <button class="btn-lock" onclick="broadcastCmd('CMD_LOCK')">LOCK NETWORK</button>
+            </div>
+
+            <div class="contacts">
+                <input type="text" id="dest-id" placeholder="Remote Peer ID">
+                <button onclick="connectToPeer()">CONNECT</button>
+            </div>
+
+            <div class="ghost-tools hidden" id="premium-tools">
+                <h3>GHOST TOOLS</h3>
+                <button onclick="toggleFakeHistory()">FAKE HISTORY</button>
+                <select id="self-destruct-timer">
+                    <option value="0">No Self-Destruct</option>
+                    <option value="5000">5 Seconds</option>
+                    <option value="10000">10 Seconds</option>
+                    <option value="30000">30 Seconds</option>
+                </select>
+            </div>
+        </aside>
+
+        <main class="chat-area glass">
+            <header class="chat-header">
+                <div id="active-contact">Waiting for connection...</div>
+                <div class="call-controls">
+                    <button onclick="startCall('video')">📹</button>
+                    <button onclick="startCall('audio')">📞</button>
+                </div>
+            </header>
+
+            <div id="messages-container"></div>
+
+            <footer class="chat-input">
+                <input type="text" id="msg-input" placeholder="Type a message...">
+                <button id="send-btn">SEND</button>
+            </footer>
+        </main>
     </div>
-  </div>
 
-  <!-- ═══════════════════════════════════════════════
-       INCOMING CALL MODAL
-  ════════════════════════════════════════════════ -->
-  <div id="call-modal" class="modal-overlay hidden">
-    <div class="modal-box call-modal-box">
-      <div class="call-avatar-ring">
-        <div class="call-avatar">📞</div>
-      </div>
-      <h2 id="call-modal-title">Incoming Call</h2>
-      <p id="call-modal-peer" class="call-peer-id"></p>
-      <div class="call-actions">
-        <button id="call-accept-btn" class="btn-accept">✓ Accept</button>
-        <button id="call-decline-btn" class="btn-decline">✕ Decline</button>
-      </div>
+    <div id="call-overlay" class="hidden-overlay glass">
+        <video id="remote-video" autoplay playsinline></video>
+        <video id="local-video" autoplay playsinline muted></video>
+        <div class="call-btns">
+            <button id="accept-call" class="btn-prem">ACCEPT</button>
+            <button id="decline-call" class="btn-ban">DECLINE</button>
+        </div>
     </div>
-  </div>
 
-  <!-- ═══════════════════════════════════════════════
-       SELF-DESTRUCT TIMER PICKER
-  ════════════════════════════════════════════════ -->
-  <div id="destruct-picker" class="hidden">
-    <span class="destruct-label">Auto-Delete:</span>
-    <button class="destruct-opt" data-seconds="0">OFF</button>
-    <button class="destruct-opt" data-seconds="5">5s</button>
-    <button class="destruct-opt" data-seconds="10">10s</button>
-    <button class="destruct-opt" data-seconds="30">30s</button>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════
-       MAIN APP SHELL
-  ════════════════════════════════════════════════ -->
-  <div id="app" class="hidden">
-
-    <!-- ── SIDEBAR ── -->
-    <aside id="sidebar">
-      <div class="sidebar-header">
-        <div class="logo-mark">
-          <span class="logo-b">B</span><span class="logo-rest">ROKE</span>
-        </div>
-        <div id="my-peer-id-box">
-          <span class="peer-label">MY NODE ID</span>
-          <span id="my-peer-id-display" class="peer-id-val">—</span>
-          <button id="copy-id-btn" title="Copy ID">⎘</button>
-        </div>
-        <div id="user-badge-row">
-          <span id="admin-badge" class="badge badge-admin hidden">[ADMIN]</span>
-          <span id="premium-badge" class="badge badge-premium hidden">[GHOST]</span>
-          <span id="connection-status" class="status-dot offline">●</span>
-        </div>
-      </div>
-
-      <!-- Connect to peer -->
-      <div class="connect-panel">
-        <input id="connect-peer-input" type="text" placeholder="Peer ID to connect…" autocomplete="off" />
-        <button id="connect-btn" class="btn-primary small">CONNECT</button>
-      </div>
-
-      <!-- Peer list -->
-      <div class="peer-list-header">ACTIVE CONNECTIONS</div>
-      <ul id="peer-list"></ul>
-
-      <!-- Sidebar footer -->
-      <div class="sidebar-footer">
-        <button id="settings-btn" class="icon-btn" title="Settings">⚙</button>
-        <button id="panic-btn" class="icon-btn panic" title="Panic (Esc)">👁</button>
-        <button id="fake-history-btn" class="icon-btn" title="Fake History" id="fake-history-btn">🎭</button>
-        <button id="audio-call-btn" class="icon-btn" title="Audio Call">🎙</button>
-        <button id="video-call-btn" class="icon-btn" title="Video Call">📹</button>
-      </div>
-    </aside>
-
-    <!-- ── MAIN CHAT AREA ── -->
-    <main id="chat-area">
-
-      <!-- Chat header -->
-      <header id="chat-header">
-        <div id="chat-peer-info">
-          <span id="chat-peer-name" class="chat-peer-name">Select a peer</span>
-          <span id="chat-peer-status" class="chat-peer-status"></span>
-        </div>
-        <div id="chat-actions">
-          <button id="self-destruct-toggle" class="icon-btn" title="Self-Destruct Timer">💣</button>
-          <button id="clear-chat-btn" class="icon-btn" title="Clear Chat">🗑</button>
-          <button id="export-chat-btn" class="icon-btn" title="Export Chat">↓</button>
-        </div>
-      </header>
-
-      <!-- Self destruct picker -->
-      <div id="destruct-picker">
-        <span class="destruct-label">Auto-Delete:</span>
-        <button class="destruct-opt active" data-seconds="0">OFF</button>
-        <button class="destruct-opt" data-seconds="5">5s</button>
-        <button class="destruct-opt" data-seconds="10">10s</button>
-        <button class="destruct-opt" data-seconds="30">30s</button>
-      </div>
-
-      <!-- Messages -->
-      <div id="messages-container">
-        <div id="messages-list"></div>
-        <div id="typing-indicator" class="hidden">
-          <span></span><span></span><span></span>
-        </div>
-      </div>
-
-      <!-- Media preview -->
-      <div id="media-preview-bar" class="hidden">
-        <span id="media-preview-name"></span>
-        <button id="media-preview-cancel">✕</button>
-      </div>
-
-      <!-- Input bar -->
-      <div id="input-bar">
-        <button id="attach-btn" class="icon-btn" title="Attach File">📎</button>
-        <input type="file" id="file-input" class="hidden" />
-        <textarea id="message-input" placeholder="Send encrypted message…" rows="1"></textarea>
-        <button id="emoji-btn" class="icon-btn">😊</button>
-        <button id="send-btn" class="btn-primary">SEND</button>
-      </div>
-
-      <!-- Emoji picker -->
-      <div id="emoji-panel" class="hidden">
-        😀 😂 😍 🔥 💀 🚀 👀 💯 🎉 😎 🤖 👾 💣 ⚡ 🌐 🔐 🛡 💎 🕶 🧠
-      </div>
-
-      <!-- No peer selected placeholder -->
-      <div id="no-peer-placeholder">
-        <div class="placeholder-icon">⬡</div>
-        <h2>No Active Channel</h2>
-        <p>Connect to a peer node to begin encrypted communication</p>
-      </div>
-
-    </main>
-
-    <!-- ── ADMIN PANEL ── -->
-    <aside id="admin-panel" class="hidden">
-      <div class="admin-panel-header">
-        <span class="admin-panel-title">⚡ NETWORK CONTROL</span>
-        <button id="admin-panel-close" class="icon-btn">✕</button>
-      </div>
-
-      <div class="admin-section">
-        <div class="admin-section-title">TARGETED OPERATIONS</div>
-        <input id="target-peer-id" type="text" placeholder="Target Peer ID…" class="admin-input" />
-        <div class="admin-btn-grid">
-          <button id="admin-ban-btn" class="admin-action-btn ban">🔨 BAN</button>
-          <button id="admin-premium-btn" class="admin-action-btn premium">💎 GIVE PREMIUM</button>
-          <button id="admin-purge-btn" class="admin-action-btn purge">🗑 REMOTE PURGE</button>
-          <button id="admin-msg-btn" class="admin-action-btn msg">📨 SEND MSG</button>
-        </div>
-        <textarea id="admin-msg-text" placeholder="Admin message to target…" class="admin-input" rows="2"></textarea>
-      </div>
-
-      <div class="admin-section">
-        <div class="admin-section-title">GLOBAL ACTIONS</div>
-        <button id="admin-lock-btn" class="admin-action-btn lock full">🔒 LOCK NETWORK (Maintenance)</button>
-        <button id="admin-unlock-btn" class="admin-action-btn unlock full">🔓 UNLOCK NETWORK</button>
-        <button id="admin-broadcast-btn" class="admin-action-btn broadcast full">📡 BROADCAST MESSAGE</button>
-        <textarea id="admin-broadcast-text" placeholder="Broadcast to all peers…" class="admin-input" rows="2"></textarea>
-      </div>
-
-      <div class="admin-section">
-        <div class="admin-section-title">NETWORK STATS</div>
-        <div class="stats-grid">
-          <div class="stat-item"><span class="stat-val" id="stat-peers">0</span><span class="stat-lbl">Peers</span></div>
-          <div class="stat-item"><span class="stat-val" id="stat-msgs">0</span><span class="stat-lbl">Messages</span></div>
-          <div class="stat-item"><span class="stat-val" id="stat-uptime">0s</span><span class="stat-lbl">Uptime</span></div>
-          <div class="stat-item"><span class="stat-val" id="stat-bytes">0B</span><span class="stat-lbl">Transferred</span></div>
-        </div>
-      </div>
-
-      <div class="admin-log-box">
-        <div class="admin-section-title">ADMIN LOG</div>
-        <ul id="admin-log-list"></ul>
-      </div>
-    </aside>
-
-    <!-- Admin panel toggle (only visible when admin) -->
-    <button id="admin-panel-toggle" class="hidden" title="Network Control">⚡</button>
-
-  </div>
-
-  <!-- ═══════════════════════════════════════════════
-       PIP VIDEO CALL WINDOW
-  ════════════════════════════════════════════════ -->
-  <div id="pip-window" class="hidden">
-    <div class="pip-header">
-      <span id="pip-peer-label">Call with —</span>
-      <div class="pip-controls">
-        <button id="pip-mute-btn" title="Mute">🎙</button>
-        <button id="pip-cam-btn" title="Toggle Camera">📹</button>
-        <button id="pip-end-btn" title="End Call">📵</button>
-      </div>
-    </div>
-    <div class="pip-videos">
-      <video id="remote-video" autoplay playsinline></video>
-      <video id="local-video" autoplay muted playsinline class="local-video-pip"></video>
-    </div>
-    <div class="pip-status" id="pip-status">Connecting…</div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════
-       TOAST NOTIFICATIONS
-  ════════════════════════════════════════════════ -->
-  <div id="toast-container"></div>
-
-  <!-- ═══════════════════════════════════════════════
-       PANIC BLUR OVERLAY
-  ════════════════════════════════════════════════ -->
-  <div id="panic-overlay" class="hidden"></div>
-
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
