@@ -1,85 +1,39 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BROKE | ULTIMATE P2P</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
-</head>
-<body>
+// Вставь это внутрь тега <script> вместо старых функций auth и socket.on('auth-success')
 
-    <div id="ban-screen" class="hidden-overlay">
-        <div class="glass popup"><h1>БАН</h1><p>Доступ к сети закрыт.</p></div>
-    </div>
+// Проверка авто-входа при загрузке
+window.onload = () => {
+    const savedUser = JSON.parse(localStorage.getItem('chat_user'));
+    if (savedUser) {
+        socket.emit('login', savedUser);
+    }
+};
 
-    <div id="auth-modal" class="modal-overlay">
-        <div class="modal-content glass">
-            <h2 class="neon">BROKE NETWORK</h2>
-            <div id="auth-options">
-                <button id="btn-reg-view" class="btn-prem">СОЗДАТЬ ЛИЧНОСТЬ</button>
-                <button id="btn-login-view">ВОЙТИ ПО ID</button>
-            </div>
-            <div id="reg-section" class="hidden">
-                <input type="text" id="reg-name" placeholder="Имя...">
-                <button id="btn-finish-reg">ЗАПУСК</button>
-            </div>
-            <div id="login-section" class="hidden">
-                <input type="text" id="login-id-input" placeholder="Peer ID...">
-                <button id="btn-finish-login">ВОЙТИ</button>
-            </div>
-        </div>
-    </div>
+function auth(type) {
+    const login = document.getElementById('login-input').value;
+    const pass = document.getElementById('pass-input').value;
+    if (login && pass) {
+        const userData = { login: login, password: pass };
+        // Сохраняем для авто-входа в будущем
+        localStorage.setItem('chat_user', JSON.stringify(userData));
+        socket.emit(type, userData);
+    }
+}
 
-    <div id="admin-modal" class="modal-overlay hidden">
-        <div class="modal-content glass">
-            <h3>ROOT ДОСТУП</h3>
-            <input type="text" id="adm-l" placeholder="Логин">
-            <input type="password" id="adm-p" placeholder="Пароль">
-            <button id="btn-adm-auth">ПОДТВЕРДИТЬ</button>
-            <button id="btn-adm-cancel" style="background:none; font-size:12px;">Отмена</button>
-        </div>
-    </div>
+socket.on('auth-success', (data) => {
+    myName = data.user;
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-container').style.display = 'flex';
+});
 
-    <div id="app" class="app-container hidden">
-        <aside class="sidebar glass">
-            <div class="profile-box">
-                <div id="status-badge" class="badge">ПОЛЬЗОВАТЕЛЬ</div>
-                <h3 id="user-name-display">...</h3>
-                <code id="user-id-display" title="Нажми, чтобы скопировать">ID: ...</code>
-            </div>
+socket.on('auth-error', (msg) => {
+    // Если авто-вход не удался, очищаем память
+    localStorage.removeItem('chat_user');
+    document.getElementById('error-msg').innerText = msg;
+    document.getElementById('auth-screen').style.display = 'flex';
+});
 
-            <div id="admin-tools" class="admin-panel hidden">
-                <h4 style="color:var(--gold)">КОНТРОЛЬ СЕТИ</h4>
-                <input type="text" id="target-peer" placeholder="ID цели">
-                <div class="admin-grid">
-                    <button id="adm-ban-btn" class="red-btn">BAN</button>
-                    <button id="adm-prem-btn" class="blue-btn">PREM</button>
-                </div>
-            </div>
-
-            <div class="nav-box">
-                <input type="text" id="connect-to-id" placeholder="ID партнера">
-                <button id="btn-connect-peer">ПОДКЛЮЧИТЬСЯ</button>
-            </div>
-
-            <button id="btn-logout" class="logout-btn">ВЫХОД</button>
-        </aside>
-
-        <main class="chat-main glass">
-            <header id="chat-header">
-                <span id="chat-target-name">Никого нет</span>
-                <span id="typing-indicator" class="hidden">печатает...</span>
-            </header>
-            <div id="msg-box"></div>
-            <div class="input-row">
-                <input type="text" id="msg-input" placeholder="Сообщение...">
-                <button id="btn-send">ОТПРАВИТЬ</button>
-            </div>
-        </main>
-    </div>
-
-    <script src="script.js"></script>
-</body>
-</html>
+// Кнопка Выхода (по желанию добавь в HTML)
+function logout() {
+    localStorage.removeItem('chat_user');
+    location.reload();
+}
