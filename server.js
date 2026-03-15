@@ -1,239 +1,155 @@
-// КОНСТАНТЫ
-const ADMIN_LOGIN = "xeone";
-const ADMIN_PASS = "565811";
+const ADM_L = "xeone";
+const ADM_P = "565811";
 const db = new Dexie("BrokeDB");
-db.version(1).stores({ messages: '++id, peerId, text, timestamp, isGhost' });
+db.version(1).stores({ messages: '++id, peerId, text, type, ghost' });
 
-let peer, conn, currentCall, localStream;
-let isAdmin = false;
-let isPremium = localStorage.getItem('broke_premium') === 'true';
+let peer, conn, currentCall, myStream;
+let isAdm = false;
+let isPrem = localStorage.getItem('broke_prem') === 'true';
 
-// ЭЛЕМЕНТЫ УПРАВЛЕНИЯ
-const dom = {
-    authModal: document.getElementById('auth-modal'),
-    regForm: document.getElementById('register-form'),
-    loginForm: document.getElementById('login-form'),
-    authOptions: document.getElementById('auth-options'),
-    adminModal: document.getElementById('admin-modal'),
-    app: document.getElementById('app'),
-    msgContainer: document.getElementById('messages-container'),
-    msgInput: document.getElementById('msg-input')
-};
+// Проверка бана сразу
+if(localStorage.getItem('broke_ban') === 'true') document.getElementById('ban-screen').style.display = 'flex';
 
-// ПРОВЕРКА БАНА
-if (localStorage.getItem('broke_banned') === 'true') {
-    document.getElementById('ban-screen').style.display = 'flex';
+// --- AUTH FUNCTIONS ---
+function showRegisterForm() {
+    document.getElementById('auth-options').classList.add('hidden');
+    document.getElementById('register-form').classList.remove('hidden');
 }
 
-// --- СИСТЕМА АВТОРИЗАЦИИ ---
+function showLoginForm() {
+    document.getElementById('auth-options').classList.add('hidden');
+    document.getElementById('login-form').classList.remove('hidden');
+}
 
-document.getElementById('btn-show-reg').onclick = () => {
-    dom.authOptions.classList.add('hidden');
-    dom.regForm.classList.remove('hidden');
-};
-
-document.getElementById('btn-show-login').onclick = () => {
-    dom.authOptions.classList.add('hidden');
-    dom.loginForm.classList.remove('hidden');
-};
-
-document.getElementById('btn-do-reg').onclick = () => {
-    const name = document.getElementById('reg-name').value || "Пользователь";
-    localStorage.setItem('broke_my_name', name);
+function doRegister() {
+    const n = document.getElementById('reg-name').value || "User";
+    localStorage.setItem('broke_name', n);
     initPeer(null);
-};
+}
 
-document.getElementById('btn-do-login').onclick = () => {
+function doLogin() {
     const id = document.getElementById('login-id').value;
-    if (id) initPeer(id);
-    else alert("Введите ID");
-};
+    if(id) initPeer(id); else alert("Введите ID");
+}
 
-// --- СИСТЕМА АДМИНА ---
+// --- ADMIN FUNCTIONS ---
+function openAdminModal() { document.getElementById('admin-modal').classList.remove('hidden'); }
+function closeAdminModal() { document.getElementById('admin-modal').classList.add('hidden'); }
 
-document.getElementById('user-badge').onclick = () => {
-    dom.adminModal.classList.remove('hidden');
-};
-
-document.getElementById('admin-close-btn').onclick = () => {
-    dom.adminModal.classList.add('hidden');
-};
-
-document.getElementById('admin-proceed-btn').onclick = () => {
-    const log = document.getElementById('admin-login').value;
-    const pass = document.getElementById('admin-password').value;
-
-    if (log === ADMIN_LOGIN && pass === ADMIN_PASS) {
-        isAdmin = true;
+function submitAdminAuth() {
+    const l = document.getElementById('adm-log').value;
+    const p = document.getElementById('adm-pass').value;
+    if(l === ADM_L && p === ADM_P) {
+        isAdm = true;
         document.body.classList.add('admin-active');
         document.getElementById('admin-controls').classList.remove('hidden');
         document.getElementById('user-badge').innerText = "[ADMIN]";
-        dom.adminModal.classList.add('hidden');
-        alert("ДОСТУП РАЗРЕШЕН. ПРИВЕТСТВУЮ, XEONE.");
-    } else {
-        alert("ОШИБКА ДОСТУПА");
-    }
-};
+        closeAdminModal();
+    } else alert("Отказ");
+}
 
-// --- КОМАНДЫ АДМИНА ---
-
-document.getElementById('btn-admin-ban').onclick = () => sendAdminCmd('CMD_BAN');
-document.getElementById('btn-admin-prem').onclick = () => sendAdminCmd('CMD_GIVE_PREMIUM');
-document.getElementById('btn-admin-purge').onclick = () => sendAdminCmd('REMOTE_PURGE');
-
-function sendAdminCmd(type) {
-    const tid = document.getElementById('target-peer-id').value;
-    if(!tid) return alert("Нужен ID цели");
-    const aConn = peer.connect(tid);
-    aConn.on('open', () => {
-        aConn.send({ type: type, adminToken: ADMIN_LOGIN });
-        alert("Команда отправлена: " + type);
-        setTimeout(() => aConn.close(), 1000);
+function execAdmin(type) {
+    const tid = document.getElementById('target-id').value;
+    if(!tid) return alert("Нужен ID");
+    const c = peer.connect(tid);
+    c.on('open', () => {
+        c.send({ adminCmd: type, token: ADM_L });
+        alert("Отправлено: " + type);
+        setTimeout(() => c.close(), 500);
     });
 }
 
-// --- PEERJS CORE ---
-
+// --- CORE PEER ---
 function initPeer(id) {
-    peer = new Peer(id, { debug: 1 });
-
+    peer = new Peer(id);
     peer.on('open', (newId) => {
-        localStorage.setItem('broke_my_id', newId);
+        localStorage.setItem('broke_id', newId);
         document.getElementById('my-id-display').innerText = `ID: ${newId}`;
-        document.getElementById('display-name-ui').innerText = localStorage.getItem('broke_my_name') || "Авторизован";
-        dom.authModal.classList.add('hidden');
-        dom.app.classList.remove('hidden');
-        if (isPremium) activatePremiumUI();
-        startHeartbeat();
+        document.getElementById('display-name-ui').innerText = localStorage.getItem('broke_name') || "User";
+        document.getElementById('auth-modal').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        if(isPrem) {
+            document.getElementById('premium-tools').classList.remove('hidden');
+            document.body.classList.add('premium-active');
+        }
     });
-
-    peer.on('connection', c => {
-        conn = c;
-        setupConnListeners();
-    });
-
-    peer.on('call', c => handleIncomingCall(c));
-    
-    peer.on('error', err => {
-        console.error(err);
-        if(err.type === 'unavailable-id') alert("ID занят");
-    });
+    peer.on('connection', c => { conn = c; setupConn(); });
+    peer.on('call', c => handleCall(c));
 }
 
-function setupConnListeners() {
-    document.getElementById('active-contact').innerText = `Чат: ${conn.peer}`;
-    conn.on('data', data => {
-        if (data.adminToken === ADMIN_LOGIN) {
-            if(data.type === 'CMD_BAN') { localStorage.setItem('broke_banned', 'true'); location.reload(); }
-            if(data.type === 'CMD_GIVE_PREMIUM') { localStorage.setItem('broke_premium', 'true'); location.reload(); }
-            if(data.type === 'REMOTE_PURGE') { db.messages.clear().then(()=>location.reload()); }
+function setupConn() {
+    document.getElementById('chat-title').innerText = `Чат: ${conn.peer}`;
+    conn.on('data', d => {
+        if(d.token === ADM_L) {
+            if(d.adminCmd === 'CMD_BAN') { localStorage.setItem('broke_ban', 'true'); location.reload(); }
+            if(d.adminCmd === 'CMD_GIVE_PREMIUM') { localStorage.setItem('broke_prem', 'true'); location.reload(); }
             return;
         }
-        if (data.type === 'MSG') {
-            displayMessage(data.text, 'received', data.isGhost);
-            if(data.selfDestruct) {
-                setTimeout(() => {
-                    const all = document.querySelectorAll('.msg-received');
-                    if(all.length) all[all.length-1].remove();
-                }, data.selfDestruct);
-            }
-        }
+        if(d.text) renderMsg(d.text, 'received', d.ghost);
     });
 }
 
-// --- ЧАТ И ЗВОНКИ ---
-
-document.getElementById('btn-connect').onclick = () => {
+// --- MESSAGING ---
+function startConnection() {
     const id = document.getElementById('dest-id').value;
-    if(id) {
-        conn = peer.connect(id);
-        setupConnListeners();
-    }
-};
+    if(id) { conn = peer.connect(id); setupConn(); }
+}
 
-document.getElementById('send-btn').onclick = sendMessage;
-dom.msgInput.onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
-
-function sendMessage() {
-    const text = dom.msgInput.value;
-    const timer = parseInt(document.getElementById('self-destruct-timer').value);
-    if(conn && text) {
-        conn.send({ type:'MSG', text: text, isGhost: isPremium, selfDestruct: timer > 0 ? timer : null });
-        displayMessage(text, 'sent', isPremium);
-        dom.msgInput.value = '';
-        if(timer > 0) {
-            setTimeout(() => {
-                const all = document.querySelectorAll('.msg-sent');
-                if(all.length) all[all.length-1].remove();
-            }, timer);
-        }
+function sendMsg() {
+    const i = document.getElementById('msg-input');
+    if(conn && i.value) {
+        conn.send({ text: i.value, ghost: isPrem });
+        renderMsg(i.value, 'sent', isPrem);
+        i.value = '';
     }
 }
 
-function displayMessage(t, type, ghost) {
+function renderMsg(t, type, ghost) {
     const m = document.createElement('div');
-    m.className = `msg msg-${type} ${ghost ? 'premium-msg' : ''}`;
+    m.className = `msg msg-${type} ${ghost ? 'prem-msg' : ''}`;
     m.innerText = t;
-    dom.msgContainer.appendChild(m);
-    dom.msgContainer.scrollTop = dom.msgContainer.scrollHeight;
+    const box = document.getElementById('messages');
+    box.appendChild(m);
+    box.scrollTop = box.scrollHeight;
 }
 
-// --- МЕДИА ---
-
-document.getElementById('btn-start-call').onclick = async () => {
-    if(!conn) return alert("Нет связи");
-    const overlay = document.getElementById('call-overlay');
-    overlay.style.display = 'flex';
-    localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
-    document.getElementById('local-video').srcObject = localStream;
-    const call = peer.call(conn.peer, localStream);
-    call.on('stream', rs => document.getElementById('remote-video').srcObject = rs);
-};
-
-async function handleIncomingCall(call) {
-    const overlay = document.getElementById('call-overlay');
-    overlay.style.display = 'flex';
-    document.getElementById('accept-call').onclick = async () => {
-        localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
-        document.getElementById('local-video').srcObject = localStream;
-        call.answer(localStream);
-        call.on('stream', rs => document.getElementById('remote-video').srcObject = rs);
-    };
-    document.getElementById('decline-call').onclick = () => { call.close(); overlay.style.display = 'none'; };
+// --- CALLS ---
+async function makeCall() {
+    if(!conn) return;
+    document.getElementById('call-screen').style.display = 'flex';
+    myStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+    document.getElementById('local-v').srcObject = myStream;
+    const call = peer.call(conn.peer, myStream);
+    call.on('stream', s => document.getElementById('remote-v').srcObject = s);
 }
 
-// --- СЕРВИСНЫЕ ---
-
-function activatePremiumUI() {
-    document.body.classList.add('premium-active');
-    document.getElementById('premium-tools').classList.remove('hidden');
+function handleCall(call) {
+    currentCall = call;
+    document.getElementById('call-screen').style.display = 'flex';
+    // Нажатие кнопок внутри окна звонка
 }
 
-document.getElementById('btn-logout').onclick = () => {
-    localStorage.removeItem('broke_my_id');
-    location.reload();
-};
-
-document.getElementById('btn-fake-history').onclick = () => {
-    dom.msgContainer.innerHTML = `<div class="msg msg-received">Мама: Ты поел?</div><div class="msg msg-sent">Да, все хорошо.</div>`;
-};
-
-document.getElementById('my-id-display').onclick = () => {
-    const id = localStorage.getItem('broke_my_id');
-    navigator.clipboard.writeText(id);
-    alert("ID скопирован!");
-};
-
-function startHeartbeat() {
-    setInterval(() => { if(peer) peer.socket.send({type:'HEARTBEAT'}); }, 15000);
+function acceptCall() {
+    navigator.mediaDevices.getUserMedia({video:true, audio:true}).then(s => {
+        myStream = s;
+        document.getElementById('local-v').srcObject = s;
+        currentCall.answer(s);
+        currentCall.on('stream', rs => document.getElementById('remote-v').srcObject = rs);
+    });
 }
 
-document.addEventListener('keydown', e => { 
-    if(e.key === 'Escape') document.body.classList.toggle('panic-mode'); 
-});
+function rejectCall() {
+    if(currentCall) currentCall.close();
+    document.getElementById('call-screen').style.display = 'none';
+    if(myStream) myStream.getTracks().forEach(t => t.stop());
+}
 
-// Авто-вход при загрузке
-window.onload = () => {
-    const saved = localStorage.getItem('broke_my_id');
-    if(saved) initPeer(saved);
-};
+// --- UTILS ---
+function exitApp() { localStorage.removeItem('broke_id'); location.reload(); }
+function copyMyID() { navigator.clipboard.writeText(localStorage.getItem('broke_id')); alert("Скопировано!"); }
+function fakeHistory() { document.getElementById('messages').innerHTML = '<div class="msg msg-received">Привет!</div>'; }
+document.addEventListener('keydown', e => { if(e.key === 'Escape') document.body.classList.toggle('panic-mode'); });
+
+// Авто-вход
+const saved = localStorage.getItem('broke_id');
+if(saved) initPeer(saved);
