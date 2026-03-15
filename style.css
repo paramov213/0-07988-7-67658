@@ -1,29 +1,36 @@
 :root {
     --bg-color: #0a0a0c;
     --glass: rgba(255, 255, 255, 0.03);
+    --glass-heavy: rgba(255, 255, 255, 0.08);
     --accent: #007aff;
+    --accent-green: #34c759;
+    --accent-red: #ff3b30;
     --admin-gold: #ffcf40;
     --premium-neon: #00f2ff;
     --ban-red: #ff3b30;
+    --text-main: #ffffff;
+    --text-muted: rgba(255, 255, 255, 0.6);
 }
 
 body, html {
     margin: 0; padding: 0;
     background: var(--bg-color);
-    color: white;
+    color: var(--text-main);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica;
     overflow: hidden;
     height: 100vh;
 }
 
+/* Общие стили Glassmorphism */
 .glass {
     background: var(--glass);
     backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
 }
 
-/* Layout */
+/* Основной макет приложения */
 .app-container {
     display: flex;
     height: 100vh;
@@ -32,7 +39,7 @@ body, html {
 
 .hidden { display: none !important; }
 
-/* Sidebar */
+/* Боковая панель (Sidebar) */
 .sidebar {
     width: 300px;
     padding: 20px;
@@ -40,16 +47,47 @@ body, html {
     flex-direction: column;
     gap: 20px;
     border-right: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 0; /* Reset for sidebar */
 }
 
-/* Admin & Premium Visuals */
+/* Элементы управления в сайдбаре */
+.user-profile, .admin-panel, .contacts, .ghost-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+input {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+button:hover { opacity: 0.9; }
+
+/* Стили админа и премиума */
 .badge {
     display: inline-block;
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 10px;
     font-weight: bold;
-    margin-bottom: 5px;
+    color: var(--text-muted);
+    border: 1px solid rgba(255,255,255,0.1);
 }
 
 .admin-active #user-badge {
@@ -64,7 +102,32 @@ body, html {
     animation: neonPulse 2s infinite;
 }
 
-/* Chat Messages */
+/* Кнопки админ-панели */
+.admin-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+.btn-ban { background: var(--ban-red); }
+.btn-prem { background: #5856d6; }
+.btn-purge { background: #ff9500; }
+.btn-lock { background: #333; margin-top: 5px; }
+
+/* Область чата (Main Chat) */
+.chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-radius: 0;
+}
+
+.chat-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#active-contact { color: var(--text-muted); font-size: 14px; }
+.call-controls button { background: none; font-size: 18px; padding: 5px; }
+
 #messages-container {
     flex: 1;
     overflow-y: auto;
@@ -74,48 +137,160 @@ body, html {
     gap: 10px;
 }
 
+/* Стили сообщений */
 .msg {
     max-width: 70%;
     padding: 12px 16px;
     border-radius: 18px;
     font-size: 14px;
+    line-height: 1.4;
     position: relative;
+    word-wrap: break-word;
 }
 
-.msg-sent { align-self: flex-end; background: var(--accent); }
-.msg-received { align-self: flex-start; background: rgba(255,255,255,0.1); }
+.msg-sent { 
+    align-self: flex-end; 
+    background: var(--accent); 
+    border-bottom-right-radius: 4px;
+}
 
-/* Ghost Message Style */
+.msg-received { 
+    align-self: flex-start; 
+    background: rgba(255,255,255,0.08); 
+    border-bottom-left-radius: 4px;
+}
+
+/* Стили сообщений GHOST */
 .premium-msg {
     border: 1px solid var(--premium-neon);
-    box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.15);
 }
 
-/* Modals & Overlays */
-.modal-overlay, .hidden-overlay {
+.chat-input {
+    padding: 15px;
+    display: flex;
+    gap: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#msg-input { flex: 1; }
+
+/* --- ИСПРАВЛЕНИЯ UI ЗВОНКОВ (CALL UI) --- */
+
+.hidden-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
     z-index: 1000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    display: none; /* JS toggles this */
     background: rgba(0,0,0,0.9);
 }
 
-#ban-screen h1 { color: var(--ban-red); font-size: 4rem; }
-
-/* Call Interface */
-#remote-video { width: 100%; height: 100%; border-radius: 20px; }
-#local-video { 
-    position: absolute; bottom: 20px; right: 20px; 
-    width: 150px; height: 100px; border-radius: 10px; border: 2px solid var(--accent);
+#call-overlay {
+    display: none; /* Изначально скрыт */
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
 }
 
-/* Animations */
+/* Удаленное видео (на весь экран) */
+#remote-video { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; /* Заполняет экран */
+    position: absolute;
+    top: 0; left: 0;
+}
+
+/* Локальное видео (Окно PIP в углу) */
+.local-video-container {
+    position: absolute;
+    bottom: 30px; 
+    right: 30px;
+    width: 240px; /* Увеличено для видимости */
+    height: 160px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 1010;
+    background: #000; /* Черный фон, если видео нет */
+}
+
+#local-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Интерфейс поверх видео (Кнопки и статус) */
+.call-ui-wrapper {
+    position: absolute;
+    z-index: 1020;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+#call-status {
+    padding: 10px 20px;
+    font-size: 16px;
+    color: var(--text-main);
+    background: var(--glass-heavy);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.call-btns {
+    display: flex;
+    gap: 20px;
+}
+
+.btn-call-accept, .btn-call-decline {
+    padding: 15px 40px;
+    border-radius: 30px; /* Круглые кнопки */
+    font-size: 16px;
+    font-weight: bold;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.btn-call-accept {
+    background: rgba(52, 199, 89, 0.3); /* Transparent Green */
+    color: var(--accent-green);
+}
+
+.btn-call-decline {
+    background: rgba(255, 59, 48, 0.3); /* Transparent Red */
+    color: var(--accent-red);
+}
+
+/* --- КОНЕЦ ИСПРАВЛЕНИЙ CALL UI --- */
+
+/* Модальные окна */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 1100;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.85);
+}
+
+.modal-content {
+    padding: 30px;
+    text-align: center;
+    width: 300px;
+}
+
+#ban-screen h1 { color: var(--ban-red); font-size: 4rem; margin-bottom: 10px; }
+#ban-screen p { color: var(--text-muted); }
+
+/* Анимации */
 @keyframes neonPulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.6; }
-    100% { opacity: 1; }
+    0% { opacity: 1; box-shadow: 0 0 5px rgba(0, 242, 255, 0.2); }
+    50% { opacity: 0.7; box-shadow: 0 0 20px rgba(0, 242, 255, 0.5); }
+    100% { opacity: 1; box-shadow: 0 0 5px rgba(0, 242, 255, 0.2); }
 }
 
 @keyframes fadeIn {
@@ -123,5 +298,5 @@ body, html {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Panic Blur */
+/* Panic Mode (Esc) */
 .panic-mode { filter: blur(50px) !important; pointer-events: none; }
