@@ -78,10 +78,17 @@
 
     <div id="call-overlay" class="hidden-overlay glass">
         <video id="remote-video" autoplay playsinline></video>
-        <video id="local-video" autoplay playsinline muted></video>
-        <div class="call-btns">
-            <button id="accept-call" class="btn-prem">ACCEPT</button>
-            <button id="decline-call" class="btn-ban">DECLINE</button>
+        
+        <div class="local-video-container">
+            <video id="local-video" autoplay playsinline muted></video>
+        </div>
+
+        <div class="call-ui-wrapper">
+            <div id="call-status" class="glass">Incoming Call...</div>
+            <div class="call-btns">
+                <button id="accept-call" class="btn-call-accept">ACCEPT</button>
+                <button id="decline-call" class="btn-call-decline">DECLINE</button>
+            </div>
         </div>
     </div>
 
