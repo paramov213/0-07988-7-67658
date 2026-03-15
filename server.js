@@ -1,155 +1,137 @@
-const ADM_L = "xeone";
-const ADM_P = "565811";
-const db = new Dexie("BrokeDB");
-db.version(1).stores({ messages: '++id, peerId, text, type, ghost' });
+const CONFIG = { ADM_L: "xeone", ADM_P: "565811" };
+let peer, conn, myId, typingTimeout;
+let isPremium = localStorage.getItem('broke_prem') === 'true';
 
-let peer, conn, currentCall, myStream;
-let isAdm = false;
-let isPrem = localStorage.getItem('broke_prem') === 'true';
+// Инициализация звука
+const playSound = (freq = 440) => {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+    osc.stop(ctx.currentTime + 0.1);
+};
 
-// Проверка бана сразу
-if(localStorage.getItem('broke_ban') === 'true') document.getElementById('ban-screen').style.display = 'flex';
+document.addEventListener('DOMContentLoaded', () => {
+    initEvents();
+    if(localStorage.getItem('broke_id')) startPeer(localStorage.getItem('broke_id'));
+});
 
-// --- AUTH FUNCTIONS ---
-function showRegisterForm() {
-    document.getElementById('auth-options').classList.add('hidden');
-    document.getElementById('register-form').classList.remove('hidden');
+function initEvents() {
+    // Вход/Рега
+    document.getElementById('btn-reg-view').onclick = () => {
+        document.getElementById('auth-options').classList.add('hidden');
+        document.getElementById('reg-section').classList.remove('hidden');
+    };
+    document.getElementById('btn-login-view').onclick = () => {
+        document.getElementById('auth-options').classList.add('hidden');
+        document.getElementById('login-section').classList.remove('hidden');
+    };
+    document.getElementById('btn-finish-reg').onclick = () => {
+        localStorage.setItem('broke_user_name', document.getElementById('reg-name').value || "User");
+        startPeer(null);
+    };
+    document.getElementById('btn-finish-login').onclick = () => {
+        const id = document.getElementById('login-id-input').value;
+        if(id) startPeer(id);
+    };
+
+    // Админка
+    document.getElementById('status-badge').onclick = () => document.getElementById('admin-modal').classList.remove('hidden');
+    document.getElementById('btn-adm-cancel').onclick = () => document.getElementById('admin-modal').classList.add('hidden');
+    document.getElementById('btn-adm-auth').onclick = () => {
+        if(document.getElementById('adm-l').value === CONFIG.ADM_L && document.getElementById('adm-p').value === CONFIG.ADM_P) {
+            document.body.classList.add('admin-active');
+            document.getElementById('admin-tools').classList.remove('hidden');
+            document.getElementById('status-badge').innerText = "ADMIN";
+            document.getElementById('admin-modal').classList.add('hidden');
+            playSound(880);
+        }
+    };
+
+    // Чат
+    document.getElementById('btn-connect-peer').onclick = () => {
+        const tid = document.getElementById('connect-to-id').value;
+        if(tid) { conn = peer.connect(tid); setupConn(); }
+    };
+
+    document.getElementById('btn-send').onclick = sendMsg;
+    
+    // Typing...
+    document.getElementById('msg-input').oninput = () => {
+        if(conn) conn.send({ type: 'TYPING' });
+    };
+
+    document.getElementById('user-id-display').onclick = () => {
+        navigator.clipboard.writeText(myId);
+        alert("ID Скопирован!");
+    };
+
+    document.getElementById('btn-logout').onclick = () => {
+        localStorage.removeItem('broke_id');
+        location.reload();
+    };
 }
 
-function showLoginForm() {
-    document.getElementById('auth-options').classList.add('hidden');
-    document.getElementById('login-form').classList.remove('hidden');
-}
-
-function doRegister() {
-    const n = document.getElementById('reg-name').value || "User";
-    localStorage.setItem('broke_name', n);
-    initPeer(null);
-}
-
-function doLogin() {
-    const id = document.getElementById('login-id').value;
-    if(id) initPeer(id); else alert("Введите ID");
-}
-
-// --- ADMIN FUNCTIONS ---
-function openAdminModal() { document.getElementById('admin-modal').classList.remove('hidden'); }
-function closeAdminModal() { document.getElementById('admin-modal').classList.add('hidden'); }
-
-function submitAdminAuth() {
-    const l = document.getElementById('adm-log').value;
-    const p = document.getElementById('adm-pass').value;
-    if(l === ADM_L && p === ADM_P) {
-        isAdm = true;
-        document.body.classList.add('admin-active');
-        document.getElementById('admin-controls').classList.remove('hidden');
-        document.getElementById('user-badge').innerText = "[ADMIN]";
-        closeAdminModal();
-    } else alert("Отказ");
-}
-
-function execAdmin(type) {
-    const tid = document.getElementById('target-id').value;
-    if(!tid) return alert("Нужен ID");
-    const c = peer.connect(tid);
-    c.on('open', () => {
-        c.send({ adminCmd: type, token: ADM_L });
-        alert("Отправлено: " + type);
-        setTimeout(() => c.close(), 500);
-    });
-}
-
-// --- CORE PEER ---
-function initPeer(id) {
+function startPeer(id) {
     peer = new Peer(id);
     peer.on('open', (newId) => {
+        myId = newId;
         localStorage.setItem('broke_id', newId);
-        document.getElementById('my-id-display').innerText = `ID: ${newId}`;
-        document.getElementById('display-name-ui').innerText = localStorage.getItem('broke_name') || "User";
+        document.getElementById('user-id-display').innerText = "ID: " + newId;
+        document.getElementById('user-name-display').innerText = localStorage.getItem('broke_user_name') || "User";
         document.getElementById('auth-modal').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
-        if(isPrem) {
-            document.getElementById('premium-tools').classList.remove('hidden');
-            document.body.classList.add('premium-active');
-        }
     });
-    peer.on('connection', c => { conn = c; setupConn(); });
-    peer.on('call', c => handleCall(c));
+
+    peer.on('connection', (c) => {
+        conn = c;
+        setupConn();
+    });
 }
 
 function setupConn() {
-    document.getElementById('chat-title').innerText = `Чат: ${conn.peer}`;
-    conn.on('data', d => {
-        if(d.token === ADM_L) {
-            if(d.adminCmd === 'CMD_BAN') { localStorage.setItem('broke_ban', 'true'); location.reload(); }
-            if(d.adminCmd === 'CMD_GIVE_PREMIUM') { localStorage.setItem('broke_prem', 'true'); location.reload(); }
+    document.getElementById('chat-target-name').innerText = "В сети: " + conn.peer;
+    playSound(660);
+
+    conn.on('data', (data) => {
+        if(data.type === 'TYPING') {
+            document.getElementById('typing-indicator').classList.remove('hidden');
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => document.getElementById('typing-indicator').classList.add('hidden'), 2000);
             return;
         }
-        if(d.text) renderMsg(d.text, 'received', d.ghost);
+        if(data.type === 'DELIVERED') {
+            const lastMsgStatus = document.querySelector('.sent:last-child .status-info');
+            if(lastMsgStatus) lastMsgStatus.innerText = "✓ Прочитано";
+            return;
+        }
+        if(data.text) {
+            renderMsg(data.text, 'recv');
+            playSound(440);
+            conn.send({ type: 'DELIVERED' });
+        }
     });
-}
-
-// --- MESSAGING ---
-function startConnection() {
-    const id = document.getElementById('dest-id').value;
-    if(id) { conn = peer.connect(id); setupConn(); }
 }
 
 function sendMsg() {
-    const i = document.getElementById('msg-input');
-    if(conn && i.value) {
-        conn.send({ text: i.value, ghost: isPrem });
-        renderMsg(i.value, 'sent', isPrem);
-        i.value = '';
+    const input = document.getElementById('msg-input');
+    if(conn && input.value) {
+        conn.send({ text: input.value });
+        renderMsg(input.value, 'sent');
+        input.value = "";
     }
 }
 
-function renderMsg(t, type, ghost) {
+function renderMsg(t, type) {
+    const box = document.getElementById('msg-box');
     const m = document.createElement('div');
-    m.className = `msg msg-${type} ${ghost ? 'prem-msg' : ''}`;
-    m.innerText = t;
-    const box = document.getElementById('messages');
+    m.className = `m ${type}`;
+    m.innerHTML = `${t} <span class="status-info">${type === 'sent' ? '✓' : ''}</span>`;
     box.appendChild(m);
     box.scrollTop = box.scrollHeight;
 }
-
-// --- CALLS ---
-async function makeCall() {
-    if(!conn) return;
-    document.getElementById('call-screen').style.display = 'flex';
-    myStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
-    document.getElementById('local-v').srcObject = myStream;
-    const call = peer.call(conn.peer, myStream);
-    call.on('stream', s => document.getElementById('remote-v').srcObject = s);
-}
-
-function handleCall(call) {
-    currentCall = call;
-    document.getElementById('call-screen').style.display = 'flex';
-    // Нажатие кнопок внутри окна звонка
-}
-
-function acceptCall() {
-    navigator.mediaDevices.getUserMedia({video:true, audio:true}).then(s => {
-        myStream = s;
-        document.getElementById('local-v').srcObject = s;
-        currentCall.answer(s);
-        currentCall.on('stream', rs => document.getElementById('remote-v').srcObject = rs);
-    });
-}
-
-function rejectCall() {
-    if(currentCall) currentCall.close();
-    document.getElementById('call-screen').style.display = 'none';
-    if(myStream) myStream.getTracks().forEach(t => t.stop());
-}
-
-// --- UTILS ---
-function exitApp() { localStorage.removeItem('broke_id'); location.reload(); }
-function copyMyID() { navigator.clipboard.writeText(localStorage.getItem('broke_id')); alert("Скопировано!"); }
-function fakeHistory() { document.getElementById('messages').innerHTML = '<div class="msg msg-received">Привет!</div>'; }
-document.addEventListener('keydown', e => { if(e.key === 'Escape') document.body.classList.toggle('panic-mode'); });
-
-// Авто-вход
-const saved = localStorage.getItem('broke_id');
-if(saved) initPeer(saved);
