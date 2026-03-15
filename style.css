@@ -1,238 +1,104 @@
-// Конфигурация и БД
-const ADMIN_ROOT_ID = "xeone";
-const db = new Dexie("BrokeDB");
-db.version(1).stores({ messages: '++id, peerId, text, timestamp, isGhost' });
-
-let peer, conn, currentCall, localStream;
-let isAdmin = false;
-let isPremium = localStorage.getItem('broke_premium') === 'true';
-
-// 1. ПРОВЕРКА БАНА
-if (localStorage.getItem('broke_banned') === 'true') {
-    document.getElementById('ban-screen').style.display = 'flex';
+:root {
+    --bg-color: #0a0a0c;
+    --glass: rgba(255, 255, 255, 0.03);
+    --glass-heavy: rgba(255, 255, 255, 0.08);
+    --accent: #007aff;
+    --premium: #00f2ff;
+    --gold: #ffcf40;
+    --red: #ff3b30;
+    --green: #34c759;
 }
 
-// 2. СИСТЕМА АДМИНИСТРАТОРА (ROOT)
-function checkAdmin() {
-    const val = document.getElementById('admin-input').value;
-    if (val === ADMIN_ROOT_ID) {
-        isAdmin = true;
-        document.body.classList.add('admin-active');
-        document.getElementById('admin-controls').classList.remove('hidden');
-        document.getElementById('user-badge').innerText = "[ADMIN]";
-    }
-    document.getElementById('admin-modal').classList.add('hidden');
-    
-    // После админа — проверяем сессию
-    const savedID = localStorage.getItem('broke_my_id');
-    if (savedID) {
-        initPeer(savedID);
-    } else {
-        document.getElementById('auth-modal').classList.remove('hidden');
-    }
+body, html {
+    margin: 0; padding: 0;
+    background: var(--bg-color);
+    color: white;
+    font-family: -apple-system, sans-serif;
+    height: 100vh; overflow: hidden;
 }
 
-// 3. AUTH LOGIC
-function showRegister() {
-    document.getElementById('auth-options').classList.add('hidden');
-    document.getElementById('register-form').classList.remove('hidden');
+.glass {
+    background: var(--glass);
+    backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
 }
 
-function showLogin() {
-    document.getElementById('auth-options').classList.add('hidden');
-    document.getElementById('login-form').classList.remove('hidden');
+.hidden { display: none !important; }
+
+/* Auth Modals */
+.modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.9);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 2000;
 }
 
-function handleRegister() {
-    const name = document.getElementById('reg-name').value || "User_" + Math.floor(Math.random()*999);
-    localStorage.setItem('broke_my_name', name);
-    initPeer(null); // Генерирует новый PeerID
+.modal-content {
+    padding: 30px; width: 320px; text-align: center;
+    display: flex; flex-direction: column; gap: 15px;
 }
 
-function handleLogin() {
-    const id = document.getElementById('login-id').value;
-    if (!id) return alert("Введите ваш ID");
-    initPeer(id);
+/* Layout */
+.app-container { display: flex; height: 100vh; }
+
+.sidebar {
+    width: 280px; padding: 20px; border-radius: 0;
+    display: flex; flex-direction: column; gap: 20px;
+    border-right: 1px solid rgba(255,255,255,0.05);
 }
 
-// 4. CORE PEERJS
-function initPeer(id) {
-    peer = new Peer(id, { debug: 1 });
+.chat-area { flex: 1; display: flex; flex-direction: column; border-radius: 0; }
 
-    peer.on('open', (newId) => {
-        localStorage.setItem('broke_my_id', newId);
-        document.getElementById('my-id-display').innerText = `ID: ${newId}`;
-        document.getElementById('display-name-ui').innerText = localStorage.getItem('broke_my_name') || "Authenticated";
-        
-        document.getElementById('auth-modal').classList.add('hidden');
-        document.getElementById('app').classList.remove('hidden');
-        
-        if (isPremium) activatePremiumUI();
-        startHeartbeat();
-    });
-
-    peer.on('connection', c => {
-        conn = c;
-        setupConnListeners();
-    });
-
-    peer.on('call', c => handleIncomingCall(c));
-
-    peer.on('error', err => {
-        if(err.type === 'unavailable-id') alert("ID занят или уже в сети");
-        console.error(err);
-    });
+/* Components */
+input, select {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: white; padding: 12px; border-radius: 10px;
 }
 
-// 5. MESSAGING & SIGNALS
-function setupConnListeners() {
-    document.getElementById('active-contact').innerText = `Сессия: ${conn.peer}`;
-    
-    conn.on('data', data => {
-        // Проверка админ-сигналов
-        if (data.adminToken === ADMIN_ROOT_ID) {
-            handleAdminSignals(data.type);
-            return;
-        }
-
-        if (data.type === 'MSG') {
-            displayMessage(data.text, 'received', data.isGhost);
-            saveToDB(conn.peer, data.text, data.isGhost);
-            
-            if (data.selfDestruct) {
-                setTimeout(() => {
-                    const msgs = document.querySelectorAll('.msg-received');
-                    if(msgs.length) msgs[msgs.length-1].remove();
-                }, data.selfDestruct);
-            }
-        }
-    });
+button {
+    background: var(--accent); color: white; border: none;
+    padding: 12px; border-radius: 10px; cursor: pointer; font-weight: bold;
 }
 
-function handleAdminSignals(cmd) {
-    switch(cmd) {
-        case 'CMD_BAN':
-            localStorage.setItem('broke_banned', 'true');
-            location.reload();
-            break;
-        case 'CMD_GIVE_PREMIUM':
-            localStorage.setItem('broke_premium', 'true');
-            alert("Активирован PREMIUM статус. Перезагрузка...");
-            location.reload();
-            break;
-        case 'REMOTE_PURGE':
-            db.messages.clear().then(() => location.reload());
-            break;
-        case 'CMD_LOCK':
-            document.body.classList.add('panic-mode');
-            alert("NETWORK LOCKED BY ADMIN");
-            break;
-    }
+.badge {
+    font-size: 10px; font-weight: bold; border: 1px solid white;
+    padding: 2px 6px; border-radius: 4px; display: inline-block;
 }
 
-// 6. ADMIN ACTIONS (TARGETED)
-function sendAdminCmd(type) {
-    const tid = document.getElementById('target-peer-id').value;
-    if(!tid) return alert("Нужен ID цели");
-    const adminConn = peer.connect(tid);
-    adminConn.on('open', () => {
-        adminConn.send({ type: type, adminToken: ADMIN_ROOT_ID });
-        alert("Команда отправлена: " + type);
-        setTimeout(() => adminConn.close(), 1000);
-    });
+.admin-active #user-badge { color: var(--gold); border-color: var(--gold); }
+.premium-active #user-badge { color: var(--premium); border-color: var(--premium); animation: neon 2s infinite; }
+
+/* Chat Messages */
+#messages-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: 75%; padding: 12px; border-radius: 15px; font-size: 14px; position: relative; }
+.msg-sent { align-self: flex-end; background: var(--accent); }
+.msg-received { align-self: flex-start; background: rgba(255,255,255,0.1); }
+.premium-msg { border: 1px solid var(--premium); box-shadow: 0 0 10px rgba(0,242,255,0.2); }
+
+/* Call UI */
+.hidden-overlay { position: fixed; inset: 0; display: none; background: #000; z-index: 3000; }
+#remote-video { width: 100%; height: 100%; object-fit: cover; }
+.local-video-container {
+    position: absolute; bottom: 30px; right: 30px;
+    width: 180px; height: 120px; border-radius: 12px;
+    overflow: hidden; border: 2px solid var(--accent);
 }
+#local-video { width: 100%; height: 100%; object-fit: cover; }
+.call-ui-wrapper { position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%); text-align: center; }
+.call-btns { display: flex; gap: 20px; margin-top: 20px; }
+.btn-call-accept { background: var(--green); padding: 15px 30px; }
+.btn-call-decline { background: var(--red); padding: 15px 30px; }
 
-// 7. CALLS
-async function handleIncomingCall(call) {
-    currentCall = call;
-    const overlay = document.getElementById('call-overlay');
-    overlay.style.display = 'block';
-    document.getElementById('call-status').innerText = "Входящий звонок...";
+/* Admin Buttons */
+.admin-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+.btn-ban { background: var(--red); }
+.btn-prem { background: #5856d6; }
+.btn-purge { background: #ff9500; }
+.btn-logout { background: transparent; border: 1px solid rgba(255,255,255,0.1); font-size: 12px; margin-top: auto; }
 
-    document.getElementById('accept-call').onclick = async () => {
-        localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
-        document.getElementById('local-video').srcObject = localStream;
-        call.answer(localStream);
-        call.on('stream', rs => document.getElementById('remote-video').srcObject = rs);
-    };
+/* Panic Mode */
+.panic-mode { filter: blur(50px) !important; pointer-events: none; }
 
-    document.getElementById('decline-call').onclick = () => {
-        call.close();
-        overlay.style.display = 'none';
-    };
-}
-
-async function startCall(type) {
-    if(!conn) return alert("Сначала подключитесь к ID");
-    const overlay = document.getElementById('call-overlay');
-    overlay.style.display = 'block';
-    localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
-    document.getElementById('local-video').srcObject = localStream;
-    
-    currentCall = peer.call(conn.peer, localStream);
-    currentCall.on('stream', rs => document.getElementById('remote-video').srcObject = rs);
-}
-
-// 8. PREMIUM & GHOST
-function activatePremiumUI() {
-    document.body.classList.add('premium-active');
-    document.getElementById('premium-tools').classList.remove('hidden');
-    document.getElementById('user-badge').innerText = isAdmin ? "[ADMIN]" : "[GHOST]";
-}
-
-function toggleFakeHistory() {
-    document.getElementById('messages-container').innerHTML = `
-        <div class="msg msg-received">Mom: Ты скоро будешь?</div>
-        <div class="msg msg-sent">Да, через 5 минут.</div>
-    `;
-}
-
-// Panic (Esc)
-document.addEventListener('keydown', e => {
-    if(e.key === 'Escape') document.body.classList.toggle('panic-mode');
-});
-
-// 9. UTILS
-async function saveToDB(peerId, text, isGhost) {
-    await db.messages.add({ peerId, text, timestamp: Date.now(), isGhost });
-}
-
-function displayMessage(text, type, isGhost = false) {
-    const container = document.getElementById('messages-container');
-    const m = document.createElement('div');
-    m.className = `msg msg-${type} ${isGhost ? 'premium-msg' : ''}`;
-    m.innerText = text;
-    container.appendChild(m);
-    container.scrollTop = container.scrollHeight;
-}
-
-document.getElementById('send-btn').onclick = () => {
-    const input = document.getElementById('msg-input');
-    const timer = parseInt(document.getElementById('self-destruct-timer').value);
-    if(conn && input.value) {
-        const data = { type:'MSG', text: input.value, isGhost: isPremium, selfDestruct: timer > 0 ? timer : null };
-        conn.send(data);
-        displayMessage(input.value, 'sent', isPremium);
-        saveToDB('me', input.value, isPremium);
-        input.value = '';
-        if(timer > 0) setTimeout(() => document.querySelectorAll('.msg-sent:last-child')[0]?.remove(), timer);
-    }
-};
-
-function connectToPeer() {
-    const id = document.getElementById('dest-id').value;
-    conn = peer.connect(id);
-    setupConnListeners();
-}
-
-function copyMyID() {
-    const id = localStorage.getItem('broke_my_id');
-    navigator.clipboard.writeText(id);
-    alert("ID скопирован: " + id);
-}
-
-function logout() { localStorage.removeItem('broke_my_id'); location.reload(); }
-
-function startHeartbeat() {
-    setInterval(() => { if(peer) peer.socket.send({type:'HEARTBEAT'}); }, 15000);
-}
+@keyframes neon { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
