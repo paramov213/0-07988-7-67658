@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BROKE | P2P Messenger v2.5</title>
+    <title>BROKE | P2P Мессенджер</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -12,88 +12,89 @@
 
     <div id="ban-screen" class="hidden-overlay">
         <div class="glass popup-center">
-            <h1 style="color: #ff3b30;">ACCESS DENIED</h1>
-            <p>Terminal has been permanently locked by Network Control.</p>
+            <h1 style="color: #ff3b30;">ДОСТУП ОГРАНИЧЕН</h1>
+            <p>Ваш терминал был заблокирован администратором сети.</p>
         </div>
     </div>
 
     <div id="auth-modal" class="modal-overlay">
         <div class="modal-content glass">
-            <h2>BROKE IDENTITY</h2>
+            <h2 class="neon-text">BROKE СЕТЬ</h2>
             <div id="auth-options">
-                <button onclick="showRegister()" class="btn-prem">NEW IDENTITY</button>
-                <button onclick="showLogin()">EXISTING ID</button>
+                <button id="btn-show-reg" class="btn-prem">СОЗДАТЬ ЛИЧНОСТЬ</button>
+                <button id="btn-show-login">ВОЙТИ ПО ID</button>
             </div>
             
             <div id="register-form" class="hidden">
-                <input type="text" id="reg-name" placeholder="Display Name">
-                <button onclick="handleRegister()">GENERATE & ENTER</button>
+                <input type="text" id="reg-name" placeholder="Ваше имя в сети">
+                <button id="btn-do-reg">СОЗДАТЬ И ВОЙТИ</button>
             </div>
 
             <div id="login-form" class="hidden">
-                <input type="text" id="login-id" placeholder="Your Peer ID">
-                <button onclick="handleLogin()">CONNECT</button>
+                <input type="text" id="login-id" placeholder="Введите ваш Peer ID">
+                <button id="btn-do-login">ПОДКЛЮЧИТЬСЯ</button>
             </div>
         </div>
     </div>
 
     <div id="admin-modal" class="modal-overlay hidden">
         <div class="modal-content glass">
-            <h2>ADMIN ELEVATION</h2>
-            <input type="text" id="admin-login" placeholder="Login">
-            <input type="password" id="admin-password" placeholder="Password">
-            <button id="admin-proceed-btn" onclick="tryElevateAdmin()">PROCEED</button>
-            <button onclick="closeAdminModal()" style="background:none; font-size:12px;">Cancel</button>
+            <h2>ПАНЕЛЬ УПРАВЛЕНИЯ</h2>
+            <input type="text" id="admin-login" placeholder="Логин">
+            <input type="password" id="admin-password" placeholder="Пароль">
+            <button id="admin-proceed-btn">ПОДТВЕРДИТЬ</button>
+            <button id="admin-close-btn" style="background:none; font-size:12px; margin-top:10px;">Отмена</button>
         </div>
     </div>
 
     <div id="app" class="app-container hidden">
         <aside class="sidebar glass">
             <div class="user-profile">
-                <div id="user-badge" class="badge" onclick="openAdminModal()">USER</div>
-                <h3 id="display-name-ui">Anonymous</h3>
-                <code id="my-id-display" onclick="copyMyID()">ID: ...</code>
+                <div id="user-badge" class="badge">ПОЛЬЗОВАТЕЛЬ</div>
+                <h3 id="display-name-ui">Аноним</h3>
+                <code id="my-id-display">ID: загрузка...</code>
             </div>
 
             <div class="admin-panel hidden" id="admin-controls">
-                <h3 style="color:var(--gold)">NETWORK CONTROL</h3>
-                <input type="text" id="target-peer-id" placeholder="Target Peer ID">
+                <h3 style="color:var(--gold)">КОНТРОЛЬ СЕТИ</h3>
+                <input type="text" id="target-peer-id" placeholder="ID цели">
                 <div class="admin-btns">
-                    <button class="btn-ban" onclick="sendAdminCmd('CMD_BAN')">BAN</button>
-                    <button class="btn-prem" onclick="sendAdminCmd('CMD_GIVE_PREMIUM')">PREM</button>
-                    <button class="btn-purge" onclick="sendAdminCmd('REMOTE_PURGE')">PURGE</button>
+                    <button id="btn-admin-ban" class="btn-ban">БАН</button>
+                    <button id="btn-admin-prem" class="btn-prem">PREM</button>
+                    <button id="btn-admin-purge" class="btn-purge">ОЧИСТКА</button>
                 </div>
             </div>
 
             <div class="contacts">
-                <input type="text" id="dest-id" placeholder="Partner Peer ID">
-                <button onclick="connectToPeer()">CONNECT</button>
+                <p style="font-size:12px; opacity:0.6;">ПОДКЛЮЧЕНИЕ</p>
+                <input type="text" id="dest-id" placeholder="ID собеседника">
+                <button id="btn-connect">НАЧАТЬ ЧАТ</button>
             </div>
 
             <div class="ghost-tools hidden" id="premium-tools">
-                <h3>GHOST TOOLS</h3>
-                <button onclick="toggleFakeHistory()">FAKE HISTORY</button>
+                <h3 style="color:var(--premium)">GHOST ИНСТРУМЕНТЫ</h3>
+                <button id="btn-fake-history">ФЕЙК ИСТОРИЯ</button>
                 <select id="self-destruct-timer" class="glass">
-                    <option value="0">No Self-Destruct</option>
-                    <option value="5000">5s</option>
-                    <option value="30000">30s</option>
+                    <option value="0">Без удаления</option>
+                    <option value="5000">5 секунд</option>
+                    <option value="30000">30 секунд</option>
                 </select>
             </div>
 
-            <button onclick="logout()" class="btn-logout">LOGOUT</button>
+            <button id="btn-logout" class="btn-logout">ВЫЙТИ ИЗ СЕТИ</button>
         </aside>
 
         <main class="chat-area glass">
             <header class="chat-header">
-                <div id="active-contact">Waiting...</div>
+                <div id="active-contact">Ожидание подключения...</div>
                 <div class="call-controls">
-                    <button onclick="startCall('video')">📹</button>
+                    <button id="btn-start-call">📹</button>
                 </div>
             </header>
             <div id="messages-container"></div>
             <footer class="chat-input">
-                <input type="text" id="msg-input" placeholder="Type a message...">
-                <button id="send-btn">SEND</button>
+                <input type="text" id="msg-input" placeholder="Введите сообщение...">
+                <button id="send-btn">ОТПРАВИТЬ</button>
             </footer>
         </main>
     </div>
@@ -102,10 +103,10 @@
         <video id="remote-video" autoplay playsinline></video>
         <div class="local-video-container"><video id="local-video" autoplay playsinline muted></video></div>
         <div class="call-ui-wrapper">
-            <div id="call-status" class="glass">Calling...</div>
+            <div id="call-status" class="glass">Вызов...</div>
             <div class="call-btns">
-                <button id="accept-call" class="btn-call-accept">ACCEPT</button>
-                <button id="decline-call" class="btn-call-decline">DECLINE</button>
+                <button id="accept-call" class="btn-call-accept">ПРИНЯТЬ</button>
+                <button id="decline-call" class="btn-call-decline">ОТКЛОНИТЬ</button>
             </div>
         </div>
     </div>
