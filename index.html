@@ -1,97 +1,104 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BROKE | P2P Encrypted Messenger</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
-</head>
-<body>
+:root {
+    --bg-color: #0a0a0c;
+    --glass: rgba(255, 255, 255, 0.03);
+    --glass-heavy: rgba(255, 255, 255, 0.08);
+    --accent: #007aff;
+    --premium: #00f2ff;
+    --gold: #ffcf40;
+    --red: #ff3b30;
+    --green: #34c759;
+}
 
-    <div id="ban-screen" class="hidden-overlay">
-        <h1>ACCESS DENIED</h1>
-        <p>Your ID has been blacklisted by Network Control.</p>
-    </div>
+body, html {
+    margin: 0; padding: 0;
+    background: var(--bg-color);
+    color: white;
+    font-family: -apple-system, sans-serif;
+    height: 100vh; overflow: hidden;
+}
 
-    <div id="admin-modal" class="modal-overlay">
-        <div class="modal-content glass">
-            <h2>NETWORK ACCESS</h2>
-            <input type="password" id="admin-input" placeholder="Enter Admin ID...">
-            <button onclick="checkAdmin()">AUTHENTICATE</button>
-        </div>
-    </div>
+.glass {
+    background: var(--glass);
+    backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+}
 
-    <div id="app" class="app-container hidden">
-        <aside class="sidebar glass">
-            <div class="user-profile">
-                <div id="user-badge" class="badge">USER</div>
-                <p id="my-id-display">Connecting...</p>
-            </div>
+.hidden { display: none !important; }
 
-            <div class="admin-panel hidden" id="admin-controls">
-                <h3>NETWORK CONTROL</h3>
-                <input type="text" id="target-peer-id" placeholder="Target Peer ID">
-                <div class="admin-btns">
-                    <button class="btn-ban" onclick="sendAdminCmd('CMD_BAN')">BAN</button>
-                    <button class="btn-prem" onclick="sendAdminCmd('CMD_GIVE_PREMIUM')">GIVE PREMIUM</button>
-                    <button class="btn-purge" onclick="sendAdminCmd('REMOTE_PURGE')">PURGE DB</button>
-                </div>
-                <button class="btn-lock" onclick="broadcastCmd('CMD_LOCK')">LOCK NETWORK</button>
-            </div>
+/* Auth Modals */
+.modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.9);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 2000;
+}
 
-            <div class="contacts">
-                <input type="text" id="dest-id" placeholder="Remote Peer ID">
-                <button onclick="connectToPeer()">CONNECT</button>
-            </div>
+.modal-content {
+    padding: 30px; width: 320px; text-align: center;
+    display: flex; flex-direction: column; gap: 15px;
+}
 
-            <div class="ghost-tools hidden" id="premium-tools">
-                <h3>GHOST TOOLS</h3>
-                <button onclick="toggleFakeHistory()">FAKE HISTORY</button>
-                <select id="self-destruct-timer">
-                    <option value="0">No Self-Destruct</option>
-                    <option value="5000">5 Seconds</option>
-                    <option value="10000">10 Seconds</option>
-                    <option value="30000">30 Seconds</option>
-                </select>
-            </div>
-        </aside>
+/* Layout */
+.app-container { display: flex; height: 100vh; }
 
-        <main class="chat-area glass">
-            <header class="chat-header">
-                <div id="active-contact">Waiting for connection...</div>
-                <div class="call-controls">
-                    <button onclick="startCall('video')">📹</button>
-                    <button onclick="startCall('audio')">📞</button>
-                </div>
-            </header>
+.sidebar {
+    width: 280px; padding: 20px; border-radius: 0;
+    display: flex; flex-direction: column; gap: 20px;
+    border-right: 1px solid rgba(255,255,255,0.05);
+}
 
-            <div id="messages-container"></div>
+.chat-area { flex: 1; display: flex; flex-direction: column; border-radius: 0; }
 
-            <footer class="chat-input">
-                <input type="text" id="msg-input" placeholder="Type a message...">
-                <button id="send-btn">SEND</button>
-            </footer>
-        </main>
-    </div>
+/* Components */
+input, select {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: white; padding: 12px; border-radius: 10px;
+}
 
-    <div id="call-overlay" class="hidden-overlay glass">
-        <video id="remote-video" autoplay playsinline></video>
-        
-        <div class="local-video-container">
-            <video id="local-video" autoplay playsinline muted></video>
-        </div>
+button {
+    background: var(--accent); color: white; border: none;
+    padding: 12px; border-radius: 10px; cursor: pointer; font-weight: bold;
+}
 
-        <div class="call-ui-wrapper">
-            <div id="call-status" class="glass">Incoming Call...</div>
-            <div class="call-btns">
-                <button id="accept-call" class="btn-call-accept">ACCEPT</button>
-                <button id="decline-call" class="btn-call-decline">DECLINE</button>
-            </div>
-        </div>
-    </div>
+.badge {
+    font-size: 10px; font-weight: bold; border: 1px solid white;
+    padding: 2px 6px; border-radius: 4px; display: inline-block;
+}
 
-    <script src="script.js"></script>
-</body>
-</html>
+.admin-active #user-badge { color: var(--gold); border-color: var(--gold); }
+.premium-active #user-badge { color: var(--premium); border-color: var(--premium); animation: neon 2s infinite; }
+
+/* Chat Messages */
+#messages-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: 75%; padding: 12px; border-radius: 15px; font-size: 14px; position: relative; }
+.msg-sent { align-self: flex-end; background: var(--accent); }
+.msg-received { align-self: flex-start; background: rgba(255,255,255,0.1); }
+.premium-msg { border: 1px solid var(--premium); box-shadow: 0 0 10px rgba(0,242,255,0.2); }
+
+/* Call UI */
+.hidden-overlay { position: fixed; inset: 0; display: none; background: #000; z-index: 3000; }
+#remote-video { width: 100%; height: 100%; object-fit: cover; }
+.local-video-container {
+    position: absolute; bottom: 30px; right: 30px;
+    width: 180px; height: 120px; border-radius: 12px;
+    overflow: hidden; border: 2px solid var(--accent);
+}
+#local-video { width: 100%; height: 100%; object-fit: cover; }
+.call-ui-wrapper { position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%); text-align: center; }
+.call-btns { display: flex; gap: 20px; margin-top: 20px; }
+.btn-call-accept { background: var(--green); padding: 15px 30px; }
+.btn-call-decline { background: var(--red); padding: 15px 30px; }
+
+/* Admin Buttons */
+.admin-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+.btn-ban { background: var(--red); }
+.btn-prem { background: #5856d6; }
+.btn-purge { background: #ff9500; }
+.btn-logout { background: transparent; border: 1px solid rgba(255,255,255,0.1); font-size: 12px; margin-top: auto; }
+
+/* Panic Mode */
+.panic-mode { filter: blur(50px) !important; pointer-events: none; }
+
+@keyframes neon { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
