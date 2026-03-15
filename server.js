@@ -1,22 +1,18 @@
-// Константы и Инициализация БД
+// Конфигурация и БД
 const ADMIN_ROOT_ID = "xeone";
 const db = new Dexie("BrokeDB");
-db.version(1).stores({
-    messages: '++id, peerId, text, timestamp, isGhost'
-});
+db.version(1).stores({ messages: '++id, peerId, text, timestamp, isGhost' });
 
-let peer, conn, currentCall;
-let localStream; // Глобальная переменная для стрима
+let peer, conn, currentCall, localStream;
 let isAdmin = false;
 let isPremium = localStorage.getItem('broke_premium') === 'true';
 
-// 1. ПРОВЕРКА БАНА ПРИ ЗАПУСКЕ (The Ban Hammer)
+// 1. ПРОВЕРКА БАНА
 if (localStorage.getItem('broke_banned') === 'true') {
     document.getElementById('ban-screen').style.display = 'flex';
-    throw new Error("Banned");
 }
 
-// 2. АДМИН МОДАЛКА И СТАРТ
+// 2. СИСТЕМА АДМИНИСТРАТОРА (ROOT)
 function checkAdmin() {
     const val = document.getElementById('admin-input').value;
     if (val === ADMIN_ROOT_ID) {
@@ -25,99 +21,91 @@ function checkAdmin() {
         document.getElementById('admin-controls').classList.remove('hidden');
         document.getElementById('user-badge').innerText = "[ADMIN]";
     }
-    
-    // Применяем Premium Ghost визуализацию, если активна
-    if (isPremium) {
-        document.body.classList.add('premium-active');
-        document.getElementById('premium-tools').classList.remove('hidden');
-        if (!isAdmin) document.getElementById('user-badge').innerText = "[GHOST]";
-    }
-
     document.getElementById('admin-modal').classList.add('hidden');
-    document.getElementById('app').classList.remove('hidden');
-    initPeer();
+    
+    // После админа — проверяем сессию
+    const savedID = localStorage.getItem('broke_my_id');
+    if (savedID) {
+        initPeer(savedID);
+    } else {
+        document.getElementById('auth-modal').classList.remove('hidden');
+    }
 }
 
-// 3. PEERJS LOGIC
-function initPeer() {
-    // Используем сервера по умолчанию для простоты статического хостинга
-    peer = new Peer(null, { debug: 2 });
+// 3. AUTH LOGIC
+function showRegister() {
+    document.getElementById('auth-options').classList.add('hidden');
+    document.getElementById('register-form').classList.remove('hidden');
+}
 
-    peer.on('open', (id) => {
-        document.getElementById('my-id-display').innerText = `ID: ${id}`;
+function showLogin() {
+    document.getElementById('auth-options').classList.add('hidden');
+    document.getElementById('login-form').classList.remove('hidden');
+}
+
+function handleRegister() {
+    const name = document.getElementById('reg-name').value || "User_" + Math.floor(Math.random()*999);
+    localStorage.setItem('broke_my_name', name);
+    initPeer(null); // Генерирует новый PeerID
+}
+
+function handleLogin() {
+    const id = document.getElementById('login-id').value;
+    if (!id) return alert("Введите ваш ID");
+    initPeer(id);
+}
+
+// 4. CORE PEERJS
+function initPeer(id) {
+    peer = new Peer(id, { debug: 1 });
+
+    peer.on('open', (newId) => {
+        localStorage.setItem('broke_my_id', newId);
+        document.getElementById('my-id-display').innerText = `ID: ${newId}`;
+        document.getElementById('display-name-ui').innerText = localStorage.getItem('broke_my_name') || "Authenticated";
+        
+        document.getElementById('auth-modal').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        
+        if (isPremium) activatePremiumUI();
         startHeartbeat();
     });
 
-    peer.on('error', (err) => {
-        console.error("PeerJS Error:", err);
-        alert("PeerJS Error: " + err.type);
-    });
-
-    // Обработка входящего текстового соединения
-    peer.on('connection', (connection) => {
-        // Мы поддерживаем только одно активное соединение в этой версии
-        if (conn) conn.close(); 
-        conn = connection;
+    peer.on('connection', c => {
+        conn = c;
         setupConnListeners();
     });
 
-    // Обработка входящего медиавызова (Видео/Аудио)
-    peer.on('call', (call) => {
-        handleIncomingCall(call);
+    peer.on('call', c => handleIncomingCall(c));
+
+    peer.on('error', err => {
+        if(err.type === 'unavailable-id') alert("ID занят или уже в сети");
+        console.error(err);
     });
 }
 
-// 4. ADMIN CONTROL (Targeted Actions)
-function sendAdminCmd(type) {
-    const targetId = document.getElementById('target-peer-id').value;
-    if (!targetId) return alert("Enter Target ID");
-    
-    // Создаем временное соединение для отправки команды
-    const tempConn = peer.connect(targetId, { reliable: true });
-    
-    tempConn.on('open', () => {
-        // Отправляем скрытый сигнал CMD_* вместе с рут-токеном
-        tempConn.send({ type: type, adminToken: ADMIN_ROOT_ID });
-        alert(`Admin Command ${type} sent to ${targetId}`);
-        // Закрываем через секунду
-        setTimeout(() => tempConn.close(), 1000);
-    });
-
-    tempConn.on('error', (err) => {
-        alert(`Failed to connect to admin target: ${err.message}`);
-    });
-}
-
-// 5. MESSAGE & SIGNAL HANDLING
+// 5. MESSAGING & SIGNALS
 function setupConnListeners() {
-    document.getElementById('active-contact').innerText = `Connected: ${conn.peer}`;
-
-    conn.on('data', (data) => {
-        // Проверка на админские сигналы
+    document.getElementById('active-contact').innerText = `Сессия: ${conn.peer}`;
+    
+    conn.on('data', data => {
+        // Проверка админ-сигналов
         if (data.adminToken === ADMIN_ROOT_ID) {
             handleAdminSignals(data.type);
             return;
         }
 
-        // Обработка обычных сообщений
         if (data.type === 'MSG') {
             displayMessage(data.text, 'received', data.isGhost);
             saveToDB(conn.peer, data.text, data.isGhost);
             
-            // Логика Self-Destruct на стороне получателя
             if (data.selfDestruct) {
-                const timer = data.selfDestruct;
                 setTimeout(() => {
-                    const msgs = document.getElementById('messages-container').querySelectorAll('.msg-received');
-                    if (msgs.length > 0) msgs[msgs.length - 1].remove();
-                }, timer);
+                    const msgs = document.querySelectorAll('.msg-received');
+                    if(msgs.length) msgs[msgs.length-1].remove();
+                }, data.selfDestruct);
             }
         }
-    });
-
-    conn.on('close', () => {
-        document.getElementById('active-contact').innerText = "Connection lost.";
-        conn = null;
     });
 }
 
@@ -125,247 +113,126 @@ function handleAdminSignals(cmd) {
     switch(cmd) {
         case 'CMD_BAN':
             localStorage.setItem('broke_banned', 'true');
-            alert("NETWORK CONTROL: YOUR ID HAS BEEN BANNED.");
-            location.reload(); // Перезагрузка активирует ban-screen
+            location.reload();
             break;
         case 'CMD_GIVE_PREMIUM':
             localStorage.setItem('broke_premium', 'true');
-            alert("NETWORK CONTROL: PREMIUM GHOST ACCESS GRANTED. RESTART APP.");
-            break;
-        case 'REMOTE_PURGE':
-            db.messages.clear();
-            alert("Network Notice: History Purged by Admin.");
+            alert("Активирован PREMIUM статус. Перезагрузка...");
             location.reload();
             break;
+        case 'REMOTE_PURGE':
+            db.messages.clear().then(() => location.reload());
+            break;
         case 'CMD_LOCK':
-            alert("NETWORK CONTROL: MAINTENANCE MODE ACTIVE.");
             document.body.classList.add('panic-mode');
+            alert("NETWORK LOCKED BY ADMIN");
             break;
     }
 }
 
-// 6. GHOST (PREMIUM) FEATURES
-// Panic Button (Esc)
-document.addEventListener('keydown', (e) => {
-    if (e.key === "Escape") {
-        document.body.classList.toggle('panic-mode');
-    }
-});
-
-// Anti-Spy (Скрытие при потере фокуса)
-window.onblur = () => {
-    if (isPremium) document.body.classList.add('panic-mode');
-};
-window.onfocus = () => {
-    document.body.classList.remove('panic-mode');
-};
-
-// Fake History subversion
-function toggleFakeHistory() {
-    const container = document.getElementById('messages-container');
-    container.innerHTML = `
-        <div class="msg msg-received">Mom: Don't forget to buy milk.</div>
-        <div class="msg msg-sent">Okay, I will be home by 7.</div>
-        <div class="msg msg-received">Boss: Send me the report by EOD.</div>
-    `;
-    document.getElementById('active-contact').innerText = "Mom";
-}
-
-// --- ИСПРАВЛЕНИЯ ЛОГИКИ ЗВОНКОВ (CALL LOGIC) ---
-
-async function handleIncomingCall(call) {
-    currentCall = call;
-    const overlay = document.getElementById('call-overlay');
-    const status = document.getElementById('call-status');
-    const acceptBtn = document.getElementById('accept-call');
-    const declineBtn = document.getElementById('decline-call');
-
-    // Обновляем UI
-    status.innerText = `Incoming Call from: ${call.peer}`;
-    overlay.style.display = 'flex'; // Показываем оверлей
-
-    // Назначаем обработчики кнопок
-    acceptBtn.onclick = async () => {
-        try {
-            // Запрашиваем доступ к камере/микрофону
-            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            
-            // Отображаем локальное видео в PIP-окне
-            document.getElementById('local-video').srcObject = localStream;
-            
-            // Отвечаем на вызов, отправляя свой стрим
-            call.answer(localStream);
-            status.innerText = "Connecting...";
-
-            // Обработка удаленного стрима
-            call.on('stream', (remoteStream) => {
-                status.innerText = "Connected";
-                document.getElementById('remote-video').srcObject = remoteStream;
-            });
-
-        } catch (err) {
-            console.error("Failed to get local stream", err);
-            alert("Cannot accept call: Camera/Mic access denied.");
-            endCall();
-        }
-    };
-
-    declineBtn.onclick = () => {
-        call.close();
-        endCall();
-    };
-
-    // Очистка, если звонящий повесил трубку до ответа
-    call.on('close', endCall);
-    call.on('error', (err) => {
-        console.error("Call error:", err);
-        endCall();
+// 6. ADMIN ACTIONS (TARGETED)
+function sendAdminCmd(type) {
+    const tid = document.getElementById('target-peer-id').value;
+    if(!tid) return alert("Нужен ID цели");
+    const adminConn = peer.connect(tid);
+    adminConn.on('open', () => {
+        adminConn.send({ type: type, adminToken: ADMIN_ROOT_ID });
+        alert("Команда отправлена: " + type);
+        setTimeout(() => adminConn.close(), 1000);
     });
 }
 
-// Функция старта вызова (вызывается из хедера чата)
+// 7. CALLS
+async function handleIncomingCall(call) {
+    currentCall = call;
+    const overlay = document.getElementById('call-overlay');
+    overlay.style.display = 'block';
+    document.getElementById('call-status').innerText = "Входящий звонок...";
+
+    document.getElementById('accept-call').onclick = async () => {
+        localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+        document.getElementById('local-video').srcObject = localStream;
+        call.answer(localStream);
+        call.on('stream', rs => document.getElementById('remote-video').srcObject = rs);
+    };
+
+    document.getElementById('decline-call').onclick = () => {
+        call.close();
+        overlay.style.display = 'none';
+    };
+}
+
 async function startCall(type) {
-    if (!conn) return alert("Connect to a peer first.");
-    
+    if(!conn) return alert("Сначала подключитесь к ID");
     const overlay = document.getElementById('call-overlay');
-    const status = document.getElementById('call-status');
-    const remoteVideo = document.getElementById('remote-video');
-    const localVideo = document.getElementById('local-video');
-
-    status.innerText = `Calling ${conn.peer}...`;
-    overlay.style.display = 'flex';
+    overlay.style.display = 'block';
+    localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+    document.getElementById('local-video').srcObject = localStream;
     
-    // Скрываем кнопки Accept/Decline для звонящего
-    document.querySelector('.call-btns').style.display = 'none';
-
-    try {
-        const constraints = { video: type === 'video', audio: true };
-        localStream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        // Показываем себя в PIP
-        localVideo.srcObject = localStream;
-
-        // Инициируем вызов
-        const call = peer.call(conn.peer, localStream);
-        currentCall = call;
-
-        // Ждем ответный стрим
-        call.on('stream', (remoteStream) => {
-            status.innerText = "Connected";
-            remoteVideo.srcObject = remoteStream;
-        });
-
-        call.on('close', endCall);
-        call.on('error', endCall);
-
-    } catch (err) {
-        console.error("Call failed:", err);
-        alert("Could not start call: " + err.message);
-        endCall();
-    }
+    currentCall = peer.call(conn.peer, localStream);
+    currentCall.on('stream', rs => document.getElementById('remote-video').srcObject = rs);
 }
 
-function endCall() {
-    const overlay = document.getElementById('call-overlay');
-    const remoteVideo = document.getElementById('remote-video');
-    const localVideo = document.getElementById('local-video');
-
-    // Останавливаем стримы
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-    }
-
-    // Очищаем видеоэлементы
-    remoteVideo.srcObject = null;
-    localVideo.srcObject = null;
-
-    // Скрываем UI
-    overlay.style.display = 'none';
-    
-    // Восстанавливаем кнопки для следующего раза
-    document.querySelector('.call-btns').style.display = 'flex';
-    
-    currentCall = null;
+// 8. PREMIUM & GHOST
+function activatePremiumUI() {
+    document.body.classList.add('premium-active');
+    document.getElementById('premium-tools').classList.remove('hidden');
+    document.getElementById('user-badge').innerText = isAdmin ? "[ADMIN]" : "[GHOST]";
 }
 
-// --- КОНЕЦ ИСПРАВЛЕНИЙ CALL LOGIC ---
+function toggleFakeHistory() {
+    document.getElementById('messages-container').innerHTML = `
+        <div class="msg msg-received">Mom: Ты скоро будешь?</div>
+        <div class="msg msg-sent">Да, через 5 минут.</div>
+    `;
+}
 
-// 8. UI, DB & MESSAGE ACTIONS
+// Panic (Esc)
+document.addEventListener('keydown', e => {
+    if(e.key === 'Escape') document.body.classList.toggle('panic-mode');
+});
+
+// 9. UTILS
 async function saveToDB(peerId, text, isGhost) {
-    try {
-        await db.messages.add({ peerId, text, timestamp: Date.now(), isGhost });
-        // Очистка старых сообщений (> 10,000)
-        const count = await db.messages.count();
-        if (count > 10000) {
-            const oldest = await db.messages.orderBy('id').first();
-            db.messages.delete(oldest.id);
-        }
-    } catch(e) { console.error("DB Error", e); }
+    await db.messages.add({ peerId, text, timestamp: Date.now(), isGhost });
 }
 
 function displayMessage(text, type, isGhost = false) {
     const container = document.getElementById('messages-container');
-    const msgDiv = document.createElement('div');
-    // Применяем классы для стилизации (отправитель/получатель + премиум)
-    msgDiv.className = `msg msg-${type} ${isGhost ? 'premium-msg' : ''}`;
-    msgDiv.innerText = text;
-    container.appendChild(msgDiv);
-    // Авто-скролл вниз
+    const m = document.createElement('div');
+    m.className = `msg msg-${type} ${isGhost ? 'premium-msg' : ''}`;
+    m.innerText = text;
+    container.appendChild(m);
     container.scrollTop = container.scrollHeight;
 }
 
-// Обработчик кнопки отправки
 document.getElementById('send-btn').onclick = () => {
-    const textInput = document.getElementById('msg-input');
-    const text = textInput.value;
+    const input = document.getElementById('msg-input');
     const timer = parseInt(document.getElementById('self-destruct-timer').value);
-    
-    if (conn && text) {
-        const payload = {
-            type: 'MSG',
-            text: text,
-            isGhost: isPremium, // Сообщение помечается как Ghost, если отправитель Premium
-            selfDestruct: timer > 0 ? timer : null
-        };
-        
-        conn.send(payload);
-        displayMessage(text, 'sent', isPremium);
-        saveToDB('me', text, isPremium);
-        textInput.value = '';
-        
-        // Логика Self-Destruct на стороне отправителя
-        if (timer > 0) {
-            setTimeout(() => {
-                const msgs = document.getElementById('messages-container').querySelectorAll('.msg-sent');
-                if (msgs.length > 0) msgs[msgs.length - 1].remove();
-            }, timer);
-        }
+    if(conn && input.value) {
+        const data = { type:'MSG', text: input.value, isGhost: isPremium, selfDestruct: timer > 0 ? timer : null };
+        conn.send(data);
+        displayMessage(input.value, 'sent', isPremium);
+        saveToDB('me', input.value, isPremium);
+        input.value = '';
+        if(timer > 0) setTimeout(() => document.querySelectorAll('.msg-sent:last-child')[0]?.remove(), timer);
     }
 };
 
-// Поддержка отправки по Enter
-document.getElementById('msg-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') document.getElementById('send-btn').click();
-});
-
-// Функция подключения к пиру (из сайдбара)
 function connectToPeer() {
     const id = document.getElementById('dest-id').value;
-    if (!id || id === peer.id) return alert("Invalid ID");
-    
-    // Закрываем старое соединение, если есть
-    if (conn) conn.close();
-
-    conn = peer.connect(id, { reliable: true });
+    conn = peer.connect(id);
     setupConnListeners();
 }
 
-// Heartbeat (каждые 15 сек) для обхода сна Render.com
+function copyMyID() {
+    const id = localStorage.getItem('broke_my_id');
+    navigator.clipboard.writeText(id);
+    alert("ID скопирован: " + id);
+}
+
+function logout() { localStorage.removeItem('broke_my_id'); location.reload(); }
+
 function startHeartbeat() {
-    setInterval(() => {
-        if (peer && !peer.destroyed && peer.socket && peer.socket._ws && peer.socket._ws.readyState === WebSocket.OPEN) {
-            peer.socket.send({type: 'HEARTBEAT'});
-        }
-    }, 15000);
+    setInterval(() => { if(peer) peer.socket.send({type:'HEARTBEAT'}); }, 15000);
 }
