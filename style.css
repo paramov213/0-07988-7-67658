@@ -12,7 +12,7 @@ body, html {
     margin: 0; padding: 0;
     background: var(--bg-color);
     color: white;
-    font-family: -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     height: 100vh; overflow: hidden;
 }
 
@@ -27,7 +27,7 @@ body, html {
 
 .modal-overlay {
     position: fixed; inset: 0;
-    background: rgba(0,0,0,0.9);
+    background: rgba(0,0,0,0.95);
     display: flex; justify-content: center; align-items: center;
     z-index: 2000;
 }
@@ -37,7 +37,7 @@ body, html {
     display: flex; flex-direction: column; gap: 15px;
 }
 
-.app-container { display: flex; height: 100vh; }
+.app-container { display: flex; height: 100vh; width: 100vw; }
 
 .sidebar {
     width: 280px; padding: 20px; display: flex; flex-direction: column; gap: 20px;
@@ -46,35 +46,37 @@ body, html {
 
 .chat-area { flex: 1; display: flex; flex-direction: column; }
 
-input {
+input, select {
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
-    color: white; padding: 12px; border-radius: 10px;
+    color: white; padding: 12px; border-radius: 10px; outline: none;
 }
 
 button {
     background: var(--accent); color: white; border: none;
     padding: 12px; border-radius: 10px; cursor: pointer; font-weight: bold;
+    transition: 0.2s;
 }
+
+button:active { transform: scale(0.95); }
 
 .badge {
     font-size: 10px; font-weight: bold; border: 1px solid white;
-    padding: 2px 6px; border-radius: 4px; cursor: pointer;
+    padding: 4px 8px; border-radius: 4px; cursor: pointer; display: inline-block;
 }
 
 .admin-active #user-badge { color: var(--gold); border-color: var(--gold); box-shadow: 0 0 10px var(--gold); }
 .premium-active #user-badge { color: var(--premium); border-color: var(--premium); }
 
 #messages-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-.msg { max-width: 75%; padding: 12px; border-radius: 15px; font-size: 14px; }
+.msg { max-width: 75%; padding: 12px; border-radius: 15px; font-size: 14px; line-height: 1.4; }
 .msg-sent { align-self: flex-end; background: var(--accent); }
 .msg-received { align-self: flex-start; background: rgba(255,255,255,0.1); }
-.premium-msg { border: 1px solid var(--premium); box-shadow: 0 0 10px rgba(0,242,255,0.2); }
+.premium-msg { border: 1px solid var(--premium); }
 
 .hidden-overlay { position: fixed; inset: 0; display: none; background: #000; z-index: 3000; justify-content: center; align-items: center; }
 .local-video-container { position: absolute; bottom: 30px; right: 30px; width: 160px; height: 100px; border-radius: 12px; overflow: hidden; border: 2px solid var(--accent); }
 #remote-video { width: 100%; height: 100%; object-fit: cover; }
-#local-video { width: 100%; height: 100%; object-fit: cover; }
 
 .admin-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
 .btn-ban { background: var(--red); }
@@ -83,3 +85,4 @@ button {
 .btn-logout { background: transparent; border: 1px solid rgba(255,255,255,0.1); font-size: 12px; margin-top: auto; }
 
 .panic-mode { filter: blur(50px) !important; pointer-events: none; }
+.neon-text { text-shadow: 0 0 10px var(--accent); }
