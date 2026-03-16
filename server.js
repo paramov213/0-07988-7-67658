@@ -9,7 +9,7 @@ let db = { users: {} };
 
 // Загрузка базы данных
 if (fs.existsSync(DB_FILE)) {
-    try { db = JSON.parse(fs.readFileSync(DB_FILE)); } catch (e) { console.log("Ошибка БД"); }
+    try { db = JSON.parse(fs.readFileSync(DB_FILE)); } catch (e) { console.log("Ошибка чтения БД"); }
 }
 const saveDB = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
@@ -19,37 +19,43 @@ const activeSockets = {}; // login -> socketId
 const userStatus = {};    // login -> status string
 
 io.on('connection', (socket) => {
-    // Авторизация и Регистрация
+    // Вход и Регистрация
     socket.on('auth', (data) => {
+        const login = data.login.trim();
         if (data.type === 'register') {
-            if (db.users[data.login]) return socket.emit('auth-error', 'Логин занят');
-            db.users[data.login] = data.password;
+            if (db.users[login]) return socket.emit('auth-error', 'Логин уже занят');
+            db.users[login] = data.password;
             saveDB();
         } else {
-            if (!db.users[data.login] || db.users[data.login] !== data.password) {
+            if (!db.users[login] || db.users[login] !== data.password) {
                 return socket.emit('auth-error', 'Неверный логин или пароль');
             }
         }
         
-        socket.userName = data.login;
-        activeSockets[data.login] = socket.id;
-        userStatus[data.login] = 'online';
+        socket.userName = login;
+        activeSockets[login] = socket.id;
+        userStatus[login] = 'online';
         
-        io.emit('user-status-update', { user: data.login, status: 'online' });
-        socket.emit('auth-success', { user: data.login });
-        console.log(`${data.login} вошел в Celestra`);
+        io.emit('user-status-update', { user: login, status: 'online' });
+        socket.emit('auth-success', { user: login });
     });
 
-    // Поиск
-    socket.on('search-user', (username) => {
-        if (db.users[username]) {
-            socket.emit('search-result', { exists: true, username });
+    // Исправленный поиск по юзернейму (без учета регистра)
+    socket.on('search-user', (searchName) => {
+        const query = searchName.toLowerCase().trim();
+        const found = Object.keys(db.users).find(name => name.toLowerCase() === query);
+
+        if (found) {
+            socket.emit('search-result', { 
+                exists: true, 
+                username: found, 
+                status: userStatus[found] || 'был(а) недавно'
+            });
         } else {
             socket.emit('search-result', { exists: false });
         }
     });
 
-    // Запрос статуса
     socket.on('get-status', (username) => {
         socket.emit('status-result', { 
             user: username, 
@@ -59,6 +65,7 @@ io.on('connection', (socket) => {
 
     // Приватные сообщения
     socket.on('private-message', (data) => {
+        if (!socket.userName) return;
         const msg = {
             from: socket.userName,
             to: data.to,
@@ -88,4 +95,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, '0.0.0.0', () => console.log(`Celestra Server on port ${PORT}`));
+http.listen(PORT, '0.0.0.0', () => console.log(`Celestra Server running on port ${PORT}`));
