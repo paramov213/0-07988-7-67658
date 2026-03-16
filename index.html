@@ -12,10 +12,8 @@
             <h1>CELESTRA</h1>
             <input type="text" id="login-input" placeholder="Логин">
             <input type="password" id="pass-input" placeholder="Пароль">
-            <div class="auth-buttons">
-                <button onclick="auth('login')">Войти</button>
-                <button onclick="auth('register')" class="secondary">Регистрация</button>
-            </div>
+            <button onclick="auth('login')">Войти</button>
+            <button onclick="auth('register')" class="secondary">Регистрация</button>
             <p id="error-msg"></p>
         </div>
     </div>
@@ -23,10 +21,16 @@
     <div id="app-container" class="app-container" style="display: none;">
         <aside class="sidebar">
             <div class="search-section">
-                <input type="text" id="user-search" placeholder="Поиск @Георгий..." oninput="searchUser()">
+                <input type="text" id="user-search" placeholder="Поиск @юзер..." oninput="searchUser()">
                 <div id="search-results"></div>
             </div>
-            <div class="sidebar-footer"><span id="my-name"></span> <button onclick="logout()">Выход</button></div>
+            <div id="chats-list">
+                <div class="sidebar-label">Ваши чаты</div>
+            </div>
+            <div class="sidebar-footer">
+                <span id="my-name"></span>
+                <button onclick="logout()" class="exit-btn">Выход</button>
+            </div>
         </aside>
 
         <main class="chat-area">
@@ -36,7 +40,7 @@
             </header>
             <div id="chat-window"></div>
             <div class="input-area" id="input-block" style="display: none;">
-                <label class="icon-btn">📷<input type="file" id="photo-input" hidden></label>
+                <label class="icon-btn">📷<input type="file" id="photo-input" accept="image/*" onchange="sendPhoto()" hidden></label>
                 <input type="text" id="msg" placeholder="Сообщение..." oninput="isTyping()">
                 <button onclick="sendPrivate()" class="send-btn">➤</button>
             </div>
@@ -47,6 +51,13 @@
     <script>
         const socket = io();
         let myName = "", currentChatUser = null, typingTimeout;
+        const unreadCounts = {}; 
+        const chatMessages = {}; 
+
+        window.onload = () => {
+            const saved = localStorage.getItem('celestra_session');
+            if (saved) socket.emit('auth', { ...JSON.parse(saved), type: 'login' });
+        };
 
         function auth(type) {
             const login = document.getElementById('login-input').value.trim();
@@ -62,7 +73,11 @@
             document.getElementById('app-container').style.display = 'flex';
         });
 
-        // Поиск: теперь он "умный"
+        socket.on('auth-error', (msg) => {
+            document.getElementById('error-msg').innerText = msg;
+            localStorage.removeItem('celestra_session');
+        });
+
         function searchUser() {
             const val = document.getElementById('user-search').value;
             if(val.length >= 1) socket.emit('search-user', val);
@@ -71,36 +86,61 @@
 
         socket.on('search-result', (data) => {
             const res = document.getElementById('search-results');
-            if (data.exists) {
-                res.innerHTML = `<div class="found-user-card" onclick="openChat('${data.username}')">
-                    <b>@${data.username}</b><br><small>${data.status}</small>
-                </div>`;
+            if (data.exists && data.username !== myName) {
+                res.innerHTML = `<div class="found-user-card" onclick="addChat('${data.username}')"><b>@${data.username}</b></div>`;
             } else {
-                res.innerHTML = `<div class="not-found">Пользователь не найден</div>`;
+                res.innerHTML = `<div class="not-found">Не найден</div>`;
             }
         });
 
+        function addChat(username) {
+            if (!unreadCounts.hasOwnProperty(username)) unreadCounts[username] = 0;
+            openChat(username);
+        }
+
+        function updateChatsUI() {
+            const list = document.getElementById('chats-list');
+            list.innerHTML = '<div class="sidebar-label">Ваши чаты</div>';
+            
+            Object.keys(unreadCounts).forEach(user => {
+                const div = document.createElement('div');
+                div.className = `chat-item ${currentChatUser === user ? 'active' : ''}`;
+                div.onclick = () => openChat(user);
+                
+                let badge = unreadCounts[user] > 0 ? `<span class="badge">${unreadCounts[user]}</span>` : '';
+                div.innerHTML = `<span>@${user}</span> ${badge}`;
+                list.appendChild(div);
+            });
+        }
+
         function openChat(user) {
             currentChatUser = user;
+            unreadCounts[user] = 0; 
             document.getElementById('header-user').innerText = "@" + user;
             document.getElementById('input-block').style.display = 'flex';
-            document.getElementById('chat-window').innerHTML = '';
+            document.getElementById('search-results').innerHTML = '';
+            document.getElementById('user-search').value = '';
+            
+            renderMessages(user);
+            updateChatsUI();
             socket.emit('get-status', user);
         }
 
-        // Логика "Печатает..."
-        function isTyping() {
-            socket.emit('typing', { to: currentChatUser });
-        }
+        function isTyping() { socket.emit('typing', { to: currentChatUser }); }
 
         socket.on('user-typing', (data) => {
             if(data.from === currentChatUser) {
                 const status = document.getElementById('header-status');
-                const oldStatus = status.innerText;
+                const originalStatus = status.innerText;
+                if (status.innerText === "печатает...") return;
                 status.innerText = "печатает...";
                 clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(() => { status.innerText = oldStatus; }, 2000);
+                typingTimeout = setTimeout(() => { socket.emit('get-status', currentChatUser); }, 2000);
             }
+        });
+
+        socket.on('status-result', data => {
+            if(data.user === currentChatUser) document.getElementById('header-status').innerText = data.status;
         });
 
         function sendPrivate() {
@@ -109,15 +149,47 @@
             document.getElementById('msg').value = '';
         }
 
-        socket.on('msg-receive', (data) => {
-            if (data.from === currentChatUser || data.from === myName) {
-                const div = document.createElement('div');
-                div.className = `msg-bubble ${data.from === myName ? 'my-msg' : ''}`;
-                div.innerHTML = `<div>${data.text}</div><div class="msg-time">${data.time}</div>`;
-                document.getElementById('chat-window').appendChild(div);
-                document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight;
+        function sendPhoto() {
+            const file = document.getElementById('photo-input').files[0];
+            if (file && currentChatUser) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    socket.emit('private-message', { to: currentChatUser, text: "", image: e.target.result });
+                    document.getElementById('photo-input').value = '';
+                };
+                reader.readAsDataURL(file);
             }
+        }
+
+        socket.on('msg-receive', (data) => {
+            const partner = data.from === myName ? data.to : data.from;
+            
+            if (!chatMessages[partner]) chatMessages[partner] = [];
+            chatMessages[partner].push(data);
+
+            if (!unreadCounts.hasOwnProperty(partner)) unreadCounts[partner] = 0;
+
+            if (partner !== currentChatUser && data.from !== myName) {
+                unreadCounts[partner] += 1;
+            }
+
+            if (partner === currentChatUser) renderMessages(partner);
+            updateChatsUI();
         });
+
+        function renderMessages(user) {
+            const win = document.getElementById('chat-window');
+            win.innerHTML = '';
+            (chatMessages[user] || []).forEach(msg => {
+                const div = document.createElement('div');
+                div.className = `msg-bubble ${msg.from === myName ? 'my-msg' : ''}`;
+                let content = msg.text ? `<div>${msg.text}</div>` : "";
+                if(msg.image) content += `<img src="${msg.image}" class="chat-img">`;
+                div.innerHTML = `${content}<div class="msg-time">${msg.time}</div>`;
+                win.appendChild(div);
+            });
+            win.scrollTop = win.scrollHeight;
+        }
 
         function logout() { localStorage.clear(); location.reload(); }
     </script>
