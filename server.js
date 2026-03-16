@@ -7,42 +7,38 @@ const fs = require('fs');
 const DB_FILE = './users.json';
 let db = { users: {} };
 
-// Загрузка базы данных
 if (fs.existsSync(DB_FILE)) {
-    try { db = JSON.parse(fs.readFileSync(DB_FILE)); } catch (e) { console.log("Ошибка чтения БД"); }
+    try { db = JSON.parse(fs.readFileSync(DB_FILE)); } catch (e) { console.log("Ошибка БД"); }
 }
 const saveDB = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
 app.use(express.static(__dirname));
 
-const activeSockets = {}; // login -> socketId
-const userStatus = {};    // login -> status string
+const activeSockets = {}; 
+const userStatus = {};    
 
 io.on('connection', (socket) => {
-    // Вход и Регистрация
     socket.on('auth', (data) => {
         const login = data.login.trim();
         if (data.type === 'register') {
-            if (db.users[login]) return socket.emit('auth-error', 'Логин уже занят');
+            if (db.users[login]) return socket.emit('auth-error', 'Логин занят');
             db.users[login] = data.password;
             saveDB();
         } else {
             if (!db.users[login] || db.users[login] !== data.password) {
-                return socket.emit('auth-error', 'Неверный логин или пароль');
+                return socket.emit('auth-error', 'Ошибка входа');
             }
         }
-        
         socket.userName = login;
         activeSockets[login] = socket.id;
         userStatus[login] = 'online';
-        
         io.emit('user-status-update', { user: login, status: 'online' });
         socket.emit('auth-success', { user: login });
     });
 
-    // Исправленный поиск по юзернейму (без учета регистра)
+    // ИСПРАВЛЕННЫЙ ПОИСК: теперь игнорируем @ и лишние пробелы
     socket.on('search-user', (searchName) => {
-        const query = searchName.toLowerCase().trim();
+        const query = searchName.replace('@', '').toLowerCase().trim();
         const found = Object.keys(db.users).find(name => name.toLowerCase() === query);
 
         if (found) {
@@ -56,16 +52,14 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('get-status', (username) => {
-        socket.emit('status-result', { 
-            user: username, 
-            status: userStatus[username] || 'был(а) недавно' 
-        });
+    // Функция "Печатает..."
+    socket.on('typing', (data) => {
+        if (activeSockets[data.to]) {
+            io.to(activeSockets[data.to]).emit('user-typing', { from: socket.userName });
+        }
     });
 
-    // Приватные сообщения
     socket.on('private-message', (data) => {
-        if (!socket.userName) return;
         const msg = {
             from: socket.userName,
             to: data.to,
@@ -77,17 +71,9 @@ io.on('connection', (socket) => {
         socket.emit('msg-receive', msg);
     });
 
-    // Звонки
-    socket.on('call-request', (data) => {
-        if (activeSockets[data.to]) {
-            io.to(activeSockets[data.to]).emit('incoming-call', { from: socket.userName });
-        }
-    });
-
     socket.on('disconnect', () => {
         if (socket.userName) {
-            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            userStatus[socket.userName] = `был(а) в ${time}`;
+            userStatus[socket.userName] = `был(а) в ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
             io.emit('user-status-update', { user: socket.userName, status: userStatus[socket.userName] });
             delete activeSockets[socket.userName];
         }
@@ -95,4 +81,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, '0.0.0.0', () => console.log(`Celestra Server running on port ${PORT}`));
+http.listen(PORT, '0.0.0.0', () => console.log(`Celestra Server: ${PORT}`));
