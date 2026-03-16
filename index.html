@@ -7,7 +7,6 @@
     <title>Celestra Messenger</title>
 </head>
 <body>
-
     <div id="auth-screen" class="modal">
         <div class="auth-box">
             <h1>CELESTRA</h1>
@@ -15,7 +14,7 @@
             <input type="password" id="pass-input" placeholder="Пароль">
             <div class="auth-buttons">
                 <button onclick="auth('login')">Войти</button>
-                <button onclick="auth('register')" class="secondary">Создать аккаунт</button>
+                <button onclick="auth('register')" class="secondary">Регистрация</button>
             </div>
             <p id="error-msg"></p>
         </div>
@@ -24,13 +23,10 @@
     <div id="app-container" class="app-container" style="display: none;">
         <aside class="sidebar">
             <div class="search-section">
-                <input type="text" id="user-search" placeholder="Поиск @username..." oninput="searchUser()">
+                <input type="text" id="user-search" placeholder="Поиск @Георгий..." oninput="searchUser()">
                 <div id="search-results"></div>
             </div>
-            <div class="sidebar-footer">
-                <span id="my-name"></span>
-                <button onclick="logout()" class="exit-btn">Выход</button>
-            </div>
+            <div class="sidebar-footer"><span id="my-name"></span> <button onclick="logout()">Выход</button></div>
         </aside>
 
         <main class="chat-area">
@@ -38,20 +34,11 @@
                 <div id="header-user">Выберите чат</div>
                 <div id="header-status"></div>
             </header>
-
             <div id="chat-window"></div>
-
-            <div class="video-overlay" id="video-box" style="display:none;">
-                <video id="localVideo" autoplay muted playsinline></video>
-                <video id="remoteVideo" autoplay playsinline></video>
-                <button onclick="closeCall()" class="close-call">Завершить звонок</button>
-            </div>
-
             <div class="input-area" id="input-block" style="display: none;">
-                <label class="icon-btn">📷<input type="file" id="photo-input" accept="image/*" hidden></label>
-                <input type="text" id="msg" placeholder="Написать сообщение...">
+                <label class="icon-btn">📷<input type="file" id="photo-input" hidden></label>
+                <input type="text" id="msg" placeholder="Сообщение..." oninput="isTyping()">
                 <button onclick="sendPrivate()" class="send-btn">➤</button>
-                <button onclick="initCall()" class="call-btn">📞</button>
             </div>
         </main>
     </div>
@@ -59,17 +46,11 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let myName = "", currentChatUser = null;
-
-        window.onload = () => {
-            const saved = localStorage.getItem('celestra_session');
-            if (saved) socket.emit('auth', { ...JSON.parse(saved), type: 'login' });
-        };
+        let myName = "", currentChatUser = null, typingTimeout;
 
         function auth(type) {
             const login = document.getElementById('login-input').value.trim();
             const pass = document.getElementById('pass-input').value;
-            if (!login || !pass) return;
             localStorage.setItem('celestra_session', JSON.stringify({login, password: pass}));
             socket.emit('auth', { login, password: pass, type });
         }
@@ -81,35 +62,19 @@
             document.getElementById('app-container').style.display = 'flex';
         });
 
-        socket.on('auth-error', (msg) => {
-            document.getElementById('error-msg').innerText = msg;
-            localStorage.removeItem('celestra_session');
-        });
-
+        // Поиск: теперь он "умный"
         function searchUser() {
-            const val = document.getElementById('user-search').value.trim();
-            if(val.length >= 2) {
-                if(val.toLowerCase() === myName.toLowerCase()) {
-                    document.getElementById('search-results').innerHTML = '<div class="not-found">Это вы :)</div>';
-                } else {
-                    socket.emit('search-user', val);
-                }
-            } else {
-                document.getElementById('search-results').innerHTML = '';
-            }
+            const val = document.getElementById('user-search').value;
+            if(val.length >= 1) socket.emit('search-user', val);
+            else document.getElementById('search-results').innerHTML = '';
         }
 
         socket.on('search-result', (data) => {
             const res = document.getElementById('search-results');
             if (data.exists) {
-                res.innerHTML = `
-                    <div class="found-user-card" onclick="openChat('${data.username}')">
-                        <div class="user-info">
-                            <span class="user-name">@${data.username}</span>
-                            <span class="user-status-tiny">${data.status === 'online' ? 'в сети' : data.status}</span>
-                        </div>
-                        <div class="user-action">Написать</div>
-                    </div>`;
+                res.innerHTML = `<div class="found-user-card" onclick="openChat('${data.username}')">
+                    <b>@${data.username}</b><br><small>${data.status}</small>
+                </div>`;
             } else {
                 res.innerHTML = `<div class="not-found">Пользователь не найден</div>`;
             }
@@ -120,62 +85,39 @@
             document.getElementById('header-user').innerText = "@" + user;
             document.getElementById('input-block').style.display = 'flex';
             document.getElementById('chat-window').innerHTML = '';
-            document.getElementById('search-results').innerHTML = '';
-            document.getElementById('user-search').value = '';
             socket.emit('get-status', user);
         }
 
-        socket.on('status-result', (data) => {
-            if(data.user === currentChatUser) document.getElementById('header-status').innerText = data.status;
-        });
+        // Логика "Печатает..."
+        function isTyping() {
+            socket.emit('typing', { to: currentChatUser });
+        }
 
-        socket.on('user-status-update', (data) => {
-            if(data.user === currentChatUser) document.getElementById('header-status').innerText = data.status;
+        socket.on('user-typing', (data) => {
+            if(data.from === currentChatUser) {
+                const status = document.getElementById('header-status');
+                const oldStatus = status.innerText;
+                status.innerText = "печатает...";
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => { status.innerText = oldStatus; }, 2000);
+            }
         });
 
         function sendPrivate() {
             const text = document.getElementById('msg').value;
-            const file = document.getElementById('photo-input').files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => socket.emit('private-message', { to: currentChatUser, text, image: e.target.result });
-                reader.readAsDataURL(file);
-                document.getElementById('photo-input').value = '';
-            } else if (text.trim()) {
-                socket.emit('private-message', { to: currentChatUser, text });
-            }
+            if (text.trim()) socket.emit('private-message', { to: currentChatUser, text });
             document.getElementById('msg').value = '';
         }
 
         socket.on('msg-receive', (data) => {
             if (data.from === currentChatUser || data.from === myName) {
-                const chat = document.getElementById('chat-window');
                 const div = document.createElement('div');
                 div.className = `msg-bubble ${data.from === myName ? 'my-msg' : ''}`;
-                div.innerHTML = `<div class="msg-text">${data.text || ''}</div>`;
-                if(data.image) div.innerHTML += `<img src="${data.image}" class="chat-img">`;
-                div.innerHTML += `<div class="msg-time">${data.time}</div>`;
-                chat.appendChild(div);
-                chat.scrollTop = chat.scrollHeight;
+                div.innerHTML = `<div>${data.text}</div><div class="msg-time">${data.time}</div>`;
+                document.getElementById('chat-window').appendChild(div);
+                document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight;
             }
         });
-
-        async function initCall() {
-            document.getElementById('video-box').style.display = 'flex';
-            const stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
-            document.getElementById('localVideo').srcObject = stream;
-            socket.emit('call-request', { to: currentChatUser });
-        }
-
-        socket.on('incoming-call', (data) => {
-            if(confirm("Входящий звонок от @" + data.from)) initCall();
-        });
-
-        function closeCall() {
-            document.getElementById('video-box').style.display = 'none';
-            const stream = document.getElementById('localVideo').srcObject;
-            stream?.getTracks().forEach(track => track.stop());
-        }
 
         function logout() { localStorage.clear(); location.reload(); }
     </script>
