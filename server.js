@@ -34,18 +34,9 @@ io.on('connection', (socket) => {
         activeSockets[login] = socket.id;
         userStatus[login] = 'online';
         
-        // Отправляем историю при входе
         const userHistory = history.filter(m => m.from === login || m.to === login);
         socket.emit('auth-success', { user: login, profile: db.users[login], history: userHistory });
         io.emit('user-status-update', { user: login, status: 'online' });
-    });
-
-    socket.on('update-profile', (data) => {
-        if (db.users[socket.userName]) {
-            Object.assign(db.users[socket.userName], data);
-            saveDB();
-            socket.emit('profile-updated', db.users[socket.userName]);
-        }
     });
 
     socket.on('private-message', (data) => {
@@ -63,6 +54,14 @@ io.on('connection', (socket) => {
         socket.emit('msg-receive', msg);
     });
 
+    socket.on('update-profile', (data) => {
+        if (db.users[socket.userName]) {
+            Object.assign(db.users[socket.userName], data);
+            saveDB();
+            socket.emit('profile-updated', db.users[socket.userName]);
+        }
+    });
+
     socket.on('search-user', (searchName) => {
         const query = searchName.replace('@', '').toLowerCase().trim();
         const found = Object.keys(db.users).find(name => name.toLowerCase() === query);
@@ -74,15 +73,22 @@ io.on('connection', (socket) => {
         } else { socket.emit('search-result', { exists: false }); }
     });
 
+    socket.on('get-user-info', (username) => {
+        const u = db.users[username];
+        if (u) socket.emit('user-info-data', { 
+            username, displayName: u.displayName, bio: u.bio, avatar: u.avatar, status: userStatus[username] || 'offline' 
+        });
+    });
+
     socket.on('get-status', (user) => socket.emit('status-result', { user, status: userStatus[user] || 'был(а) недавно' }));
 
     socket.on('disconnect', () => {
         if (socket.userName) {
-            userStatus[socket.userName] = `был(а) в ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+            userStatus[socket.userName] = `в ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
             io.emit('user-status-update', { user: socket.userName, status: userStatus[socket.userName] });
             delete activeSockets[socket.userName];
         }
     });
 });
 
-http.listen(3000, '0.0.0.0', () => console.log('Celestra Premium: http://localhost:3000'));
+http.listen(3000, '0.0.0.0', () => console.log('Celestra: http://localhost:3000'));
