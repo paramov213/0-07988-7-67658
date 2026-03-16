@@ -29,7 +29,7 @@
             </div>
             <div class="sidebar-footer">
                 <span id="my-name"></span>
-                <button onclick="logout()">Выход</button>
+                <button onclick="logout()" class="exit-btn">Выход</button>
             </div>
         </aside>
 
@@ -44,11 +44,11 @@
             <div class="video-overlay" id="video-box" style="display:none;">
                 <video id="localVideo" autoplay muted playsinline></video>
                 <video id="remoteVideo" autoplay playsinline></video>
-                <button onclick="closeCall()">Завершить</button>
+                <button onclick="closeCall()" class="close-call">Завершить звонок</button>
             </div>
 
             <div class="input-area" id="input-block" style="display: none;">
-                <label class="icon-btn">📷<input type="file" id="photo-input" hidden></label>
+                <label class="icon-btn">📷<input type="file" id="photo-input" accept="image/*" hidden></label>
                 <input type="text" id="msg" placeholder="Написать сообщение...">
                 <button onclick="sendPrivate()" class="send-btn">➤</button>
                 <button onclick="initCall()" class="call-btn">📞</button>
@@ -67,7 +67,7 @@
         };
 
         function auth(type) {
-            const login = document.getElementById('login-input').value;
+            const login = document.getElementById('login-input').value.trim();
             const pass = document.getElementById('pass-input').value;
             if (!login || !pass) return;
             localStorage.setItem('celestra_session', JSON.stringify({login, password: pass}));
@@ -87,25 +87,41 @@
         });
 
         function searchUser() {
-            const val = document.getElementById('user-search').value;
-            if(val.length > 1) socket.emit('search-user', val);
-            else document.getElementById('search-results').innerHTML = '';
+            const val = document.getElementById('user-search').value.trim();
+            if(val.length >= 2) {
+                if(val.toLowerCase() === myName.toLowerCase()) {
+                    document.getElementById('search-results').innerHTML = '<div class="not-found">Это вы :)</div>';
+                } else {
+                    socket.emit('search-user', val);
+                }
+            } else {
+                document.getElementById('search-results').innerHTML = '';
+            }
         }
 
         socket.on('search-result', (data) => {
             const res = document.getElementById('search-results');
-            res.innerHTML = data.exists ? 
-                `<div class="found-user" onclick="openChat('${data.username}')">@${data.username}</div>` : 
-                `<div class="not-found">Никого нет</div>`;
+            if (data.exists) {
+                res.innerHTML = `
+                    <div class="found-user-card" onclick="openChat('${data.username}')">
+                        <div class="user-info">
+                            <span class="user-name">@${data.username}</span>
+                            <span class="user-status-tiny">${data.status === 'online' ? 'в сети' : data.status}</span>
+                        </div>
+                        <div class="user-action">Написать</div>
+                    </div>`;
+            } else {
+                res.innerHTML = `<div class="not-found">Пользователь не найден</div>`;
+            }
         });
 
         function openChat(user) {
-            if(user === myName) return;
             currentChatUser = user;
             document.getElementById('header-user').innerText = "@" + user;
             document.getElementById('input-block').style.display = 'flex';
             document.getElementById('chat-window').innerHTML = '';
             document.getElementById('search-results').innerHTML = '';
+            document.getElementById('user-search').value = '';
             socket.emit('get-status', user);
         }
 
@@ -133,18 +149,18 @@
 
         socket.on('msg-receive', (data) => {
             if (data.from === currentChatUser || data.from === myName) {
+                const chat = document.getElementById('chat-window');
                 const div = document.createElement('div');
                 div.className = `msg-bubble ${data.from === myName ? 'my-msg' : ''}`;
                 div.innerHTML = `<div class="msg-text">${data.text || ''}</div>`;
                 if(data.image) div.innerHTML += `<img src="${data.image}" class="chat-img">`;
                 div.innerHTML += `<div class="msg-time">${data.time}</div>`;
-                document.getElementById('chat-window').appendChild(div);
-                document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight;
+                chat.appendChild(div);
+                chat.scrollTop = chat.scrollHeight;
             }
         });
 
         async function initCall() {
-            alert("Вызываю @" + currentChatUser);
             document.getElementById('video-box').style.display = 'flex';
             const stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
             document.getElementById('localVideo').srcObject = stream;
@@ -152,16 +168,13 @@
         }
 
         socket.on('incoming-call', (data) => {
-            if(confirm("Входящий звонок от @" + data.from)) {
-                document.getElementById('video-box').style.display = 'flex';
-                initCall();
-            }
+            if(confirm("Входящий звонок от @" + data.from)) initCall();
         });
 
         function closeCall() {
             document.getElementById('video-box').style.display = 'none';
-            const tracks = document.getElementById('localVideo').srcObject?.getTracks();
-            tracks?.forEach(t => t.stop());
+            const stream = document.getElementById('localVideo').srcObject;
+            stream?.getTracks().forEach(track => track.stop());
         }
 
         function logout() { localStorage.clear(); location.reload(); }
