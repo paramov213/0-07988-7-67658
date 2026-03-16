@@ -6,7 +6,6 @@ const fs = require('fs');
 
 const DB_FILE = './users.json';
 let db = { users: {} };
-
 if (fs.existsSync(DB_FILE)) {
     try { db = JSON.parse(fs.readFileSync(DB_FILE)); } catch (e) { console.log("Ошибка БД"); }
 }
@@ -25,9 +24,7 @@ io.on('connection', (socket) => {
             db.users[login] = data.password;
             saveDB();
         } else {
-            if (!db.users[login] || db.users[login] !== data.password) {
-                return socket.emit('auth-error', 'Ошибка входа');
-            }
+            if (!db.users[login] || db.users[login] !== data.password) return socket.emit('auth-error', 'Ошибка входа');
         }
         socket.userName = login;
         activeSockets[login] = socket.id;
@@ -36,23 +33,23 @@ io.on('connection', (socket) => {
         socket.emit('auth-success', { user: login });
     });
 
-    // ИСПРАВЛЕННЫЙ ПОИСК: теперь игнорируем @ и лишние пробелы
     socket.on('search-user', (searchName) => {
         const query = searchName.replace('@', '').toLowerCase().trim();
         const found = Object.keys(db.users).find(name => name.toLowerCase() === query);
-
         if (found) {
-            socket.emit('search-result', { 
-                exists: true, 
-                username: found, 
-                status: userStatus[found] || 'был(а) недавно'
-            });
+            socket.emit('search-result', { exists: true, username: found, status: userStatus[found] || 'был(а) недавно' });
         } else {
             socket.emit('search-result', { exists: false });
         }
     });
 
-    // Функция "Печатает..."
+    socket.on('get-status', (username) => {
+        socket.emit('status-result', { 
+            user: username, 
+            status: userStatus[username] || 'был(а) недавно' 
+        });
+    });
+
     socket.on('typing', (data) => {
         if (activeSockets[data.to]) {
             io.to(activeSockets[data.to]).emit('user-typing', { from: socket.userName });
@@ -64,7 +61,7 @@ io.on('connection', (socket) => {
             from: socket.userName,
             to: data.to,
             text: data.text,
-            image: data.image,
+            image: data.image, // Передача фото
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         if (activeSockets[data.to]) io.to(activeSockets[data.to]).emit('msg-receive', msg);
