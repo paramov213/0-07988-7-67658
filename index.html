@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="style.css">
     <title>Celestra</title>
 </head>
@@ -19,7 +19,7 @@
     </div>
 
     <div id="app-container" class="app-container" style="display: none;">
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <img id="my-avatar-btn" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" onclick="openSettings()">
                 <div class="search-section">
@@ -30,18 +30,21 @@
             <div id="chats-list"></div>
         </aside>
 
-        <main class="chat-area">
-            <header id="chat-header" onclick="viewProfile()">
-                <img id="header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" class="mini-avatar">
-                <div class="header-info">
-                    <div id="header-user">Выберите чат</div>
-                    <div id="header-status"></div>
+        <main class="chat-area" id="chat-area">
+            <header id="chat-header">
+                <button class="mobile-back" onclick="closeChat()">←</button>
+                <div class="header-info-box" onclick="viewProfile()">
+                    <img id="header-avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" class="mini-avatar">
+                    <div class="header-text">
+                        <div id="header-user">Выберите чат</div>
+                        <div id="header-status"></div>
+                    </div>
                 </div>
             </header>
             <div id="chat-window"></div>
             <div class="input-area" id="input-block" style="display: none;">
                 <label class="icon-btn">📷<input type="file" id="photo-input" onchange="sendPhoto()" hidden></label>
-                <input type="text" id="msg" placeholder="Написать..." onkeydown="if(event.key==='Enter') sendPrivate()">
+                <input type="text" id="msg" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') sendPrivate()">
                 <button onclick="sendPrivate()" class="send-btn">➤</button>
             </div>
         </main>
@@ -51,7 +54,7 @@
         <div class="profile-card animate-pop">
             <img id="p-avatar" src="" class="large-avatar">
             <h2 id="p-name"></h2>
-            <p id="p-user" style="color:var(--accent)"></p>
+            <p id="p-user"></p>
             <div class="bio-box"><p id="p-bio"></p></div>
             <div id="p-status" class="status-tag"></div>
         </div>
@@ -59,15 +62,16 @@
 
     <div id="settings-modal" class="modal-overlay" style="display:none;" onclick="if(event.target==this)this.style.display='none'">
         <div class="profile-card animate-pop">
-            <h2>Профиль</h2>
+            <h2>Настройки</h2>
             <div class="avatar-edit" onclick="document.getElementById('avatar-upload').click()">
                 <img id="edit-avatar-preview" src="">
                 <span>Сменить</span>
                 <input type="file" id="avatar-upload" hidden onchange="previewMyAvatar(this)">
             </div>
-            <input type="text" id="edit-name" placeholder="Отображаемое имя">
-            <textarea id="edit-bio" placeholder="О себе..."></textarea>
+            <input type="text" id="edit-name" placeholder="Имя">
+            <textarea id="edit-bio" placeholder="О себе"></textarea>
             <button onclick="saveProfile()">Сохранить</button>
+            <button onclick="logout()" class="exit-btn">Выйти из аккаунта</button>
         </div>
     </div>
 
@@ -76,10 +80,21 @@
         const socket = io();
         let myName = "", currentChatUser = null, myProfile = {}, chatMessages = {}, unreadCounts = {};
 
+        // АВТОМАТИЧЕСКИЙ ВХОД
+        window.onload = () => {
+            const saved = localStorage.getItem('celestra_creds');
+            if (saved) {
+                const creds = JSON.parse(saved);
+                socket.emit('auth', { login: creds.login, password: creds.password, type: 'login' });
+            }
+        };
+
         function auth(type) {
             const login = document.getElementById('login-input').value.trim();
-            const pass = document.getElementById('pass-input').value;
-            socket.emit('auth', { login, password: pass, type });
+            const password = document.getElementById('pass-input').value;
+            if(!login || !password) return;
+            localStorage.setItem('celestra_creds', JSON.stringify({ login, password }));
+            socket.emit('auth', { login, password, type });
         }
 
         socket.on('auth-success', data => {
@@ -87,18 +102,83 @@
             document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
-            
-            // Загрузка истории и списка чатов
             if(data.history) {
                 data.history.forEach(m => {
-                    const partner = m.from === myName ? m.to : m.from;
-                    if(!chatMessages[partner]) chatMessages[partner] = [];
-                    chatMessages[partner].push(m);
-                    if(!unreadCounts.hasOwnProperty(partner)) unreadCounts[partner] = 0;
+                    const p = m.from === myName ? m.to : m.from;
+                    if(!chatMessages[p]) chatMessages[p] = [];
+                    chatMessages[p].push(m);
                 });
                 updateChatsUI();
             }
         });
+
+        socket.on('auth-error', msg => {
+            document.getElementById('error-msg').innerText = msg;
+            localStorage.removeItem('celestra_creds');
+        });
+
+        function openChat(user) {
+            currentChatUser = user;
+            document.getElementById('header-user').innerText = user;
+            document.getElementById('input-block').style.display = 'flex';
+            if(window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.add('mobile-hidden');
+                document.getElementById('chat-area').classList.add('mobile-active');
+            }
+            renderMessages(user);
+            socket.emit('get-status', user);
+        }
+
+        function closeChat() {
+            document.getElementById('sidebar').classList.remove('mobile-hidden');
+            document.getElementById('chat-area').classList.remove('mobile-active');
+            currentChatUser = null;
+        }
+
+        function renderMessages(user) {
+            const win = document.getElementById('chat-window'); win.innerHTML = '';
+            (chatMessages[user] || []).forEach(m => {
+                const div = document.createElement('div');
+                div.className = `msg-bubble animate-fade ${m.from === myName ? 'my-msg' : ''}`;
+                div.innerHTML = `${m.text ? `<div>${m.text}</div>` : ''} ${m.image ? `<img src="${m.image}" class="chat-img">` : ''} <div class="msg-time">${m.time}</div>`;
+                win.appendChild(div);
+            });
+            win.scrollTop = win.scrollHeight;
+        }
+
+        function updateChatsUI() {
+            const list = document.getElementById('chats-list'); list.innerHTML = '';
+            Object.keys(chatMessages).forEach(u => {
+                const div = document.createElement('div');
+                div.className = `chat-item ${currentChatUser === u ? 'active' : ''}`;
+                div.onclick = () => openChat(u);
+                div.innerHTML = `<span>@${u}</span>`;
+                list.appendChild(div);
+            });
+        }
+
+        socket.on('msg-receive', m => {
+            const p = m.from === myName ? m.to : m.from;
+            if(!chatMessages[p]) chatMessages[p] = [];
+            chatMessages[p].push(m);
+            if(p === currentChatUser) renderMessages(p);
+            updateChatsUI();
+        });
+
+        function sendPrivate() {
+            const t = document.getElementById('msg').value;
+            if(t.trim() && currentChatUser) socket.emit('private-message', { to: currentChatUser, text: t });
+            document.getElementById('msg').value = '';
+        }
+
+        function sendPhoto() {
+            const f = document.getElementById('photo-input').files[0];
+            if(f && currentChatUser) {
+                const r = new FileReader();
+                r.onload = e => socket.emit('private-message', { to: currentChatUser, text: "", image: e.target.result });
+                r.readAsDataURL(f);
+            }
+        }
 
         function searchUser() {
             const v = document.getElementById('user-search').value;
@@ -109,70 +189,23 @@
         socket.on('search-result', d => {
             const res = document.getElementById('search-results');
             if(d.exists && d.username !== myName) {
-                res.innerHTML = `<div class="search-item animate-fade" onclick="openChat('${d.username}')">
-                    <img src="${d.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}">
-                    <span>${d.displayName} (@${d.username})</span>
-                </div>`;
-            } else res.innerHTML = `<div class="not-found">Никого не нашли</div>`;
+                res.innerHTML = `<div class="search-item" onclick="openChat('${d.username}')"><span>@${d.username}</span></div>`;
+            } else res.innerHTML = `<div class="not-found">Пусто</div>`;
         });
 
-        function openChat(user) {
-            currentChatUser = user; unreadCounts[user] = 0;
-            document.getElementById('header-user').innerText = user;
-            document.getElementById('input-block').style.display = 'flex';
-            document.getElementById('search-results').innerHTML = '';
-            document.getElementById('user-search').value = '';
-            renderMessages(user); updateChatsUI();
-            socket.emit('get-status', user);
-        }
-
-        function renderMessages(user) {
-            const win = document.getElementById('chat-window');
-            win.innerHTML = '';
-            (chatMessages[user] || []).forEach(m => {
-                const div = document.createElement('div');
-                div.className = `msg-bubble animate-fade ${m.from === myName ? 'my-msg' : ''}`;
-                div.innerHTML = `${m.text ? `<div>${m.text}</div>` : ''} 
-                                 ${m.image ? `<img src="${m.image}" class="chat-img" onclick="window.open(this.src)">` : ''}
-                                 <div class="msg-time">${m.time}</div>`;
-                win.appendChild(div);
-            });
-            win.scrollTop = win.scrollHeight;
-        }
-
-        function updateChatsUI() {
-            const list = document.getElementById('chats-list');
-            list.innerHTML = '';
-            Object.keys(chatMessages).sort((a,b) => {
-                const lastA = chatMessages[a][chatMessages[a].length-1].ts;
-                const lastB = chatMessages[b][chatMessages[b].length-1].ts;
-                return lastB - lastA;
-            }).forEach(u => {
-                const div = document.createElement('div');
-                div.className = `chat-item ${currentChatUser === u ? 'active' : ''}`;
-                div.onclick = () => openChat(u);
-                let badge = unreadCounts[u] > 0 ? `<span class="badge">${unreadCounts[u]}</span>` : '';
-                div.innerHTML = `<span>@${u}</span>${badge}`;
-                list.appendChild(div);
-            });
-        }
-
-        socket.on('msg-receive', m => {
-            const p = m.from === myName ? m.to : m.from;
-            if(!chatMessages[p]) chatMessages[p] = [];
-            chatMessages[p].push(m);
-            if(p !== currentChatUser && m.from !== myName) unreadCounts[p] = (unreadCounts[p] || 0) + 1;
-            if(p === currentChatUser) renderMessages(p);
-            updateChatsUI();
-        });
-
-        // Профиль
         function openSettings() {
             document.getElementById('edit-avatar-preview').src = myProfile.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
             document.getElementById('edit-name').value = myProfile.displayName;
             document.getElementById('edit-bio').value = myProfile.bio;
             document.getElementById('settings-modal').style.display = 'flex';
         }
+
+        function saveProfile() {
+            const d = { displayName: document.getElementById('edit-name').value, bio: document.getElementById('edit-bio').value, avatar: document.getElementById('edit-avatar-preview').src };
+            socket.emit('update-profile', d);
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
         function previewMyAvatar(i) {
             if(i.files && i.files[0]) {
                 const r = new FileReader();
@@ -180,12 +213,6 @@
                 r.readAsDataURL(i.files[0]);
             }
         }
-        function saveProfile() {
-            const d = { displayName: document.getElementById('edit-name').value, bio: document.getElementById('edit-bio').value, avatar: document.getElementById('edit-avatar-preview').src };
-            socket.emit('update-profile', d);
-            document.getElementById('settings-modal').style.display = 'none';
-        }
-        socket.on('profile-updated', d => { myProfile = d; document.getElementById('my-avatar-btn').src = d.avatar; });
 
         function viewProfile() { if(currentChatUser) socket.emit('get-user-info', currentChatUser); }
         socket.on('user-info-data', d => {
@@ -197,19 +224,10 @@
             document.getElementById('profile-modal').style.display = 'flex';
         });
 
-        function sendPrivate() {
-            const t = document.getElementById('msg').value;
-            if(t.trim() && currentChatUser) socket.emit('private-message', { to: currentChatUser, text: t });
-            document.getElementById('msg').value = '';
-        }
-        function sendPhoto() {
-            const f = document.getElementById('photo-input').files[0];
-            if(f && currentChatUser) {
-                const r = new FileReader();
-                r.onload = e => socket.emit('private-message', { to: currentChatUser, text: "", image: e.target.result });
-                r.readAsDataURL(f);
-            }
-        }
+        socket.on('profile-updated', d => { myProfile = d; document.getElementById('my-avatar-btn').src = d.avatar; });
+        socket.on('status-result', d => { if(d.user === currentChatUser) document.getElementById('header-status').innerText = d.status; });
+
+        function logout() { localStorage.removeItem('celestra_creds'); location.reload(); }
     </script>
 </body>
 </html>
