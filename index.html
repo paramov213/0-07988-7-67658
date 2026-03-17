@@ -44,7 +44,7 @@
                 <div class="welcome-box animate-pop">
                     <div class="logo-icon">C</div>
                     <h2>Celestra Premium</h2>
-                    <p>Выберите чат, чтобы начать общение</p>
+                    <p>Выберите чат или найдите собеседника</p>
                 </div>
             </div>
 
@@ -62,17 +62,19 @@
 
     <div id="settings-modal" class="overlay" style="display:none;" onclick="if(event.target==this)this.style.display='none'">
         <div class="nitro-card animate-pop">
-            <div id="nitro-banner" class="nitro-banner"><button class="edit-banner" onclick="changeBanner()">🎨</button></div>
+            <div id="nitro-banner" class="nitro-banner" onclick="event.stopPropagation(); changeBanner()">
+                <button class="edit-banner">🎨</button>
+            </div>
             <div class="nitro-main">
-                <div class="ava-wrap" onclick="document.getElementById('avatar-upload').click()">
-                    <img id="edit-avatar-preview" src=""><input type="file" id="avatar-upload" hidden onchange="previewAva(this)">
+                <div class="ava-wrap" onclick="changeAvatarViaLink()">
+                    <img id="edit-avatar-preview" src="">
                 </div>
                 <div class="nitro-info">
                     <input type="text" id="edit-name" class="name-input">
                     <p id="nitro-username" class="tag">@user</p>
                     <div class="line"></div>
-                    <label>ОБО МНЕ</label>
-                    <textarea id="edit-bio" class="bio-input" placeholder="Расскажи о себе..."></textarea>
+                    <label class="label-style">ОБО МНЕ</label>
+                    <textarea id="edit-bio" class="bio-input" placeholder="Расскажите о себе..."></textarea>
                 </div>
                 <div class="nitro-btns">
                     <button onclick="saveProfile()" class="neon-btn">СОХРАНИТЬ</button>
@@ -116,26 +118,45 @@
         });
 
         function updateUI() {
-            document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://i.pravatar.cc/150';
+            const ava = myProfile.avatar || 'https://i.pravatar.cc/150';
+            document.getElementById('my-avatar-btn').src = ava;
             document.getElementById('my-name-display').innerText = myProfile.displayName || myName;
         }
 
+        function changeBanner() {
+            const link = prompt("Введите ссылку на GIF или цвет для фона:");
+            if (link) {
+                const b = document.getElementById('nitro-banner');
+                if(link.includes('http')) b.style.backgroundImage = `url('${link}')`;
+                else b.style.background = link;
+            }
+        }
+
+        function changeAvatarViaLink() {
+            const link = prompt("Введите прямую ссылку на GIF для аватара:");
+            if (link) document.getElementById('edit-avatar-preview').src = link;
+        }
+
         function openSettings() {
-            document.getElementById('nitro-banner').style.background = myProfile.banner || 'var(--grad)';
+            const banner = myProfile.banner || 'var(--grad)';
+            const b = document.getElementById('nitro-banner');
+            if(banner.includes('url')) b.style.backgroundImage = banner;
+            else b.style.background = banner;
+
             document.getElementById('edit-avatar-preview').src = myProfile.avatar || 'https://i.pravatar.cc/150';
             document.getElementById('edit-name').value = myProfile.displayName || "";
-            // ИСПРАВЛЕННЫЙ ВЫВОД БИО
             document.getElementById('edit-bio').value = myProfile.bio || "";
             document.getElementById('nitro-username').innerText = "@" + myName;
             document.getElementById('settings-modal').style.display = 'flex';
         }
 
         function saveProfile() {
+            const b = document.getElementById('nitro-banner');
             const data = {
                 avatar: document.getElementById('edit-avatar-preview').src,
                 displayName: document.getElementById('edit-name').value,
-                bio: document.getElementById('edit-bio').value, // ИСПРАВЛЕННОЕ СОХРАНЕНИЕ БИО
-                banner: document.getElementById('nitro-banner').style.background
+                bio: document.getElementById('edit-bio').value,
+                banner: b.style.backgroundImage || b.style.background
             };
             socket.emit('update-profile', data);
             document.getElementById('settings-modal').style.display = 'none';
@@ -144,22 +165,19 @@
         socket.on('profile-updated', d => { myProfile = d; updateUI(); });
 
         function openChat(u) {
-            currentChatUser = u;
-            unread[u] = 0;
+            currentChatUser = u; unread[u] = 0;
             document.getElementById('welcome-layer').style.display = 'none';
             document.getElementById('chat-active-ui').style.display = 'flex';
             document.getElementById('current-contact').innerText = "@" + u;
-            renderMsgs(u);
-            updateChatsUI();
+            renderMsgs(u); updateChatsUI();
         }
 
         function renderMsgs(u) {
-            const win = document.getElementById('chat-window'); 
-            win.innerHTML = '';
-            (chatMessages[u] || []).forEach((m, index) => {
+            const win = document.getElementById('chat-window'); win.innerHTML = '';
+            (chatMessages[u] || []).forEach((m, i) => {
                 const div = document.createElement('div');
                 div.className = `msg ${m.from === myName ? 'me' : 'them'}`;
-                div.style.animationDelay = `${index * 0.03}s`;
+                div.style.animationDelay = `${i * 0.03}s`;
                 div.innerHTML = `<div class="bubble animate-msg">${m.text || ''} ${m.image ? `<img src="${m.image}">` : ''}</div>`;
                 win.appendChild(div);
             });
@@ -182,7 +200,7 @@
             const p = m.from === myName ? m.to : m.from;
             if(!chatMessages[p]) chatMessages[p] = [];
             chatMessages[p].push(m);
-            if(p === currentChatUser) { renderMsgs(p); } 
+            if(p === currentChatUser) renderMsgs(p);
             else { unread[p] = (unread[p] || 0) + 1; document.getElementById('msg-sound').play(); }
             updateChatsUI();
         });
@@ -204,17 +222,6 @@
             const res = document.getElementById('search-results');
             res.innerHTML = (d.exists && d.username !== myName) ? `<div class="search-res-item" onclick="openChat('${d.username}')">@${d.username}</div>` : '';
         });
-
-        function previewAva(i) {
-            const r = new FileReader();
-            r.onload = e => document.getElementById('edit-avatar-preview').src = e.target.result;
-            r.readAsDataURL(i.files[0]);
-        }
-
-        function changeBanner() {
-            const b = prompt("Цвет или URL:");
-            if(b) document.getElementById('nitro-banner').style.background = b;
-        }
 
         function logout() { localStorage.removeItem('celestra_creds'); location.reload(); }
     </script>
