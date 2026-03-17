@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, { maxHttpBufferSize: 5e6 });
+const io = require('socket.io')(http, { maxHttpBufferSize: 1e7 }); // 10MB для фото
 const fs = require('fs');
 
 const DB_FILE = './users.json';
@@ -22,21 +22,21 @@ app.use(express.static(__dirname));
 
 io.on('connection', (socket) => {
     socket.on('auth', (data) => {
-        if (!data.login || !data.password || data.login.trim() === "") return socket.emit('auth-error', 'Укажите данные для входа');
-        
+        if (!data.login || !data.password) return socket.emit('auth-error', 'Заполните данные');
         const login = data.login.trim().toLowerCase();
+        
         if (data.type === 'register') {
-            if (db.users[login]) return socket.emit('auth-error', 'Этот логин уже занят');
+            if (db.users[login]) return socket.emit('auth-error', 'Логин занят');
             db.users[login] = { 
                 password: data.password, 
                 displayName: data.login, 
                 avatar: "", 
-                bio: "Привет! Я новый пользователь celestra.", 
+                bio: "Рад быть здесь!", 
                 banner: "linear-gradient(45deg, #6e8efb, #a777e3)" 
             };
             saveData();
         } else {
-            if (!db.users[login] || db.users[login].password !== data.password) return socket.emit('auth-error', 'Неверный логин или пароль');
+            if (!db.users[login] || db.users[login].password !== data.password) return socket.emit('auth-error', 'Неверный вход');
         }
         
         socket.userName = login;
@@ -44,25 +44,11 @@ io.on('connection', (socket) => {
         socket.emit('auth-success', { user: login, profile: db.users[login], history: userHistory });
     });
 
-    socket.on('get-user-profile', (target) => {
-        const u = db.users[target.toLowerCase()];
-        if (u) {
-            socket.emit('user-profile-data', {
-                username: target,
-                displayName: u.displayName,
-                avatar: u.avatar,
-                bio: u.bio,
-                banner: u.banner
-            });
-        }
-    });
-
-    socket.on('update-profile', (data) => {
-        if (db.users[socket.userName]) {
-            Object.assign(db.users[socket.userName], data);
-            saveData();
-            socket.emit('profile-updated', db.users[socket.userName]);
-        }
+    socket.on('search-user', (query) => {
+        const q = query.replace('@', '').toLowerCase().trim();
+        const found = Object.keys(db.users).find(u => u === q || u.includes(q));
+        if (found) socket.emit('search-result', { exists: true, username: found });
+        else socket.emit('search-result', { exists: false });
     });
 
     socket.on('private-message', (data) => {
@@ -76,16 +62,23 @@ io.on('connection', (socket) => {
             ts: Date.now()
         };
         history.push(msg);
-        if (history.length > 500) history.shift();
+        if (history.length > 1000) history.shift();
         saveData();
         io.emit('msg-receive', msg);
     });
 
-    socket.on('search-user', (query) => {
-        const target = query.replace('@', '').toLowerCase().trim();
-        const found = Object.keys(db.users).find(u => u === target);
-        if (found) socket.emit('search-result', { exists: true, username: found });
+    socket.on('update-profile', (data) => {
+        if (db.users[socket.userName]) {
+            Object.assign(db.users[socket.userName], data);
+            saveData();
+            socket.emit('profile-updated', db.users[socket.userName]);
+        }
+    });
+
+    socket.on('get-user-profile', (target) => {
+        const u = db.users[target.toLowerCase()];
+        if (u) socket.emit('user-profile-data', { ...u, username: target });
     });
 });
 
-http.listen(3000, '0.0.0.0', () => console.log('celestra is live'));
+http.listen(3000, '0.0.0.0', () => console.log('celestra is glowing on :3000'));
