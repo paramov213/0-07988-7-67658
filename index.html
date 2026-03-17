@@ -1,89 +1,169 @@
-const express = require('express');
-const app = express();
-const http = require('http').createServer(app);
-// Увеличиваем лимит до 100мб, чтобы тяжелые фото не вызывали баг
-const io = require('socket.io')(http, {
-    maxHttpBufferSize: 1e8 
-});
-const fs = require('fs');
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <link rel="stylesheet" href="style.css">
+    <title>Celestra</title>
+</head>
+<body>
+    <div id="auth-screen" class="modal">
+        <div class="auth-box">
+            <h1>CELESTRA</h1>
+            <input type="text" id="login-input" placeholder="Логин">
+            <input type="password" id="pass-input" placeholder="Пароль">
+            <button onclick="auth('login')">Войти</button>
+            <button onclick="auth('register')" class="secondary">Регистрация</button>
+        </div>
+    </div>
 
-const DB_FILE = './users.json';
-let db = { users: {}, messages: {} };
+    <div id="app-container" class="app-container" style="display: none;">
+        <aside class="sidebar" id="sidebar">
+            <div class="search-section">
+                <input type="text" id="user-search" placeholder="Поиск @юзер..." oninput="searchUser()">
+                <div id="search-results"></div>
+            </div>
+            <div id="chats-list"></div>
+            <div class="sidebar-footer">
+                <span id="my-name"></span>
+                <button onclick="logout()" class="exit-btn">Выход</button>
+            </div>
+        </aside>
 
-if (fs.existsSync(DB_FILE)) {
-    try { 
-        const data = JSON.parse(fs.readFileSync(DB_FILE));
-        db = { ...db, ...data };
-    } catch (e) { console.log("Ошибка БД"); }
-}
+        <main class="chat-area" id="chat-area">
+            <header id="chat-header">
+                <button class="back-btn" onclick="toggleSidebar(true)">←</button>
+                <div class="header-info">
+                    <div id="header-user">Выберите чат</div>
+                    <div id="header-status"></div>
+                </div>
+            </header>
+            <div id="chat-window"></div>
+            <div class="input-area" id="input-block" style="display: none;">
+                <label class="icon-btn">📷<input type="file" id="photo-input" accept="image/*" onchange="sendPhoto()" hidden></label>
+                <input type="text" id="msg" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') sendPrivate()">
+                <button onclick="sendPrivate()" class="send-btn">➤</button>
+            </div>
+        </main>
+    </div>
 
-const saveDB = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let myName = "", currentChatUser = null;
+        const unreadCounts = {}; 
+        const chatMessages = {}; 
 
-app.use(express.static(__dirname));
-
-const activeSockets = {}; 
-const userStatus = {};    
-
-io.on('connection', (socket) => {
-    socket.on('auth', (data) => {
-        const login = data.login.trim();
-        if (data.type === 'register') {
-            if (db.users[login]) return socket.emit('auth-error', 'Логин занят');
-            db.users[login] = data.password;
-            saveDB();
-        } else {
-            if (!db.users[login] || db.users[login] !== data.password) return socket.emit('auth-error', 'Ошибка входа');
+        function auth(type) {
+            const login = document.getElementById('login-input').value.trim();
+            const pass = document.getElementById('pass-input').value;
+            localStorage.setItem('celestra_session', JSON.stringify({login, password: pass}));
+            socket.emit('auth', { login, password: pass, type });
         }
-        socket.userName = login;
-        activeSockets[login] = socket.id;
-        userStatus[login] = 'online';
-        io.emit('user-status-update', { user: login, status: 'online' });
-        socket.emit('auth-success', { user: login });
-    });
 
-    socket.on('get-history', (partner) => {
-        const chatID = [socket.userName, partner].sort().join('_');
-        socket.emit('chat-history', { partner, msgs: db.messages[chatID] || [] });
-    });
+        socket.on('auth-success', (data) => {
+            myName = data.user;
+            document.getElementById('my-name').innerText = "@" + myName;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+        });
 
-    socket.on('search-user', (searchName) => {
-        const query = searchName.replace('@', '').toLowerCase().trim();
-        const found = Object.keys(db.users).find(name => name.toLowerCase() === query);
-        if (found) {
-            socket.emit('search-result', { exists: true, username: found, status: userStatus[found] || 'был(а) недавно' });
-        } else {
-            socket.emit('search-result', { exists: false });
+        function searchUser() {
+            const val = document.getElementById('user-search').value;
+            if(val.length >= 1) socket.emit('search-user', val);
         }
-    });
 
-    socket.on('private-message', (data) => {
-        if (!data.to || (!data.text && !data.image)) return;
-        
-        const chatID = [socket.userName, data.to].sort().join('_');
-        const msg = {
-            from: socket.userName,
-            to: data.to,
-            text: data.text || "",
-            image: data.image || null,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
+        socket.on('search-result', (data) => {
+            const res = document.getElementById('search-results');
+            if (data.exists && data.username !== myName) {
+                res.innerHTML = `<div class="found-user-card" onclick="openChat('${data.username}')"><b>@${data.username}</b></div>`;
+            }
+        });
 
-        if (!db.messages[chatID]) db.messages[chatID] = [];
-        db.messages[chatID].push(msg);
-        saveDB();
-
-        if (activeSockets[data.to]) io.to(activeSockets[data.to]).emit('msg-receive', msg);
-        socket.emit('msg-receive', msg);
-    });
-
-    socket.on('disconnect', () => {
-        if (socket.userName) {
-            userStatus[socket.userName] = `был(а) в ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
-            io.emit('user-status-update', { user: socket.userName, status: userStatus[socket.userName] });
-            delete activeSockets[socket.userName];
+        function openChat(user) {
+            currentChatUser = user;
+            unreadCounts[user] = 0;
+            document.getElementById('header-user').innerText = "@" + user;
+            document.getElementById('input-block').style.display = 'flex';
+            toggleSidebar(false);
+            socket.emit('get-history', user);
+            updateChatsUI();
         }
-    });
-});
 
-const PORT = process.env.PORT || 3000;
-http.listen(PORT, '0.0.0.0', () => console.log(`Server: ${PORT}`));
+        socket.on('chat-history', (data) => {
+            chatMessages[data.partner] = data.msgs;
+            renderMessages(data.partner);
+        });
+
+        function sendPrivate() {
+            const el = document.getElementById('msg');
+            if (el.value.trim() && currentChatUser) {
+                socket.emit('private-message', { to: currentChatUser, text: el.value });
+                el.value = '';
+            }
+        }
+
+        function sendPhoto() {
+            const input = document.getElementById('photo-input');
+            const file = input.files[0];
+            if (file && currentChatUser) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    socket.emit('private-message', { to: currentChatUser, image: e.target.result });
+                    input.value = ''; // Исправлен баг: очищаем инпут после чтения
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        socket.on('msg-receive', (data) => {
+            const partner = data.from === myName ? data.to : data.from;
+            if (!chatMessages[partner]) chatMessages[partner] = [];
+            chatMessages[partner].push(data);
+            
+            if (partner !== currentChatUser && data.from !== myName) {
+                unreadCounts[partner] = (unreadCounts[partner] || 0) + 1;
+            }
+            if (partner === currentChatUser) renderMessages(partner);
+            updateChatsUI();
+        });
+
+        function renderMessages(user) {
+            const win = document.getElementById('chat-window');
+            win.innerHTML = '';
+            (chatMessages[user] || []).forEach(msg => {
+                const div = document.createElement('div');
+                div.className = `msg-bubble ${msg.from === myName ? 'my-msg' : ''}`;
+                let content = msg.text ? `<div>${msg.text}</div>` : "";
+                // Добавляем onload для картинок, чтобы скролл срабатывал после их загрузки
+                if(msg.image) content += `<img src="${msg.image}" class="chat-img" onload="document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight">`;
+                div.innerHTML = `${content}<div class="msg-time">${msg.time}</div>`;
+                win.appendChild(div);
+            });
+            win.scrollTop = win.scrollHeight;
+        }
+
+        function toggleSidebar(show) {
+            if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').style.display = show ? 'flex' : 'none';
+                document.getElementById('chat-area').style.display = show ? 'none' : 'flex';
+            }
+        }
+
+        function updateChatsUI() {
+            const list = document.getElementById('chats-list');
+            list.innerHTML = '';
+            Object.keys(chatMessages).forEach(user => {
+                const div = document.createElement('div');
+                div.className = `chat-item ${currentChatUser === user ? 'active' : ''}`;
+                div.onclick = () => openChat(user);
+                let badge = unreadCounts[user] > 0 ? `<span class="badge">${unreadCounts[user]}</span>` : '';
+                div.innerHTML = `<span>@${user}</span> ${badge}`;
+                list.appendChild(div);
+            });
+        }
+
+        function logout() { localStorage.clear(); location.reload(); }
+    </script>
+</body>
+</html>
