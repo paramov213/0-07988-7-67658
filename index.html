@@ -13,17 +13,16 @@
         <div class="auth-card animate-pop">
             <h1 class="logo-text">CELESTRA</h1>
             <div class="auth-inputs">
-                <div class="input-box"><input type="text" id="login-input" placeholder="Логин" required></div>
-                <div class="input-box"><input type="password" id="pass-input" placeholder="Пароль" required></div>
+                <input type="text" id="login-input" placeholder="Логин">
+                <input type="password" id="pass-input" placeholder="Пароль">
             </div>
-            <p id="error-msg" class="error-txt"></p>
             <button onclick="auth('login')" class="neon-btn">ВОЙТИ</button>
             <button onclick="auth('register')" class="reg-btn-graphic">РЕГИСТРАЦИЯ</button>
         </div>
     </div>
 
     <div id="app-container" class="main-layout" style="display: none;">
-        <aside class="sidebar">
+        <aside class="sidebar" id="main-sidebar">
             <div class="search-section">
                 <input type="text" id="user-search" placeholder="Поиск @юзера..." oninput="doSearch()">
                 <div id="search-results"></div>
@@ -35,7 +34,6 @@
                     <span id="my-name-display">...</span>
                     <small>Online</small>
                 </div>
-                <span class="gear">⚙️</span>
             </div>
         </aside>
 
@@ -43,17 +41,19 @@
             <div id="welcome-layer" class="welcome-screen">
                 <div class="welcome-box animate-pop">
                     <div class="logo-icon">C</div>
-                    <h2>Celestra Premium</h2>
-                    <p>Выберите чат или найдите собеседника</p>
+                    <h2>Celestra</h2>
+                    <p>Выберите чат</p>
                 </div>
             </div>
 
             <div id="chat-active-ui" class="chat-main-wrap" style="display: none;">
-                <header class="chat-header"><span id="current-contact">Чат</span></header>
+                <header class="chat-header">
+                    <button class="back-btn" onclick="closeChat()">←</button>
+                    <span id="current-contact">Чат</span>
+                </header>
                 <div id="chat-window" class="scrollable"></div>
                 <div class="input-bar">
-                    <label class="attach-btn">📷<input type="file" id="photo-input" onchange="sendPhoto()" hidden></label>
-                    <input type="text" id="msg" placeholder="Напишите сообщение..." onkeydown="if(event.key==='Enter') sendPrivate()">
+                    <input type="text" id="msg" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') sendPrivate()">
                     <button onclick="sendPrivate()" class="send-btn">➤</button>
                 </div>
             </div>
@@ -62,9 +62,7 @@
 
     <div id="settings-modal" class="overlay" style="display:none;" onclick="if(event.target==this)this.style.display='none'">
         <div class="nitro-card animate-pop">
-            <div id="nitro-banner" class="nitro-banner" onclick="event.stopPropagation(); changeBanner()">
-                <button class="edit-banner">🎨</button>
-            </div>
+            <div id="nitro-banner" class="nitro-banner" onclick="changeBanner()"></div>
             <div class="nitro-main">
                 <div class="ava-wrap" onclick="changeAvatarViaLink()">
                     <img id="edit-avatar-preview" src="">
@@ -72,9 +70,8 @@
                 <div class="nitro-info">
                     <input type="text" id="edit-name" class="name-input">
                     <p id="nitro-username" class="tag">@user</p>
-                    <div class="line"></div>
                     <label class="label-style">ОБО МНЕ</label>
-                    <textarea id="edit-bio" class="bio-input" placeholder="Расскажите о себе..."></textarea>
+                    <textarea id="edit-bio" class="bio-input"></textarea>
                 </div>
                 <div class="nitro-btns">
                     <button onclick="saveProfile()" class="neon-btn">СОХРАНИТЬ</button>
@@ -89,11 +86,6 @@
         const socket = io();
         let myName = "", currentChatUser = null, chatMessages = {}, myProfile = {}, unread = {};
 
-        window.onload = () => {
-            const saved = localStorage.getItem('celestra_creds');
-            if (saved) socket.emit('auth', { ...JSON.parse(saved), type: 'login' });
-        };
-
         function auth(type) {
             const login = document.getElementById('login-input').value;
             const password = document.getElementById('pass-input').value;
@@ -107,24 +99,10 @@
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
             updateUI();
-            if(data.history) {
-                data.history.forEach(m => {
-                    const p = m.from === myName ? m.to : m.from;
-                    if(!chatMessages[p]) chatMessages[p] = [];
-                    chatMessages[p].push(m);
-                });
-                updateChatsUI();
-            }
         });
 
-        function updateUI() {
-            const ava = myProfile.avatar || 'https://i.pravatar.cc/150';
-            document.getElementById('my-avatar-btn').src = ava;
-            document.getElementById('my-name-display').innerText = myProfile.displayName || myName;
-        }
-
         function changeBanner() {
-            const link = prompt("Введите ссылку на GIF или цвет для фона:");
+            const link = prompt("Ссылка на GIF или цвет:");
             if (link) {
                 const b = document.getElementById('nitro-banner');
                 if(link.includes('http')) b.style.backgroundImage = `url('${link}')`;
@@ -133,19 +111,19 @@
         }
 
         function changeAvatarViaLink() {
-            const link = prompt("Введите прямую ссылку на GIF для аватара:");
+            const link = prompt("Ссылка на GIF для авы:");
             if (link) document.getElementById('edit-avatar-preview').src = link;
         }
 
         function openSettings() {
-            const banner = myProfile.banner || 'var(--grad)';
             const b = document.getElementById('nitro-banner');
+            const banner = myProfile.banner || 'linear-gradient(135deg, #6e8efb, #a777e3)';
             if(banner.includes('url')) b.style.backgroundImage = banner;
             else b.style.background = banner;
 
             document.getElementById('edit-avatar-preview').src = myProfile.avatar || 'https://i.pravatar.cc/150';
             document.getElementById('edit-name').value = myProfile.displayName || "";
-            document.getElementById('edit-bio').value = myProfile.bio || "";
+            document.getElementById('edit-bio').value = myProfile.bio || "Рад быть здесь!";
             document.getElementById('nitro-username').innerText = "@" + myName;
             document.getElementById('settings-modal').style.display = 'flex';
         }
@@ -162,67 +140,39 @@
             document.getElementById('settings-modal').style.display = 'none';
         }
 
-        socket.on('profile-updated', d => { myProfile = d; updateUI(); });
-
         function openChat(u) {
-            currentChatUser = u; unread[u] = 0;
+            currentChatUser = u;
+            if(window.innerWidth <= 768) document.getElementById('main-sidebar').style.display = 'none';
             document.getElementById('welcome-layer').style.display = 'none';
             document.getElementById('chat-active-ui').style.display = 'flex';
             document.getElementById('current-contact').innerText = "@" + u;
-            renderMsgs(u); updateChatsUI();
+            renderMsgs(u);
+        }
+
+        function closeChat() {
+            document.getElementById('chat-active-ui').style.display = 'none';
+            document.getElementById('main-sidebar').style.display = 'flex';
+            document.getElementById('welcome-layer').style.display = 'flex';
         }
 
         function renderMsgs(u) {
             const win = document.getElementById('chat-window'); win.innerHTML = '';
-            (chatMessages[u] || []).forEach((m, i) => {
+            (chatMessages[u] || []).forEach(m => {
                 const div = document.createElement('div');
                 div.className = `msg ${m.from === myName ? 'me' : 'them'}`;
-                div.style.animationDelay = `${i * 0.03}s`;
-                div.innerHTML = `<div class="bubble animate-msg">${m.text || ''} ${m.image ? `<img src="${m.image}">` : ''}</div>`;
+                div.innerHTML = `<div class="bubble">${m.text}</div>`;
                 win.appendChild(div);
             });
             win.scrollTop = win.scrollHeight;
         }
 
-        function updateChatsUI() {
-            const list = document.getElementById('chats-list'); list.innerHTML = '';
-            Object.keys(chatMessages).forEach(u => {
-                const div = document.createElement('div');
-                div.className = `tab ${currentChatUser === u ? 'active' : ''}`;
-                div.onclick = () => openChat(u);
-                const count = unread[u] ? `<span class="badge">${unread[u]}</span>` : '';
-                div.innerHTML = `<span>${u}</span> ${count}`;
-                list.appendChild(div);
-            });
+        function updateUI() {
+            document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://i.pravatar.cc/150';
+            document.getElementById('my-name-display').innerText = myProfile.displayName || myName;
         }
 
-        socket.on('msg-receive', m => {
-            const p = m.from === myName ? m.to : m.from;
-            if(!chatMessages[p]) chatMessages[p] = [];
-            chatMessages[p].push(m);
-            if(p === currentChatUser) renderMsgs(p);
-            else { unread[p] = (unread[p] || 0) + 1; document.getElementById('msg-sound').play(); }
-            updateChatsUI();
-        });
-
-        function sendPrivate() {
-            const v = document.getElementById('msg').value;
-            if(v.trim() && currentChatUser) {
-                socket.emit('private-message', {to: currentChatUser, text: v});
-                document.getElementById('msg').value = '';
-            }
-        }
-
-        function doSearch() {
-            const v = document.getElementById('user-search').value;
-            if(v.length > 1) socket.emit('search-user', v);
-        }
-
-        socket.on('search-result', d => {
-            const res = document.getElementById('search-results');
-            res.innerHTML = (d.exists && d.username !== myName) ? `<div class="search-res-item" onclick="openChat('${d.username}')">@${d.username}</div>` : '';
-        });
-
+        socket.on('profile-updated', d => { myProfile = d; updateUI(); });
+        
         function logout() { localStorage.removeItem('celestra_creds'); location.reload(); }
     </script>
 </body>
