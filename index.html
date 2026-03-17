@@ -4,10 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="style.css">
-    <title>Celestra Discord Style</title>
+    <title>Celestra Discord</title>
 </head>
 <body>
-    <div id="app-container" class="discord-layout">
+    <div id="auth-screen" class="auth-wrapper">
+        <div class="auth-card">
+            <h1 class="logo-text">CELESTRA</h1>
+            <p class="auth-sub">Мы так рады вас видеть!</p>
+            <div class="auth-inputs">
+                <label>ЛОГИН</label>
+                <input type="text" id="login-input">
+                <label>ПАРОЛЬ</label>
+                <input type="password" id="pass-input">
+            </div>
+            <button onclick="auth('login')" class="btn-brand">Вход</button>
+            <div class="auth-footer">
+                Нужен аккаунт? <span onclick="auth('register')" class="link-text">Зарегистрироваться</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-container" class="discord-layout" style="display: none;">
         <aside class="sidebar-wrapper" id="main-sidebar">
             <div class="search-bar">
                 <input type="text" id="user-search" placeholder="Поиск @юзера..." oninput="doSearch()">
@@ -16,11 +33,11 @@
             
             <div class="user-footer" onclick="openSettings()">
                 <div class="footer-avatar">
-                    <img id="my-avatar-btn" src="https://i.pravatar.cc/150">
+                    <img id="my-avatar-btn" src="">
                     <div class="status-dot"></div>
                 </div>
                 <div class="footer-info">
-                    <span id="my-name-display" class="display-name">Загрузка...</span>
+                    <span id="my-name-display" class="display-name">...</span>
                     <span class="status-text">Online</span>
                 </div>
                 <div class="footer-settings">⚙️</div>
@@ -39,7 +56,7 @@
                 <header class="chat-top-bar">
                     <button class="mobile-back" onclick="closeChat()">←</button>
                     <span class="hash">#</span>
-                    <span id="current-contact" class="header-user">Чат</span>
+                    <span id="current-contact" class="header-user">...</span>
                 </header>
                 <div id="chat-window" class="messages-container scrollable"></div>
                 <div class="message-input-area">
@@ -60,11 +77,11 @@
                     <input type="file" id="file-input" hidden onchange="uploadPhoto(this)">
                 </div>
                 <div class="nitro-main-info">
-                    <input type="text" id="edit-name" class="name-edit-input" placeholder="Имя">
-                    <p id="nitro-username" class="tag-text">@username</p>
+                    <input type="text" id="edit-name" class="name-edit-input">
+                    <p id="nitro-username" class="tag-text">@user</p>
                     <div class="separator"></div>
                     <label class="section-label">ОБО МНЕ</label>
-                    <textarea id="edit-bio" class="bio-textarea" placeholder="Расскажите о себе..."></textarea>
+                    <textarea id="edit-bio" class="bio-textarea"></textarea>
                 </div>
                 <div class="nitro-footer-btns">
                     <button onclick="saveProfile()" class="btn-save">Сохранить</button>
@@ -77,7 +94,28 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let myName = "", myProfile = {}, currentChatUser = null;
+        let myName = "", myProfile = {};
+
+        function auth(type) {
+            const login = document.getElementById('login-input').value;
+            const password = document.getElementById('pass-input').value;
+            if(!login || !password) return alert("Заполни все поля");
+            socket.emit('auth', { login, password, type });
+        }
+
+        socket.on('auth-success', data => {
+            myName = data.user; myProfile = data.profile;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+            updateUI();
+        });
+
+        socket.on('auth-error', msg => alert(msg));
+
+        function updateUI() {
+            document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://i.pravatar.cc/150';
+            document.getElementById('my-name-display').innerText = myProfile.displayName || myName;
+        }
 
         function uploadPhoto(input) {
             const reader = new FileReader();
@@ -90,61 +128,28 @@
             if (link) document.getElementById('edit-avatar-preview').src = link;
         }
 
-        function changeBanner() {
-            const link = prompt("Ссылка на GIF или цвет для баннера:");
-            if (!link) return;
-            const b = document.getElementById('nitro-banner');
-            if(link.includes('http')) b.style.backgroundImage = `url('${link}')`;
-            else b.style.background = link;
-        }
-
         function openSettings() {
             const b = document.getElementById('nitro-banner');
-            const banner = myProfile.banner || 'linear-gradient(135deg, #6e8efb, #a777e3)';
-            if(banner.includes('url')) b.style.backgroundImage = banner;
-            else b.style.background = banner;
-
+            b.style.background = myProfile.banner || 'var(--brand)';
             document.getElementById('edit-avatar-preview').src = myProfile.avatar || 'https://i.pravatar.cc/150';
             document.getElementById('edit-name').value = myProfile.displayName || "";
-            document.getElementById('edit-bio').value = myProfile.bio || "Рад быть здесь!";
+            document.getElementById('edit-bio').value = myProfile.bio || "";
             document.getElementById('nitro-username').innerText = "@" + myName;
             document.getElementById('settings-modal').style.display = 'flex';
         }
 
         function saveProfile() {
-            const b = document.getElementById('nitro-banner');
             const data = {
                 avatar: document.getElementById('edit-avatar-preview').src,
                 displayName: document.getElementById('edit-name').value,
                 bio: document.getElementById('edit-bio').value,
-                banner: b.style.backgroundImage || b.style.background
+                banner: document.getElementById('nitro-banner').style.background
             };
             socket.emit('update-profile', data);
             document.getElementById('settings-modal').style.display = 'none';
         }
 
-        socket.on('auth-success', data => {
-            myName = data.user; myProfile = data.profile;
-            document.getElementById('app-container').style.display = 'flex';
-            updateUI();
-        });
-
-        function updateUI() {
-            document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://i.pravatar.cc/150';
-            document.getElementById('my-name-display').innerText = myProfile.displayName || myName;
-        }
-
-        function openChat(u) {
-            currentChatUser = u;
-            if(window.innerWidth <= 768) {
-                document.getElementById('main-sidebar').style.display = 'none';
-                document.getElementById('main-chat').style.display = 'flex';
-            }
-            document.getElementById('welcome-layer').style.display = 'none';
-            document.getElementById('chat-active-ui').style.display = 'flex';
-            document.getElementById('current-contact').innerText = u;
-        }
-
+        function logout() { location.reload(); }
         function closeChat() {
             document.getElementById('main-sidebar').style.display = 'flex';
             document.getElementById('main-chat').style.display = 'none';
