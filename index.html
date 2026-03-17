@@ -12,7 +12,6 @@
     <div id="auth-screen" class="auth-wrapper">
         <div class="human-card animate-float">
             <h1 class="brand-name">celestra</h1>
-            <p class="subtitle">Рады видеть тебя снова!</p>
             <div class="input-group">
                 <input type="text" id="login-input" required autocomplete="off">
                 <label>Логин</label>
@@ -26,16 +25,18 @@
             <p id="error-msg" class="error-txt"></p>
             <div class="auth-btns">
                 <button onclick="auth('login')" class="primary-btn">Войти</button>
-                <button onclick="auth('register')" class="link-btn">Регистрация</button>
+                <button onclick="auth('register')" class="link-btn">Создать аккаунт</button>
             </div>
         </div>
     </div>
 
     <div id="app-container" class="main-layout" style="display: none;">
-        <aside class="sidebar">
-            <div class="search-bar">
-                <input type="text" id="user-search" placeholder="Найти человека..." oninput="doSearch()">
-                <div id="search-results"></div>
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="search-bar">
+                    <input type="text" id="user-search" placeholder="Поиск..." oninput="doSearch()">
+                    <div id="search-results"></div>
+                </div>
             </div>
             <div id="chats-list" class="scrollable"></div>
             
@@ -45,32 +46,36 @@
                     <div class="status-dot online"></div>
                 </div>
                 <div class="user-meta">
-                    <span id="my-name-display">Загрузка...</span>
-                    <span class="status-text">В сети</span>
+                    <span id="my-name-display">...</span>
+                    <span class="status-text">в сети</span>
                 </div>
                 <span class="settings-gear">⚙️</span>
             </div>
         </aside>
 
         <main class="chat-area">
-            <div id="welcome-screen" class="welcome-box">
-                <div class="logo-circle">c</div>
-                <h2>Привет в celestra</h2>
-                <p>Выбери чат или найди друга</p>
+            <div class="mobile-nav" id="mobile-back" style="display: none;" onclick="closeChatMobile()">
+                ← Назад
             </div>
 
-            <div id="active-chat" style="display: none; flex-direction: column; height: 100%;">
+            <div id="welcome-screen" class="welcome-box">
+                <div class="logo-circle">c</div>
+                <h2>celestra</h2>
+                <p>Ваше пространство для общения.<br>Выберите чат, чтобы начать.</p>
+            </div>
+
+            <div id="active-chat" class="chat-content" style="display: none;">
                 <header class="chat-top" onclick="viewOtherProfile()">
                     <div class="chat-header-info">
-                        <div id="current-contact" class="chat-title">Чат</div>
-                        <span class="online-indicator">в сети</span>
+                        <span id="current-contact" class="chat-title">Чат</span>
+                        <span class="online-indicator">онлайн</span>
                     </div>
                 </header>
                 <div id="chat-window" class="scrollable"></div>
                 <div class="input-container">
                     <div class="input-wrapper">
                         <label class="attach">📷<input type="file" id="photo-input" onchange="sendPhoto()" hidden></label>
-                        <input type="text" id="msg" placeholder="Напишите сообщение..." onkeydown="if(event.key==='Enter') sendPrivate()">
+                        <input type="text" id="msg" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') sendPrivate()">
                         <button onclick="sendPrivate()" class="send-btn">➤</button>
                     </div>
                 </div>
@@ -81,7 +86,7 @@
     <div id="settings-modal" class="overlay" style="display:none;" onclick="if(event.target==this)this.style.display='none'">
         <div class="nitro-card animate-slide-up">
             <div id="nitro-banner" class="nitro-banner">
-                <div class="banner-hint" id="edit-banner-btn">🎨 Изменить баннер</div>
+                <button class="edit-banner-abs" id="edit-banner-btn">🎨 Сменить фон</button>
             </div>
             <div class="nitro-content">
                 <div class="nitro-header">
@@ -93,14 +98,14 @@
                 </div>
                 <div class="nitro-body">
                     <div class="nitro-main-info">
-                        <input type="text" id="edit-name" class="nitro-name-edit">
+                        <input type="text" id="edit-name" class="nitro-name-edit" placeholder="Имя профиля">
                         <p id="nitro-username">@username</p>
                     </div>
                     <div class="nitro-divider"></div>
                     <div class="nitro-section">
-                        <label class="nitro-label">О СЕБЕ</label>
+                        <label class="nitro-label">ОБО МНЕ</label>
                         <div id="bio-view" class="bio-display"></div>
-                        <textarea id="edit-bio" class="bio-edit"></textarea>
+                        <textarea id="edit-bio" class="bio-edit" placeholder="Расскажите о себе..."></textarea>
                     </div>
                 </div>
                 <div class="nitro-footer" id="modal-btns"></div>
@@ -114,9 +119,7 @@
         let myName = "", currentChatUser = null, chatMessages = {}, myProfile = {};
         const sound = document.getElementById('msg-sound');
 
-        // РАЗБЛОКИРОВКА ЗВУКА (нужна для браузеров)
-        document.addEventListener('click', () => { sound.play().then(() => { sound.pause(); sound.currentTime = 0; }); }, { once: true });
-
+        // Авто-вход
         window.onload = () => {
             const saved = localStorage.getItem('cel_creds');
             if (saved) {
@@ -135,8 +138,7 @@
         }
 
         socket.on('auth-success', data => {
-            myName = data.user; 
-            myProfile = data.profile;
+            myName = data.user; myProfile = data.profile;
             document.getElementById('auth-screen').classList.add('fade-out');
             setTimeout(() => {
                 document.getElementById('auth-screen').style.display = 'none';
@@ -153,27 +155,6 @@
             }
         });
 
-        socket.on('msg-receive', m => {
-            const p = m.from === myName ? m.to : m.from;
-            if (m.from === myName || m.to === myName) {
-                if(!chatMessages[p]) chatMessages[p] = [];
-                chatMessages[p].push(m);
-                
-                // Проигрываем звук, если сообщение от другого человека
-                if(m.from !== myName) {
-                    sound.play();
-                    // Если чат не открыт, можно добавить визуальное уведомление на вкладке
-                    if(p !== currentChatUser) { document.title = "New Message | celestra"; }
-                }
-
-                if(p === currentChatUser) {
-                    renderMsgs(p);
-                    document.title = "celestra";
-                }
-                updateChatsUI();
-            }
-        });
-
         function updateChatsUI() {
             const list = document.getElementById('chats-list'); 
             list.innerHTML = '';
@@ -181,29 +162,48 @@
                 const div = document.createElement('div');
                 div.className = `chat-tab ${currentChatUser === u ? 'active' : ''}`;
                 div.onclick = () => openChat(u);
-                div.innerHTML = `<span>${u}</span><div class="dot online"></div>`;
+                div.innerHTML = `<div class="tab-info"><b>${u}</b><p>${chatMessages[u][chatMessages[u].length-1].text || '📷 Фото'}</p></div><div class="dot online"></div>`;
                 list.appendChild(div);
             });
         }
 
         function openChat(u) {
             currentChatUser = u;
-            document.title = "celestra";
+            if(window.innerWidth < 768) {
+                document.getElementById('sidebar').style.display = 'none';
+                document.getElementById('mobile-back').style.display = 'block';
+            }
             document.getElementById('welcome-screen').style.display = 'none';
             document.getElementById('active-chat').style.display = 'flex';
-            document.getElementById('current-contact').innerText = "@" + u;
+            document.getElementById('current-contact').innerText = u;
             renderMsgs(u);
             updateChatsUI();
         }
 
-        // --- Остальные функции (renderMsgs, sendPrivate, saveProfile и т.д.) остаются такими же как в прошлом ответе ---
+        function closeChatMobile() {
+            document.getElementById('sidebar').style.display = 'flex';
+            document.getElementById('active-chat').style.display = 'none';
+            document.getElementById('mobile-back').style.display = 'none';
+            document.getElementById('welcome-screen').style.display = 'flex';
+            currentChatUser = null;
+        }
+
+        socket.on('msg-receive', m => {
+            const p = m.from === myName ? m.to : m.from;
+            if(!chatMessages[p]) chatMessages[p] = [];
+            chatMessages[p].push(m);
+            if(m.from !== myName) sound.play();
+            if(p === currentChatUser) renderMsgs(p);
+            updateChatsUI();
+        });
+
         function renderMsgs(u) {
             const win = document.getElementById('chat-window'); 
             win.innerHTML = '';
             (chatMessages[u] || []).forEach(m => {
                 const div = document.createElement('div');
                 div.className = `msg-row ${m.from === myName ? 'me' : 'them'}`;
-                div.innerHTML = `<div class="bubble">${m.text || ''}${m.image ? `<img src="${m.image}">` : ''}</div><div class="time">${m.time}</div>`;
+                div.innerHTML = `<div class="bubble animate-slide-up">${m.text || ''}${m.image ? `<img src="${m.image}">` : ''}</div><div class="time">${m.time}</div>`;
                 win.appendChild(div);
             });
             win.scrollTop = win.scrollHeight;
@@ -226,11 +226,6 @@
             }
         }
 
-        function updateMyUI() {
-            document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://cdn0.iconfinder.com/data/icons/social-messaging-ui-color-shapes-3/3/51-512.png';
-            document.getElementById('my-name-display').innerText = myProfile.displayName;
-        }
-
         function doSearch() {
             const v = document.getElementById('user-search').value;
             if(v.length > 1) socket.emit('search-user', v);
@@ -239,39 +234,47 @@
 
         socket.on('search-result', d => {
             const res = document.getElementById('search-results');
-            res.innerHTML = d.exists && d.username !== myName ? `<div class="search-res-item" onclick="openChat('${d.username}')">@${d.username}</div>` : `<div class="search-res-item no-res">Не найден</div>`;
+            res.innerHTML = d.exists && d.username !== myName ? `<div class="search-res-item" onclick="openChat('${d.username}')">@${d.username}</div>` : '';
         });
 
-        function viewOtherProfile() { if(currentChatUser) socket.emit('get-user-profile', currentChatUser); }
+        function updateMyUI() {
+            document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://cdn0.iconfinder.com/data/icons/social-messaging-ui-color-shapes-3/3/51-512.png';
+            document.getElementById('my-name-display').innerText = myProfile.displayName;
+        }
+
         function openSettings() { showNitroProfile(myProfile, true, myName); }
+        function viewOtherProfile() { if(currentChatUser) socket.emit('get-user-profile', currentChatUser); }
         socket.on('user-profile-data', d => showNitroProfile(d, false, d.username));
 
         function showNitroProfile(data, isMe, username) {
+            const modal = document.getElementById('settings-modal');
             document.getElementById('nitro-banner').style.background = data.banner || 'var(--grad)';
             document.getElementById('edit-avatar-preview').src = data.avatar || 'https://cdn0.iconfinder.com/data/icons/social-messaging-ui-color-shapes-3/3/51-512.png';
             document.getElementById('nitro-username').innerText = "@" + username;
+            
             const bioView = document.getElementById('bio-view');
             const bioEdit = document.getElementById('edit-bio');
             const nameEdit = document.getElementById('edit-name');
             const btns = document.getElementById('modal-btns');
+
             if(isMe) {
                 bioView.style.display = 'none'; bioEdit.style.display = 'block';
                 nameEdit.removeAttribute('readonly'); nameEdit.value = data.displayName; bioEdit.value = data.bio || "";
-                document.getElementById('edit-banner-btn').style.display = 'flex';
+                document.getElementById('edit-banner-btn').style.display = 'block';
                 btns.innerHTML = `<button onclick="saveProfile()" class="save-btn">Сохранить</button><button onclick="logout()" class="exit-btn">Выход</button>`;
                 document.getElementById('ava-edit-trigger').onclick = () => document.getElementById('avatar-upload').click();
                 document.getElementById('edit-banner-btn').onclick = () => {
-                   const color = prompt("Введи HEX или градиент:", "linear-gradient(45deg, #6e8efb, #a777e3)");
+                   const color = prompt("Введи HEX (#ff0000) или градиент:", "linear-gradient(45deg, #6e8efb, #a777e3)");
                    if(color) document.getElementById('nitro-banner').style.background = color;
                 };
             } else {
                 bioView.style.display = 'block'; bioEdit.style.display = 'none';
-                nameEdit.setAttribute('readonly', true); nameEdit.value = data.displayName; bioView.innerText = data.bio || "Пусто...";
+                nameEdit.setAttribute('readonly', true); nameEdit.value = data.displayName; bioView.innerText = data.bio || "Описание отсутствует.";
                 document.getElementById('edit-banner-btn').style.display = 'none';
                 btns.innerHTML = `<button onclick="document.getElementById('settings-modal').style.display='none'" class="close-btn">Закрыть</button>`;
                 document.getElementById('ava-edit-trigger').onclick = null;
             }
-            document.getElementById('settings-modal').style.display = 'flex';
+            modal.style.display = 'flex';
         }
 
         function previewAva(i) {
@@ -288,9 +291,9 @@
             socket.emit('update-profile', {avatar, displayName, bio, banner});
             document.getElementById('settings-modal').style.display = 'none';
         }
+
         socket.on('profile-updated', d => { myProfile = d; updateMyUI(); });
         function logout() { localStorage.removeItem('cel_creds'); location.reload(); }
-        socket.on('auth-error', msg => { localStorage.removeItem('cel_creds'); document.getElementById('auth-screen').style.opacity = '1'; document.getElementById('error-msg').innerText = msg; });
     </script>
 </body>
 </html>
