@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="style.css">
-    <title>Celestra Premium</title>
+    <title>Celestra</title>
 </head>
 <body>
     <audio id="msg-sound" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
 
     <div id="auth-screen" class="auth-wrapper">
-        <div class="auth-card animate-pop">
+        <div class="auth-card">
             <h1 class="logo-text">CELESTRA</h1>
             <div class="auth-inputs">
                 <input type="text" id="login-input" placeholder="Логин">
@@ -25,7 +25,6 @@
         <aside class="sidebar" id="main-sidebar">
             <div class="search-section">
                 <input type="text" id="user-search" placeholder="Поиск @юзера..." oninput="doSearch()">
-                <div id="search-results"></div>
             </div>
             <div id="chats-list" class="scrollable"></div>
             <div class="profile-panel" onclick="openSettings()">
@@ -37,9 +36,9 @@
             </div>
         </aside>
 
-        <main class="chat-area">
+        <main class="chat-area" id="main-chat">
             <div id="welcome-layer" class="welcome-screen">
-                <div class="welcome-box animate-pop">
+                <div class="welcome-box">
                     <div class="logo-icon">C</div>
                     <h2>Celestra</h2>
                     <p>Выберите чат</p>
@@ -49,11 +48,11 @@
             <div id="chat-active-ui" class="chat-main-wrap" style="display: none;">
                 <header class="chat-header">
                     <button class="back-btn" onclick="closeChat()">←</button>
-                    <span id="current-contact">Чат</span>
+                    <span id="current-contact">@user</span>
                 </header>
                 <div id="chat-window" class="scrollable"></div>
                 <div class="input-bar">
-                    <input type="text" id="msg" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') sendPrivate()">
+                    <input type="text" id="msg" placeholder="Текст..." onkeydown="if(event.key==='Enter') sendPrivate()">
                     <button onclick="sendPrivate()" class="send-btn">➤</button>
                 </div>
             </div>
@@ -61,11 +60,12 @@
     </div>
 
     <div id="settings-modal" class="overlay" style="display:none;" onclick="if(event.target==this)this.style.display='none'">
-        <div class="nitro-card animate-pop">
+        <div class="nitro-card" onclick="event.stopPropagation()">
             <div id="nitro-banner" class="nitro-banner" onclick="changeBanner()"></div>
             <div class="nitro-main">
-                <div class="ava-wrap" onclick="changeAvatarViaLink()">
+                <div class="ava-wrap" onclick="document.getElementById('file-input').click()" oncontextmenu="event.preventDefault(); changeAvatarViaLink()">
                     <img id="edit-avatar-preview" src="">
+                    <input type="file" id="file-input" hidden onchange="uploadPhoto(this)">
                 </div>
                 <div class="nitro-info">
                     <input type="text" id="edit-name" class="name-input">
@@ -84,35 +84,27 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let myName = "", currentChatUser = null, chatMessages = {}, myProfile = {}, unread = {};
+        let myName = "", myProfile = {}, currentChatUser = null, chatMessages = {};
 
-        function auth(type) {
-            const login = document.getElementById('login-input').value;
-            const password = document.getElementById('pass-input').value;
-            if(!login || !password) return;
-            localStorage.setItem('celestra_creds', JSON.stringify({ login, password }));
-            socket.emit('auth', { login, password, type });
+        // Обычное фото
+        function uploadPhoto(input) {
+            const reader = new FileReader();
+            reader.onload = e => document.getElementById('edit-avatar-preview').src = e.target.result;
+            reader.readAsDataURL(input.files[0]);
         }
 
-        socket.on('auth-success', data => {
-            myName = data.user; myProfile = data.profile;
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('app-container').style.display = 'flex';
-            updateUI();
-        });
+        // GIF по ссылке
+        function changeAvatarViaLink() {
+            const link = prompt("Ссылка на GIF:");
+            if (link) document.getElementById('edit-avatar-preview').src = link;
+        }
 
         function changeBanner() {
-            const link = prompt("Ссылка на GIF или цвет:");
-            if (link) {
-                const b = document.getElementById('nitro-banner');
-                if(link.includes('http')) b.style.backgroundImage = `url('${link}')`;
-                else b.style.background = link;
-            }
-        }
-
-        function changeAvatarViaLink() {
-            const link = prompt("Ссылка на GIF для авы:");
-            if (link) document.getElementById('edit-avatar-preview').src = link;
+            const link = prompt("Ссылка на GIF или HEX-цвет:");
+            if (!link) return;
+            const b = document.getElementById('nitro-banner');
+            if(link.includes('http')) b.style.backgroundImage = `url('${link}')`;
+            else b.style.background = link;
         }
 
         function openSettings() {
@@ -140,40 +132,41 @@
             document.getElementById('settings-modal').style.display = 'none';
         }
 
-        function openChat(u) {
-            currentChatUser = u;
-            if(window.innerWidth <= 768) document.getElementById('main-sidebar').style.display = 'none';
-            document.getElementById('welcome-layer').style.display = 'none';
-            document.getElementById('chat-active-ui').style.display = 'flex';
-            document.getElementById('current-contact').innerText = "@" + u;
-            renderMsgs(u);
+        function auth(type) {
+            const login = document.getElementById('login-input').value;
+            const password = document.getElementById('pass-input').value;
+            if(!login || !password) return;
+            socket.emit('auth', { login, password, type });
         }
 
-        function closeChat() {
-            document.getElementById('chat-active-ui').style.display = 'none';
-            document.getElementById('main-sidebar').style.display = 'flex';
-            document.getElementById('welcome-layer').style.display = 'flex';
-        }
-
-        function renderMsgs(u) {
-            const win = document.getElementById('chat-window'); win.innerHTML = '';
-            (chatMessages[u] || []).forEach(m => {
-                const div = document.createElement('div');
-                div.className = `msg ${m.from === myName ? 'me' : 'them'}`;
-                div.innerHTML = `<div class="bubble">${m.text}</div>`;
-                win.appendChild(div);
-            });
-            win.scrollTop = win.scrollHeight;
-        }
+        socket.on('auth-success', data => {
+            myName = data.user; myProfile = data.profile;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+            updateUI();
+        });
 
         function updateUI() {
             document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://i.pravatar.cc/150';
             document.getElementById('my-name-display').innerText = myProfile.displayName || myName;
         }
 
-        socket.on('profile-updated', d => { myProfile = d; updateUI(); });
-        
-        function logout() { localStorage.removeItem('celestra_creds'); location.reload(); }
+        function openChat(u) {
+            currentChatUser = u;
+            if(window.innerWidth <= 768) {
+                document.getElementById('main-sidebar').style.display = 'none';
+                document.getElementById('main-chat').style.display = 'flex';
+            }
+            document.getElementById('welcome-layer').style.display = 'none';
+            document.getElementById('chat-active-ui').style.display = 'flex';
+            document.getElementById('current-contact').innerText = "@" + u;
+            // Тут должна быть логика renderMsgs
+        }
+
+        function closeChat() {
+            document.getElementById('main-sidebar').style.display = 'flex';
+            document.getElementById('main-chat').style.display = 'none';
+        }
     </script>
 </body>
 </html>
