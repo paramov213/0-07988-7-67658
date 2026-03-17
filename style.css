@@ -1,106 +1,46 @@
-:root {
-    --vh: 1vh; /* Динамическая единица высоты */
+:root { --bg: #0e1621; --side: #17212b; --blue: #2b5278; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body, html { 
+    margin: 0; padding: 0; width: 100%; height: 100%; 
+    background: var(--bg); color: white; font-family: sans-serif;
+    overflow: hidden; touch-action: manipulation;
 }
 
-* { 
-    box-sizing: border-box; 
-    outline: none; 
-    -webkit-tap-highlight-color: transparent; 
-    touch-action: manipulation; /* Убирает задержку клика и лишний зум */
+.app-container { display: flex; width: 100%; height: 100%; }
+
+.sidebar { width: 300px; background: var(--side); border-right: 1px solid #000; display: flex; flex-direction: column; z-index: 10; }
+
+.chat-area { flex: 1; display: flex; flex-direction: column; background: var(--bg); height: 100%; overflow: hidden; }
+
+#chat-header { 
+    padding: 15px 20px; background: var(--side); display: flex; align-items: center; 
+    padding-top: calc(15px + env(safe-area-inset-top));
 }
 
-body { 
-    font-family: 'Segoe UI', sans-serif; 
-    background: #0e1621; 
-    color: white; 
-    margin: 0; 
-    padding: 0;
-    width: 100vw;
-    height: 100vh;
-    height: calc(var(--vh, 1vh) * 100); /* Точный расчет высоты */
-    overflow: hidden; 
-}
+.back-btn { display: none; background: none; border: none; color: white; font-size: 24px; margin-right: 15px; }
 
-/* Auth */
-.modal { 
-    position: fixed; 
-    inset: 0; 
-    background: #0e1621; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    z-index: 1000; 
-}
-.auth-box { background: #17212b; padding: 40px; border-radius: 20px; width: 90%; max-width: 320px; text-align: center; }
-.auth-box h1 { color: #5288c1; letter-spacing: 2px; margin-top: 0; }
-.auth-box input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 10px; border: 1px solid #2b3948; background: #242f3d; color: white; }
+#chat-window { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; -webkit-overflow-scrolling: touch; }
 
-/* Main Layout - Растягиваем на 100% */
-.app-container { 
-    display: flex; 
-    width: 100%; 
-    height: 100%; 
-}
+.msg-bubble { padding: 10px 14px; border-radius: 12px; max-width: 85%; word-wrap: break-word; }
+.my-msg { align-self: flex-end; background: var(--blue); }
+.msg-bubble:not(.my-msg) { align-self: flex-start; background: #182533; }
+.chat-img { max-width: 100%; border-radius: 8px; margin-top: 5px; display: block; object-fit: contain; }
 
-.sidebar { 
-    width: 300px; 
-    background: #17212b; 
-    border-right: 2px solid #0e1621; 
-    display: flex; 
-    flex-direction: column; 
-    height: 100%;
-}
-
-/* Мобильная адаптация: чтобы чат был важнее */
-@media (max-width: 768px) {
-    .sidebar { width: 80px; } 
-    .sidebar-label, #my-name, .found-user-card b { display: none; }
-}
-
-.search-section { padding: 10px; }
-.search-section input { width: 100%; padding: 10px; border-radius: 10px; border: none; background: #242f3d; color: white; font-size: 16px; }
-
-#chats-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.chat-item { padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #0e1621; }
-.chat-item.active { background: #2b5278; }
-.badge { background: #e53935; color: white; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
-
-/* Chat Area - 100% высоты */
-.chat-area { 
-    flex: 1; 
-    display: flex; 
-    flex-direction: column; 
-    background: #0e1621; 
-    height: 100%;
-}
-#chat-header { padding: 12px 20px; background: #17212b; border-bottom: 1px solid #0e1621; }
-#header-status { font-size: 12px; color: #5288c1; height: 15px; }
-
-#chat-window { 
-    flex: 1; 
-    padding: 15px; 
-    overflow-y: auto; 
-    display: flex; 
-    flex-direction: column; 
-    gap: 8px; 
-    -webkit-overflow-scrolling: touch; 
-}
-.msg-bubble { background: #182533; padding: 10px 15px; border-radius: 15px 15px 15px 5px; max-width: 85%; align-self: flex-start; }
-.my-msg { background: #2b5278; align-self: flex-end; border-radius: 15px 15px 5px 15px; }
-.msg-time { font-size: 10px; color: #a5abb1; text-align: right; margin-top: 5px; }
-.chat-img { max-width: 100%; border-radius: 10px; margin-top: 5px; display: block; }
-
-/* Inputs зафиксированы снизу */
 .input-area { 
-    padding: 10px 15px; 
-    padding-bottom: calc(10px + env(safe-area-inset-bottom)); /* Поддержка iPhone с полоской внизу */
-    background: #17212b; 
-    display: flex; 
-    gap: 10px; 
-    align-items: center; 
+    padding: 10px 15px; background: var(--side); display: flex; gap: 10px; align-items: center;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
 }
-.input-area input { flex: 1; background: transparent; border: none; color: white; font-size: 16px; padding: 10px; }
+.input-area input { flex: 1; background: none; border: none; color: white; font-size: 16px; outline: none; }
 
-button { cursor: pointer; border: none; padding: 10px 15px; border-radius: 10px; background: #2b5278; color: white; }
-.exit-btn { background: #e53935; padding: 5px 10px; font-size: 11px; }
-.sidebar-footer { padding: 15px; display: flex; justify-content: space-between; align-items: center; background: #0e1621; }
+.icon-btn { cursor: pointer; font-size: 20px; }
+
+@media (max-width: 768px) {
+    .sidebar { width: 100%; position: absolute; inset: 0; }
+    .chat-area { width: 100%; position: absolute; inset: 0; display: none; }
+    .back-btn { display: block; }
+}
+
+.chat-item { padding: 15px; border-bottom: 1px solid var(--bg); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+.chat-item.active { background: var(--blue); }
+.badge { background: #e53935; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; }
