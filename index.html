@@ -18,7 +18,7 @@
             </div>
             <p id="error-msg" class="error-txt"></p>
             <button onclick="auth('login')" class="neon-btn">ВОЙТИ</button>
-            <button onclick="auth('register')" class="ghost-btn">РЕГИСТРАЦИЯ</button>
+            <button onclick="auth('register')" class="reg-btn-graphic">РЕГИСТРАЦИЯ</button>
         </div>
     </div>
 
@@ -124,6 +124,7 @@
             document.getElementById('nitro-banner').style.background = myProfile.banner || 'var(--grad)';
             document.getElementById('edit-avatar-preview').src = myProfile.avatar || 'https://i.pravatar.cc/150';
             document.getElementById('edit-name').value = myProfile.displayName || "";
+            // ИСПРАВЛЕННЫЙ ВЫВОД БИО
             document.getElementById('edit-bio').value = myProfile.bio || "";
             document.getElementById('nitro-username').innerText = "@" + myName;
             document.getElementById('settings-modal').style.display = 'flex';
@@ -133,7 +134,7 @@
             const data = {
                 avatar: document.getElementById('edit-avatar-preview').src,
                 displayName: document.getElementById('edit-name').value,
-                bio: document.getElementById('edit-bio').value,
+                bio: document.getElementById('edit-bio').value, // ИСПРАВЛЕННОЕ СОХРАНЕНИЕ БИО
                 banner: document.getElementById('nitro-banner').style.background
             };
             socket.emit('update-profile', data);
@@ -144,7 +145,7 @@
 
         function openChat(u) {
             currentChatUser = u;
-            unread[u] = 0; // Сбрасываем счетчик при открытии
+            unread[u] = 0;
             document.getElementById('welcome-layer').style.display = 'none';
             document.getElementById('chat-active-ui').style.display = 'flex';
             document.getElementById('current-contact').innerText = "@" + u;
@@ -181,12 +182,8 @@
             const p = m.from === myName ? m.to : m.from;
             if(!chatMessages[p]) chatMessages[p] = [];
             chatMessages[p].push(m);
-            if(p === currentChatUser) {
-                renderMsgs(p);
-            } else {
-                unread[p] = (unread[p] || 0) + 1;
-                document.getElementById('msg-sound').play();
-            }
+            if(p === currentChatUser) { renderMsgs(p); } 
+            else { unread[p] = (unread[p] || 0) + 1; document.getElementById('msg-sound').play(); }
             updateChatsUI();
         });
 
