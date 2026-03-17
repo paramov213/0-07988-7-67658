@@ -4,30 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="style.css">
-    <title>Celestra Discord</title>
+    <title>Celestra Premium</title>
 </head>
 <body>
-    <div id="auth-screen" class="auth-wrapper">
-        <div class="auth-card">
-            <h1 class="logo-text">CELESTRA</h1>
-            <p class="auth-sub">Мы так рады вас видеть!</p>
-            <div class="auth-inputs">
-                <label>ЛОГИН</label>
-                <input type="text" id="login-input">
-                <label>ПАРОЛЬ</label>
-                <input type="password" id="pass-input">
-            </div>
-            <button onclick="auth('login')" class="btn-brand">Вход</button>
-            <div class="auth-footer">
-                Нужен аккаунт? <span onclick="auth('register')" class="link-text">Зарегистрироваться</span>
-            </div>
-        </div>
-    </div>
+    <audio id="msg-sound" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
 
     <div id="app-container" class="discord-layout" style="display: none;">
         <aside class="sidebar-wrapper" id="main-sidebar">
             <div class="search-bar">
-                <input type="text" id="user-search" placeholder="Поиск @юзера..." oninput="doSearch()">
+                <input type="text" id="user-search" placeholder="Поиск @юзеров..." oninput="doSearch()">
             </div>
             <nav class="chat-list scrollable" id="chats-list"></nav>
             
@@ -48,7 +33,7 @@
             <div id="welcome-layer" class="welcome-view">
                 <div class="welcome-content">
                     <h2>Celestra Premium</h2>
-                    <p>Выберите чат или найдите собеседника</p>
+                    <p>Выберите чат</p>
                 </div>
             </div>
 
@@ -69,23 +54,26 @@
     </div>
 
     <div id="settings-modal" class="modal-overlay" style="display:none;" onclick="if(event.target==this)this.style.display='none'">
-        <div class="nitro-card" onclick="event.stopPropagation()">
-            <div id="nitro-banner" class="nitro-header" onclick="changeBanner()"></div>
-            <div class="nitro-body">
+        <div class="nitro-card animate-pop">
+            <div id="nitro-banner" class="nitro-header" onclick="changeBanner()">
+                <div class="banner-edit-overlay">Изменить баннер</div>
+            </div>
+            <div class="nitro-main">
                 <div class="avatar-holder" onclick="document.getElementById('file-input').click()" oncontextmenu="event.preventDefault(); changeAvatarViaLink()">
                     <img id="edit-avatar-preview" src="">
+                    <div class="ava-hint">ИЗМЕНИТЬ</div>
                     <input type="file" id="file-input" hidden onchange="uploadPhoto(this)">
                 </div>
-                <div class="nitro-main-info">
-                    <input type="text" id="edit-name" class="name-edit-input">
-                    <p id="nitro-username" class="tag-text">@user</p>
+                <div class="nitro-info">
+                    <input type="text" id="edit-name" class="name-edit-input" placeholder="Никнейм">
+                    <p id="nitro-username" class="tag-text">@username</p>
                     <div class="separator"></div>
                     <label class="section-label">ОБО МНЕ</label>
                     <textarea id="edit-bio" class="bio-textarea"></textarea>
                 </div>
-                <div class="nitro-footer-btns">
-                    <button onclick="saveProfile()" class="btn-save">Сохранить</button>
-                    <button onclick="logout()" class="btn-logout">Выйти</button>
+                <div class="nitro-btns">
+                    <button onclick="saveProfile()" class="btn-save">СОХРАНИТЬ</button>
+                    <button onclick="logout()" class="btn-logout">ВЫЙТИ</button>
                 </div>
             </div>
         </div>
@@ -94,66 +82,74 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let myName = "", myProfile = {};
+        let myName = "", currentChatUser = null, chatMessages = {}, myProfile = {}, unread = {};
 
-        function auth(type) {
-            const login = document.getElementById('login-input').value;
-            const password = document.getElementById('pass-input').value;
-            if(!login || !password) return alert("Заполни все поля");
-            socket.emit('auth', { login, password, type });
-        }
-
-        socket.on('auth-success', data => {
-            myName = data.user; myProfile = data.profile;
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('app-container').style.display = 'flex';
-            updateUI();
-        });
-
-        socket.on('auth-error', msg => alert(msg));
-
-        function updateUI() {
-            document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://i.pravatar.cc/150';
-            document.getElementById('my-name-display').innerText = myProfile.displayName || myName;
-        }
-
+        // Загрузка фото/GIF
         function uploadPhoto(input) {
             const reader = new FileReader();
             reader.onload = e => document.getElementById('edit-avatar-preview').src = e.target.result;
             reader.readAsDataURL(input.files[0]);
         }
-
         function changeAvatarViaLink() {
-            const link = prompt("Ссылка на GIF:");
+            const link = prompt("Вставь ссылку на GIF:");
             if (link) document.getElementById('edit-avatar-preview').src = link;
+        }
+        function changeBanner() {
+            const b = document.getElementById('nitro-banner');
+            const link = prompt("Вставь ссылку на GIF баннера или HEX-цвет:");
+            if(link) {
+                if(link.includes('http')) b.style.backgroundImage = `url('${link}')`;
+                else b.style.background = link;
+            }
+        }
+
+        // Авто-вход
+        window.onload = () => {
+            const saved = localStorage.getItem('celestra_creds');
+            if (saved) socket.emit('auth', { ...JSON.parse(saved), type: 'login' });
+        };
+
+        socket.on('auth-success', data => {
+            myName = data.user; myProfile = data.profile;
+            document.getElementById('app-container').style.display = 'flex';
+            updateUI();
+        });
+
+        function updateUI() {
+            const ava = myProfile.avatar || 'https://i.pravatar.cc/150';
+            document.getElementById('my-avatar-btn').src = ava;
+            document.getElementById('my-name-display').innerText = myProfile.displayName || myName;
         }
 
         function openSettings() {
             const b = document.getElementById('nitro-banner');
-            b.style.background = myProfile.banner || 'var(--brand)';
+            const banner = myProfile.banner || 'linear-gradient(135deg, #6e8efb, #a777e3)';
+            if(banner.includes('url')) b.style.backgroundImage = banner;
+            else b.style.background = banner;
+
             document.getElementById('edit-avatar-preview').src = myProfile.avatar || 'https://i.pravatar.cc/150';
             document.getElementById('edit-name').value = myProfile.displayName || "";
-            document.getElementById('edit-bio').value = myProfile.bio || "";
+            // ИСПРАВЛЕННЫЙ ВЫВОД БИО
+            document.getElementById('edit-bio').value = myProfile.bio || "Рад быть здесь!";
             document.getElementById('nitro-username').innerText = "@" + myName;
             document.getElementById('settings-modal').style.display = 'flex';
         }
 
+        // ИСПРАВЛЕННОЕ СОХРАНЕНИЕ ПРОФИЛЯ
         function saveProfile() {
+            const bannerElement = document.getElementById('nitro-banner');
             const data = {
                 avatar: document.getElementById('edit-avatar-preview').src,
                 displayName: document.getElementById('edit-name').value,
-                bio: document.getElementById('edit-bio').value,
-                banner: document.getElementById('nitro-banner').style.background
+                bio: document.getElementById('edit-bio').value, // Строго сохраняем био
+                banner: bannerElement.style.backgroundImage || bannerElement.style.background 
             };
             socket.emit('update-profile', data);
             document.getElementById('settings-modal').style.display = 'none';
         }
 
-        function logout() { location.reload(); }
-        function closeChat() {
-            document.getElementById('main-sidebar').style.display = 'flex';
-            document.getElementById('main-chat').style.display = 'none';
-        }
+        socket.on('profile-updated', d => { myProfile = d; updateUI(); });
+        function logout() { localStorage.removeItem('celestra_creds'); location.reload(); }
     </script>
 </body>
 </html>
