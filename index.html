@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link rel="stylesheet" href="style.css">
-    <title>Celestra</title>
+    <title>Celestra Messenger</title>
 </head>
 <body>
     <div id="auth-screen" class="modal">
@@ -14,6 +14,7 @@
             <input type="password" id="pass-input" placeholder="Пароль">
             <button onclick="auth('login')">Войти</button>
             <button onclick="auth('register')" class="secondary">Регистрация</button>
+            <p id="error-msg"></p>
         </div>
     </div>
 
@@ -23,7 +24,9 @@
                 <input type="text" id="user-search" placeholder="Поиск @юзер..." oninput="searchUser()">
                 <div id="search-results"></div>
             </div>
-            <div id="chats-list"></div>
+            <div id="chats-list">
+                <div class="sidebar-label">Ваши чаты</div>
+            </div>
             <div class="sidebar-footer">
                 <span id="my-name"></span>
                 <button onclick="logout()" class="exit-btn">Выход</button>
@@ -32,11 +35,9 @@
 
         <main class="chat-area" id="chat-area">
             <header id="chat-header">
-                <button class="back-btn" onclick="toggleSidebar(true)">←</button>
-                <div class="header-info">
-                    <div id="header-user">Выберите чат</div>
-                    <div id="header-status"></div>
-                </div>
+                <button class="back-btn" onclick="toggleMobile(true)">←</button>
+                <div id="header-user">Выберите чат</div>
+                <div id="header-status"></div>
             </header>
             <div id="chat-window"></div>
             <div class="input-area" id="input-block" style="display: none;">
@@ -53,6 +54,11 @@
         let myName = "", currentChatUser = null;
         const unreadCounts = {}; 
         const chatMessages = {}; 
+
+        window.onload = () => {
+            const saved = localStorage.getItem('celestra_session');
+            if (saved) socket.emit('auth', { ...JSON.parse(saved), type: 'login' });
+        };
 
         function auth(type) {
             const login = document.getElementById('login-input').value.trim();
@@ -82,35 +88,32 @@
 
         function openChat(user) {
             currentChatUser = user;
-            unreadCounts[user] = 0;
+            unreadCounts[user] = 0; 
             document.getElementById('header-user').innerText = "@" + user;
             document.getElementById('input-block').style.display = 'flex';
-            toggleSidebar(false);
+            toggleMobile(false);
             socket.emit('get-history', user);
             updateChatsUI();
         }
 
-        socket.on('chat-history', (data) => {
+        socket.on('chat-history', data => {
             chatMessages[data.partner] = data.msgs;
             renderMessages(data.partner);
         });
 
         function sendPrivate() {
-            const el = document.getElementById('msg');
-            if (el.value.trim() && currentChatUser) {
-                socket.emit('private-message', { to: currentChatUser, text: el.value });
-                el.value = '';
-            }
+            const txt = document.getElementById('msg').value;
+            if (txt.trim()) socket.emit('private-message', { to: currentChatUser, text: txt });
+            document.getElementById('msg').value = '';
         }
 
         function sendPhoto() {
-            const input = document.getElementById('photo-input');
-            const file = input.files[0];
-            if (file && currentChatUser) {
+            const file = document.getElementById('photo-input').files[0];
+            if (file) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     socket.emit('private-message', { to: currentChatUser, image: e.target.result });
-                    input.value = ''; // Исправлен баг: очищаем инпут после чтения
+                    document.getElementById('photo-input').value = '';
                 };
                 reader.readAsDataURL(file);
             }
@@ -120,10 +123,7 @@
             const partner = data.from === myName ? data.to : data.from;
             if (!chatMessages[partner]) chatMessages[partner] = [];
             chatMessages[partner].push(data);
-            
-            if (partner !== currentChatUser && data.from !== myName) {
-                unreadCounts[partner] = (unreadCounts[partner] || 0) + 1;
-            }
+            if (partner !== currentChatUser && data.from !== myName) unreadCounts[partner] = (unreadCounts[partner] || 0) + 1;
             if (partner === currentChatUser) renderMessages(partner);
             updateChatsUI();
         });
@@ -135,24 +135,23 @@
                 const div = document.createElement('div');
                 div.className = `msg-bubble ${msg.from === myName ? 'my-msg' : ''}`;
                 let content = msg.text ? `<div>${msg.text}</div>` : "";
-                // Добавляем onload для картинок, чтобы скролл срабатывал после их загрузки
-                if(msg.image) content += `<img src="${msg.image}" class="chat-img" onload="document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight">`;
+                if(msg.image) content += `<img src="${msg.image}" class="chat-img" onload="this.parentElement.parentElement.scrollTop = this.parentElement.parentElement.scrollHeight">`;
                 div.innerHTML = `${content}<div class="msg-time">${msg.time}</div>`;
                 win.appendChild(div);
             });
             win.scrollTop = win.scrollHeight;
         }
 
-        function toggleSidebar(show) {
+        function toggleMobile(showSide) {
             if (window.innerWidth <= 768) {
-                document.getElementById('sidebar').style.display = show ? 'flex' : 'none';
-                document.getElementById('chat-area').style.display = show ? 'none' : 'flex';
+                document.getElementById('sidebar').style.display = showSide ? 'flex' : 'none';
+                document.getElementById('chat-area').style.display = showSide ? 'none' : 'flex';
             }
         }
 
         function updateChatsUI() {
             const list = document.getElementById('chats-list');
-            list.innerHTML = '';
+            list.innerHTML = '<div class="sidebar-label">Ваши чаты</div>';
             Object.keys(chatMessages).forEach(user => {
                 const div = document.createElement('div');
                 div.className = `chat-item ${currentChatUser === user ? 'active' : ''}`;
