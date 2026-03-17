@@ -1,54 +1,76 @@
 :root {
-    --grad: linear-gradient(135deg, #6e8efb, #a777e3);
     --dark: #0f1016;
     --sidebar: #161821;
+    --grad: linear-gradient(135deg, #6e8efb, #a777e3);
     --neon: #00d4ff;
-    --bg-img: #0a0b14;
 }
 
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg-img); color: #fff; font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 
-/* АДАПТИВНАЯ ГРАФИКА ВХОДА */
-.auth-wrapper { height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-.auth-card { background: rgba(255,255,255,0.03); padding: 30px; border-radius: 20px; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); width: 100%; max-width: 350px; text-align: center; }
-.logo-text { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 32px; font-weight: 900; margin-bottom: 20px; }
-.auth-inputs input { width: 100%; background: #1a1c26; border: 1px solid #333; padding: 12px; border-radius: 10px; color: #fff; margin-bottom: 10px; outline: none; }
+/* Убираем прокрутку у body */
+html, body { 
+    margin: 0; padding: 0; width: 100%; height: 100%; 
+    background: #000; color: #fff; font-family: sans-serif;
+    overflow: hidden; 
+}
 
-.reg-btn-graphic { background: transparent; border: 2px solid var(--neon); color: var(--neon); padding: 12px; border-radius: 10px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; text-transform: uppercase; box-shadow: 0 0 10px rgba(0,212,255,0.2); }
+/* Вход */
+.auth-wrapper { height: 100%; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.auth-card { background: #18191c; padding: 25px; border-radius: 20px; width: 100%; max-width: 320px; text-align: center; border: 1px solid #333; }
+.logo-text { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 28px; font-weight: 900; margin-bottom: 20px; }
+.auth-inputs input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; background: #25272b; color: #fff; font-size: 16px; }
 
-/* ГЛАВНЫЙ ЭКРАН */
-.main-layout { display: flex; height: 100vh; width: 100vw; }
-.sidebar { width: 300px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.05); }
+/* Основной макет */
+.main-layout { display: flex; width: 100%; height: 100%; }
 
-/* ДЛЯ ТЕЛЕФОНОВ */
+.sidebar { 
+    width: 300px; height: 100%; background: var(--sidebar); 
+    display: flex; flex-direction: column; border-right: 1px solid #222; 
+}
+
+.chat-area { 
+    flex: 1; height: 100%; background: #0a0b10; 
+    display: flex; flex-direction: column; position: relative; 
+}
+
+/* Мобильная версия: скрываем чат, пока не выбран контакт */
 @media (max-width: 768px) {
     .sidebar { width: 100%; }
-    .chat-area { width: 100%; }
-    .back-btn { display: block !important; }
+    .chat-area { display: none; width: 100%; }
 }
 
-.chat-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-img); position: relative; }
-.chat-header { padding: 15px; background: rgba(0,0,0,0.2); display: flex; align-items: center; gap: 15px; }
-.back-btn { display: none; background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; }
+.chat-header { padding: 12px 15px; background: #161821; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 12px; }
+.back-btn { display: none; background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; padding: 0; }
 
-/* MESSAGES */
-#chat-window { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-.bubble { padding: 10px 15px; border-radius: 15px; max-width: 80%; word-wrap: break-word; }
+@media (max-width: 768px) { .back-btn { display: block; } }
+
+/* Скролл */
+.scrollable { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+/* Сообщения */
+#chat-window { padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+.bubble { padding: 10px 14px; border-radius: 16px; max-width: 85%; font-size: 15px; line-height: 1.4; word-wrap: break-word; }
 .me { align-self: flex-end; background: var(--grad); }
 .them { align-self: flex-start; background: #2f3136; }
 
-/* МОДАЛКА (ИСПРАВЛЕНО БИО) */
-.nitro-card { width: 90%; max-width: 380px; background: #18191c; border-radius: 20px; overflow: hidden; }
-.nitro-banner { height: 100px; background-size: cover; background-position: center; cursor: pointer; }
-.ava-wrap { width: 80px; height: 80px; border-radius: 50%; border: 4px solid #18191c; margin: -40px 0 0 20px; overflow: hidden; background: #000; cursor: pointer; }
+/* Поле ввода */
+.input-bar { padding: 10px; background: #161821; display: flex; gap: 10px; }
+.input-bar input { flex: 1; padding: 12px; border-radius: 20px; border: none; background: #2b2d31; color: #fff; font-size: 16px; }
+
+/* Профиль в боковой панели */
+.profile-panel { padding: 12px; background: #1e1f24; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.mini-ava { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; }
+
+/* Модалка настроек */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 15px; }
+.nitro-card { width: 100%; max-width: 360px; background: #18191c; border-radius: 16px; overflow: hidden; }
+.nitro-banner { height: 90px; background-size: cover; background-position: center; cursor: pointer; }
+.ava-wrap { width: 75px; height: 75px; border-radius: 50%; border: 4px solid #18191c; margin: -38px 0 0 15px; overflow: hidden; background: #000; cursor: pointer; }
 .ava-wrap img { width: 100%; height: 100%; object-fit: cover; }
 
-.nitro-info { padding: 15px 20px; }
-.bio-input { width: 100%; height: 80px; background: #2b2d31; border: none; border-radius: 8px; color: #dbdee1; padding: 10px; margin-top: 10px; resize: none; outline: none; }
-.label-style { font-size: 12px; font-weight: bold; color: #aaa; text-transform: uppercase; margin-top: 15px; display: block; }
+.nitro-info { padding: 15px; }
+.bio-input { width: 100%; height: 80px; background: #2b2d31; border: none; border-radius: 8px; color: #fff; padding: 10px; margin-top: 8px; resize: none; font-size: 14px; }
+.name-input { background: transparent; border: none; color: #fff; font-size: 20px; font-weight: bold; width: 100%; }
 
-.neon-btn { background: var(--grad); border: none; padding: 12px; border-radius: 10px; color: #fff; font-weight: bold; width: 100%; cursor: pointer; }
-.danger-btn { background: #ff4b4b; border: none; color: #fff; padding: 10px; border-radius: 10px; width: 100%; margin-top: 8px; cursor: pointer; }
-
-.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+.neon-btn { background: var(--grad); border: none; padding: 12px; border-radius: 8px; color: #fff; font-weight: bold; width: 100%; cursor: pointer; margin-top: 10px; font-size: 16px; }
+.reg-btn-graphic { background: transparent; border: 2px solid var(--neon); color: var(--neon); padding: 10px; border-radius: 8px; width: 100%; margin-top: 10px; font-weight: bold; }
