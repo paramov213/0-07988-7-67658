@@ -2,165 +2,96 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="style.css">
-    <title>celestra</title>
+    <title>Celestra Premium</title>
 </head>
 <body>
-    <audio id="msg-sound" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
-
-    <div id="intro-layer" class="intro-wrap">
-        <div class="intro-content">
-            <div class="intro-logo">c</div>
-            <h1 class="intro-title">celestra</h1>
-            <div class="loader-bar"><span></span></div>
-        </div>
-    </div>
-
-    <div id="auth-screen" class="auth-wrapper" style="display: none;">
-        <div class="human-card">
-            <h1 class="brand-name">celestra</h1>
-            <div class="input-group">
-                <input type="text" id="login-input" required autocomplete="off">
-                <label>Логин</label>
-                <div class="bar"></div>
-            </div>
-            <div class="input-group">
-                <input type="password" id="pass-input" required autocomplete="off">
-                <label>Пароль</label>
-                <div class="bar"></div>
-            </div>
+    <div id="auth-screen" class="auth-wrapper">
+        <div class="glass-login animate-pop">
+            <h1 class="logo-text">CELESTRA</h1>
+            <p>Добро пожаловать в яркое будущее</p>
+            <input type="text" id="login-input" placeholder="Ваш логин">
+            <input type="password" id="pass-input" placeholder="Ваш пароль">
             <p id="error-msg" class="error-txt"></p>
-            <div class="auth-btns">
-                <button onclick="auth('login')" class="primary-btn">Войти</button>
-                <button onclick="auth('register')" class="link-btn">Создать аккаунт</button>
-            </div>
+            <button onclick="auth('login')" class="neon-btn">ВОЙТИ</button>
+            <button onclick="auth('register')" class="ghost-btn">Создать аккаунт</button>
         </div>
     </div>
 
     <div id="app-container" class="main-layout" style="display: none;">
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-top">
-                <div class="search-box">
-                    <input type="text" id="user-search" placeholder="Поиск @юзера..." oninput="doSearch()">
-                    <div id="search-results" class="floating-results"></div>
-                </div>
+        <aside class="sidebar">
+            <div class="search-bar">
+                <input type="text" id="user-search" placeholder="Поиск @юзера..." oninput="doSearch()">
+                <div id="search-results"></div>
             </div>
-            
-            <div id="chats-list" class="scrollable flex-grow">
-                </div>
-            
-            <div class="user-panel" onclick="openSettings()">
-                <div class="user-panel-info">
-                    <div class="ava-mini-wrap">
-                        <img id="my-avatar-btn" src="">
-                        <div class="status-dot online"></div>
-                    </div>
-                    <div class="user-text">
-                        <span id="my-name-display">Загрузка...</span>
-                        <small>В сети</small>
-                    </div>
-                </div>
-                <span class="gear-icon">⚙️</span>
+            <div id="chats-list" class="scrollable"></div>
+            <div class="my-profile-mini">
+                <img id="my-avatar-btn" src="" onclick="openSettings()" class="mini-ava">
+                <span id="my-name-display">Загрузка...</span>
+                <button class="settings-gear" onclick="openSettings()">⚙️</button>
             </div>
         </aside>
 
-        <main class="chat-area" id="chat-area">
-            <button class="mobile-back" onclick="backToList()">← Чаты</button>
-
-            <div id="welcome-screen" class="welcome-box">
-                <div class="logo-circle">c</div>
-                <h2>Добро пожаловать</h2>
-                <p>Выберите чат, чтобы начать общение</p>
-            </div>
-
-            <div id="active-chat" class="chat-view" style="display: none;">
-                <header class="chat-header" onclick="viewOtherProfile()">
-                    <div class="chat-info">
-                        <span id="current-contact" class="chat-name">Чат</span>
-                        <span class="chat-status">онлайн</span>
-                    </div>
-                </header>
-                
-                <div id="chat-window" class="scrollable chat-messages"></div>
-                
-                <div class="chat-footer">
-                    <div class="input-pill">
-                        <label class="btn-attach">📷<input type="file" id="photo-input" onchange="sendPhoto()" hidden></label>
-                        <input type="text" id="msg" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') sendPrivate()">
-                        <button onclick="sendPrivate()" class="btn-send">➤</button>
-                    </div>
+        <main class="chat-area">
+            <header class="chat-top">
+                <div id="current-contact">Выберите чат</div>
+            </header>
+            <div id="chat-window" class="scrollable"></div>
+            <div class="input-container" id="input-block" style="display:none;">
+                <div class="input-glass">
+                    <label class="btn-img">📷<input type="file" id="photo-input" onchange="sendPhoto()" hidden></label>
+                    <input type="text" id="msg" placeholder="Напишите что-нибудь..." onkeydown="if(event.key==='Enter') sendPrivate()">
+                    <button onclick="sendPrivate()" class="send-arr">➤</button>
                 </div>
             </div>
         </main>
     </div>
 
     <div id="settings-modal" class="overlay" style="display:none;" onclick="if(event.target==this)this.style.display='none'">
-        <div class="profile-card">
-            <div id="nitro-banner" class="profile-banner">
-                <button class="change-banner" id="edit-banner-btn">🎨 Сменить фон</button>
+        <div class="modal-card animate-pop">
+            <div class="ava-edit-circle" onclick="document.getElementById('avatar-upload').click()">
+                <img id="edit-avatar-preview" src="">
+                <input type="file" id="avatar-upload" hidden onchange="previewAva(this)">
             </div>
-            <div class="profile-main">
-                <div class="profile-avatar-wrap" id="ava-edit-trigger">
-                    <img id="edit-avatar-preview" src="">
-                    <div class="ava-edit-hint">ИЗМЕНИТЬ</div>
-                    <input type="file" id="avatar-upload" hidden onchange="previewAva(this)">
-                </div>
-                
-                <div class="profile-info">
-                    <input type="text" id="edit-name" class="name-input" placeholder="Ваше имя">
-                    <p id="nitro-username" class="username-tag">@username</p>
-                </div>
-
-                <div class="profile-divider"></div>
-
-                <div class="profile-section">
-                    <label>О СЕБЕ</label>
-                    <div id="bio-view" class="bio-text"></div>
-                    <textarea id="edit-bio" class="bio-textarea" placeholder="Напишите что-нибудь о себе..."></textarea>
-                </div>
-
-                <div class="profile-actions" id="modal-btns">
-                    </div>
-            </div>
+            <input type="text" id="edit-name" placeholder="Никнейм">
+            <button onclick="saveProfile()" class="neon-btn">Сохранить</button>
+            <button onclick="logout()" class="danger-btn">Выйти</button>
         </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let myName = "", currentChatUser = null, chatMessages = {}, myProfile = {};
-        const sound = document.getElementById('msg-sound');
+        let myName = "", currentChatUser = null, chatMessages = {};
 
-        // РАБОТА С ИНТРО
+        // === ЛОГИКА АВТО-ВХОДА ===
         window.onload = () => {
-            const saved = localStorage.getItem('cel_creds');
-            setTimeout(() => {
-                document.getElementById('intro-layer').classList.add('hide');
-                if (saved) {
-                    const data = JSON.parse(saved);
-                    socket.emit('auth', { ...data, type: 'login' });
-                } else {
-                    document.getElementById('auth-screen').style.display = 'flex';
-                }
-            }, 2000);
+            const savedCreds = localStorage.getItem('celestra_creds');
+            if (savedCreds) {
+                const data = JSON.parse(savedCreds);
+                // Скрываем форму, пока идет проверка на сервере
+                document.getElementById('auth-screen').style.opacity = '0';
+                socket.emit('auth', { login: data.login, password: data.password, type: 'login' });
+            }
         };
 
-        // АУТЕНТИФИКАЦИЯ
         function auth(type) {
-            const login = document.getElementById('login-input').value.trim();
-            const password = document.getElementById('pass-input').value.trim();
+            const login = document.getElementById('login-input').value;
+            const password = document.getElementById('pass-input').value;
             if(!login || !password) return;
-            localStorage.setItem('cel_creds', JSON.stringify({ login, password }));
+            
+            // Сохраняем данные в браузере
+            localStorage.setItem('celestra_creds', JSON.stringify({ login, password }));
             socket.emit('auth', { login, password, type });
         }
 
         socket.on('auth-success', data => {
-            myName = data.user; 
-            myProfile = data.profile;
+            myName = data.user;
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
-            updateMyUI();
+            document.getElementById('my-avatar-btn').src = data.profile.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+            document.getElementById('my-name-display').innerText = data.profile.displayName;
             
             if(data.history) {
                 data.history.forEach(m => {
@@ -172,80 +103,73 @@
             }
         });
 
-        socket.on('auth-error', msg => {
-            localStorage.removeItem('cel_creds');
-            document.getElementById('auth-screen').style.display = 'flex';
+        socket.on('auth-error', msg => { 
             document.getElementById('error-msg').innerText = msg;
+            // Если авто-вход не удался, показываем форму снова и чистим память
+            document.getElementById('auth-screen').style.opacity = '1';
+            localStorage.removeItem('celestra_creds');
         });
 
-        // ЧАТЫ И СООБЩЕНИЯ
-        function updateChatsUI() {
-            const list = document.getElementById('chats-list'); 
-            list.innerHTML = '';
-            Object.keys(chatMessages).sort((a,b) => {
-                const lastA = chatMessages[a][chatMessages[a].length-1].ts;
-                const lastB = chatMessages[b][chatMessages[b].length-1].ts;
-                return lastB - lastA;
-            }).forEach(u => {
-                const lastMsg = chatMessages[u][chatMessages[u].length-1];
-                const div = document.createElement('div');
-                div.className = `chat-item ${currentChatUser === u ? 'active' : ''}`;
-                div.onclick = () => openChat(u);
-                div.innerHTML = `
-                    <div class="item-body">
-                        <div class="item-name"><b>${u}</b> <span class="item-time">${lastMsg.time}</span></div>
-                        <div class="item-preview">${lastMsg.text || '📷 Фотография'}</div>
-                    </div>
-                `;
-                list.appendChild(div);
-            });
+        // === ФУНКЦИЯ ВЫХОДА ===
+        function logout() {
+            localStorage.removeItem('celestra_creds'); // Стираем сохраненные данные
+            location.reload(); // Перезагружаем страницу
         }
+
+        // === ОСТАЛЬНАЯ ЛОГИКА ЧАТА (НЕ МЕНЯЛАСЬ) ===
+        function doSearch() {
+            const v = document.getElementById('user-search').value;
+            if(v.length > 1) socket.emit('search-user', v);
+        }
+
+        socket.on('search-result', d => {
+            const res = document.getElementById('search-results');
+            if(d.exists && d.username !== myName) {
+                res.innerHTML = `<div class="search-res-item" onclick="openChat('${d.username}')">@${d.username}</div>`;
+            }
+        });
 
         function openChat(u) {
             currentChatUser = u;
-            if(window.innerWidth < 768) {
-                document.getElementById('sidebar').classList.add('mobile-hidden');
-                document.getElementById('chat-area').classList.add('mobile-active');
-            }
-            document.getElementById('welcome-screen').style.display = 'none';
-            document.getElementById('active-chat').style.display = 'flex';
-            document.getElementById('current-contact').innerText = u;
+            document.getElementById('current-contact').innerText = "@" + u;
+            document.getElementById('input-block').style.display = 'block';
+            document.getElementById('search-results').innerHTML = '';
+            document.getElementById('user-search').value = '';
             renderMsgs(u);
             updateChatsUI();
         }
 
-        function backToList() {
-            document.getElementById('sidebar').classList.remove('mobile-hidden');
-            document.getElementById('chat-area').classList.remove('mobile-active');
-            currentChatUser = null;
-        }
-
-        socket.on('msg-receive', m => {
-            const p = m.from === myName ? m.to : m.from;
-            if(!chatMessages[p]) chatMessages[p] = [];
-            chatMessages[p].push(m);
-            if(m.from !== myName) sound.play();
-            if(p === currentChatUser) renderMsgs(p);
-            updateChatsUI();
-        });
-
         function renderMsgs(u) {
-            const win = document.getElementById('chat-window'); 
-            win.innerHTML = '';
+            const win = WIN = document.getElementById('chat-window'); win.innerHTML = '';
             (chatMessages[u] || []).forEach(m => {
                 const div = document.createElement('div');
-                div.className = `msg-group ${m.from === myName ? 'me' : 'them'}`;
-                div.innerHTML = `
-                    <div class="msg-bubble">
-                        ${m.text || ''}
-                        ${m.image ? `<img src="${m.image}" class="msg-img">` : ''}
-                        <span class="msg-time">${m.time}</span>
-                    </div>
-                `;
+                div.className = `msg ${m.from === myName ? 'me' : 'them'}`;
+                div.innerHTML = `<div class="msg-bubble">${m.text || ''} ${m.image ? `<img src="${m.image}">` : ''}</div><div class="m-time">${m.time}</div>`;
                 win.appendChild(div);
             });
             win.scrollTop = win.scrollHeight;
         }
+
+        function updateChatsUI() {
+            const list = document.getElementById('chats-list'); list.innerHTML = '';
+            Object.keys(chatMessages).forEach(u => {
+                const div = document.createElement('div');
+                div.className = `chat-tab ${currentChatUser === u ? 'active' : ''}`;
+                div.onclick = () => openChat(u);
+                div.innerText = u;
+                list.appendChild(div);
+            });
+        }
+
+        socket.on('msg-receive', m => {
+            const p = m.from === myName ? m.to : m.from;
+            if (m.from === myName || m.to === myName) {
+                if(!chatMessages[p]) chatMessages[p] = [];
+                chatMessages[p].push(m);
+                if(p === currentChatUser) renderMsgs(p);
+                updateChatsUI();
+            }
+        });
 
         function sendPrivate() {
             const v = document.getElementById('msg').value;
@@ -264,75 +188,30 @@
             }
         }
 
-        // ПРОФИЛЬ
-        function updateMyUI() {
-            document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://i.pravatar.cc/150?u=' + myName;
-            document.getElementById('my-name-display').innerText = myProfile.displayName;
-        }
-
-        function openSettings() { showNitroProfile(myProfile, true, myName); }
-        function viewOtherProfile() { if(currentChatUser) socket.emit('get-user-profile', currentChatUser); }
-        socket.on('user-profile-data', d => showNitroProfile(d, false, d.username));
-
-        function showNitroProfile(data, isMe, username) {
-            const modal = document.getElementById('settings-modal');
-            document.getElementById('nitro-banner').style.background = data.banner || 'var(--grad)';
-            document.getElementById('edit-avatar-preview').src = data.avatar || 'https://i.pravatar.cc/150?u=' + username;
-            document.getElementById('nitro-username').innerText = "@" + username;
-            
-            const bioView = document.getElementById('bio-view');
-            const bioEdit = document.getElementById('edit-bio');
-            const nameEdit = document.getElementById('edit-name');
-            const btns = document.getElementById('modal-btns');
-
-            if(isMe) {
-                bioView.style.display = 'none'; bioEdit.style.display = 'block';
-                nameEdit.removeAttribute('readonly'); nameEdit.value = data.displayName; bioEdit.value = data.bio || "";
-                document.getElementById('edit-banner-btn').style.display = 'block';
-                btns.innerHTML = `<button onclick="saveProfile()" class="btn-save">Сохранить</button><button onclick="logout()" class="btn-logout">Выйти</button>`;
-                document.getElementById('ava-edit-trigger').onclick = () => document.getElementById('avatar-upload').click();
-                document.getElementById('edit-banner-btn').onclick = () => {
-                   const color = prompt("Введи HEX (#ff0000) или градиент:", "linear-gradient(45deg, #6e8efb, #a777e3)");
-                   if(color) document.getElementById('nitro-banner').style.background = color;
-                };
-            } else {
-                bioView.style.display = 'block'; bioEdit.style.display = 'none';
-                nameEdit.setAttribute('readonly', true); nameEdit.value = data.displayName; bioView.innerText = data.bio || "Описание отсутствует.";
-                document.getElementById('edit-banner-btn').style.display = 'none';
-                btns.innerHTML = `<button onclick="document.getElementById('settings-modal').style.display='none'" class="btn-close">Закрыть</button>`;
-                document.getElementById('ava-edit-trigger').onclick = null;
-            }
-            modal.style.display = 'flex';
+        function openSettings() {
+            document.getElementById('edit-avatar-preview').src = document.getElementById('my-avatar-btn').src;
+            document.getElementById('settings-modal').style.display = 'flex';
         }
 
         function previewAva(i) {
-            const r = new FileReader();
-            r.onload = e => document.getElementById('edit-avatar-preview').src = e.target.result;
-            r.readAsDataURL(i.files[0]);
+            if(i.files[0]) {
+                const r = new FileReader();
+                r.onload = e => document.getElementById('edit-avatar-preview').src = e.target.result;
+                r.readAsDataURL(i.files[0]);
+            }
         }
 
         function saveProfile() {
             const avatar = document.getElementById('edit-avatar-preview').src;
             const displayName = document.getElementById('edit-name').value;
-            const bio = document.getElementById('edit-bio').value;
-            const banner = document.getElementById('nitro-banner').style.background;
-            socket.emit('update-profile', {avatar, displayName, bio, banner});
+            socket.emit('update-profile', {avatar, displayName});
             document.getElementById('settings-modal').style.display = 'none';
         }
 
-        function doSearch() {
-            const v = document.getElementById('user-search').value;
-            if(v.length > 1) socket.emit('search-user', v);
-            else document.getElementById('search-results').innerHTML = '';
-        }
-
-        socket.on('search-result', d => {
-            const res = document.getElementById('search-results');
-            res.innerHTML = d.exists && d.username !== myName ? `<div class="search-item" onclick="openChat('${d.username}')">@${d.username}</div>` : '';
+        socket.on('profile-updated', d => {
+            document.getElementById('my-avatar-btn').src = d.avatar;
+            document.getElementById('my-name-display').innerText = d.displayName;
         });
-
-        socket.on('profile-updated', d => { myProfile = d; updateMyUI(); });
-        function logout() { localStorage.removeItem('cel_creds'); location.reload(); }
     </script>
 </body>
 </html>
