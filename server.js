@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, { maxHttpBufferSize: 5e6 });
+const io = require('socket.io')(http, { maxHttpBufferSize: 5e6 }); // Лимит 5МБ для фото
 const fs = require('fs');
 
 const DB_FILE = './users.json';
@@ -22,33 +22,39 @@ app.use(express.static(__dirname));
 
 io.on('connection', (socket) => {
     socket.on('auth', (data) => {
-        if (!data.login || !data.password || data.login.trim() === "") {
-            return socket.emit('auth-error', 'Введите логин и пароль!');
-        }
+        if (!data.login || !data.password || data.login.trim() === "") return socket.emit('auth-error', 'Заполните поля!');
         
         const login = data.login.trim().toLowerCase();
         if (data.type === 'register') {
-            if (db.users[login]) return socket.emit('auth-error', 'Пользователь уже существует');
-            db.users[login] = { password: data.password, displayName: data.login, avatar: "", bio: "" };
+            if (db.users[login]) return socket.emit('auth-error', 'Логин занят');
+            db.users[login] = { password: data.password, displayName: data.login, avatar: "", bio: "Я использую Celestra ✨", banner: "#6e8efb" };
             saveData();
         } else {
-            if (!db.users[login] || db.users[login].password !== data.password) {
-                return socket.emit('auth-error', 'Неверные данные');
-            }
+            if (!db.users[login] || db.users[login].password !== data.password) return socket.emit('auth-error', 'Неверный вход');
         }
+        
         socket.userName = login;
         const userHistory = history.filter(m => m.from === login || m.to === login);
         socket.emit('auth-success', { user: login, profile: db.users[login], history: userHistory });
     });
 
+    socket.on('get-user-profile', (target) => {
+        const u = db.users[target.toLowerCase()];
+        if (u) {
+            socket.emit('user-profile-data', {
+                username: target,
+                displayName: u.displayName,
+                avatar: u.avatar,
+                bio: u.bio,
+                banner: u.banner || "#6e8efb"
+            });
+        }
+    });
+
     socket.on('search-user', (query) => {
         const target = query.replace('@', '').toLowerCase().trim();
         const found = Object.keys(db.users).find(u => u === target);
-        if (found) {
-            socket.emit('search-result', { exists: true, username: found, avatar: db.users[found].avatar });
-        } else {
-            socket.emit('search-result', { exists: false });
-        }
+        if (found) socket.emit('search-result', { exists: true, username: found });
     });
 
     socket.on('private-message', (data) => {
@@ -62,9 +68,9 @@ io.on('connection', (socket) => {
             ts: Date.now()
         };
         history.push(msg);
-        if (history.length > 500) history.shift();
+        if (history.length > 500) history.shift(); // Чтобы хостинг не падал
         saveData();
-        io.emit('msg-receive', msg); // Упрощенная рассылка для стабильности
+        io.emit('msg-receive', msg);
     });
 
     socket.on('update-profile', (data) => {
@@ -76,4 +82,4 @@ io.on('connection', (socket) => {
     });
 });
 
-http.listen(3000, '0.0.0.0', () => console.log('Celestra Color Edition: http://localhost:3000'));
+http.listen(3000, '0.0.0.0', () => console.log('Celestra Nitro: Port 3000'));
