@@ -1,75 +1,52 @@
 :root {
-    --bg-primary: #313338;
-    --bg-secondary: #2b2d31;
-    --bg-tertiary: #1e1f22;
-    --brand: #5865f2;
-    --text-muted: #949ba4;
-    --nitro-grad: linear-gradient(135deg, #6e8efb, #a777e3);
+    --dark: #0f1016;
+    --sidebar: #161821;
+    --grad: linear-gradient(135deg, #6e8efb, #a777e3);
+    --neon: #00d4ff;
 }
 
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
-html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: var(--bg-tertiary); color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-/* Дискорд структура */
-.discord-layout { display: flex; width: 100%; height: 100%; }
-.sidebar-wrapper { width: 240px; background: var(--bg-secondary); display: flex; flex-direction: column; height: 100%; }
-.search-bar { padding: 12px; border-bottom: 1px solid rgba(0,0,0,0.2); }
-.search-bar input { width: 100%; background: var(--bg-tertiary); border: none; padding: 8px; border-radius: 4px; color: #fff; }
+html, body { 
+    margin: 0; padding: 0; width: 100%; height: 100%; 
+    background: #000; color: #fff; font-family: sans-serif;
+    overflow: hidden; /* Фикс: убираем лишний скролл всей страницы */
+}
 
-/* Профиль внизу */
-.user-footer { background: #232428; padding: 8px; display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: auto; transition: background 0.2s; }
-.user-footer:hover { background: #35373c; }
-.footer-avatar { position: relative; width: 32px; height: 32px; }
-.footer-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-.status-dot { position: absolute; bottom: -2px; right: -2px; width: 12px; height: 12px; background: #23a55a; border: 3px solid #232428; border-radius: 50%; }
-.footer-info { display: flex; flex-direction: column; }
-.display-name { font-size: 13px; font-weight: 600; color: #fff; }
-.status-text { font-size: 11px; color: var(--text-muted); }
+/* Элементы адаптивности (чтобы всё вмещалось) */
+.main-layout { display: flex; width: 100vw; height: 100vh; }
 
-/* Чат */
-.chat-view { flex: 1; background: var(--bg-primary); display: flex; flex-direction: column; }
-.active-chat-container { display: flex; flex-direction: column; height: 100%; }
-.messages-container { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-.bubble { padding: 10px 14px; border-radius: 16px; max-width: 80%; word-wrap: break-word; font-size: 15px; line-height: 1.4; }
-.me .bubble { align-self: flex-end; background: var(--grad); }
-.them .bubble { align-self: flex-start; background: #383a40; }
+.sidebar { 
+    width: 300px; height: 100%; background: var(--sidebar); 
+    display: flex; flex-direction: column; border-right: 1px solid #222; 
+}
 
-/* ПРЕМИАЛЬНАЯ NITRO МОДАЛКА */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 10px; }
-.nitro-card { width: 100%; max-width: 360px; background: #111214; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+.chat-area { flex: 1; height: 100%; background: #0a0b10; display: flex; flex-direction: column; }
 
-/* Баннер */
-.nitro-header { height: 100px; background: var(--nitro-grad); background-size: cover; background-position: center; position: relative; cursor: pointer; transition: 0.3s; }
-.nitro-header:hover .banner-edit-overlay { opacity: 1; }
-.banner-edit-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; color: #fff; font-size: 14px; font-weight: bold; }
+/* Мобильный вид */
+@media (max-width: 768px) {
+    .sidebar { width: 100%; }
+    .chat-area { display: none; width: 100%; }
+}
 
-/* Аватарка */
-.avatar-holder { width: 90px; height: 90px; border-radius: 50%; border: 7px solid #111214; position: absolute; top: -45px; left: 16px; background: #111214; overflow: hidden; cursor: pointer; position: relative; }
-.avatar-holder img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-.ava-hint { position: absolute; inset: 0; background: rgba(0,0,0,0.5); color: #fff; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; }
-.avatar-holder:hover .ava-hint { opacity: 1; }
+/* Авторизация */
+.auth-wrapper { height: 100%; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.auth-card { background: #18191c; padding: 30px; border-radius: 20px; width: 100%; max-width: 350px; text-align: center; }
+.logo-text { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 32px; font-weight: 900; }
 
-.nitro-main { padding: 20px 20px 0; }
-.nitro-info { margin-top: 15px; }
-.name-edit-input { background: transparent; border: none; color: #fff; font-size: 22px; font-weight: 800; width: 100%; outline: none; }
-.tag-text { color: var(--text-muted); font-size: 14px; margin: 4px 0 0; }
-.separator { height: 1px; background: #1e1f22; margin: 15px 0; }
+/* Настройки профиля */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.nitro-card { width: 90%; max-width: 360px; background: #111214; border-radius: 15px; overflow: hidden; }
+.nitro-banner { height: 100px; background: var(--grad); background-size: cover; cursor: pointer; }
+.ava-wrap { width: 80px; height: 80px; border-radius: 50%; border: 5px solid #111214; margin: -40px 0 0 20px; overflow: hidden; background: #000; cursor: pointer; }
+.ava-wrap img { width: 100%; height: 100%; object-fit: cover; }
 
-/* FIX БИО */
-.section-label { display: block; font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-.bio-textarea { width: 100%; height: 80px; background: #202225; border: none; border-radius: 8px; color: #dbdee1; padding: 12px; resize: none; font-size: 14px; line-height: 1.4; transition: 0.2s; }
-.bio-textarea:focus { background: #2a2d31; box-shadow: 0 0 10px rgba(88,101,242,0.3); }
+.nitro-main { padding: 15px; }
+.bio-input { 
+    width: 100%; height: 80px; background: #202225; border: none; 
+    border-radius: 8px; color: #fff; padding: 10px; margin-top: 10px; 
+    resize: none; /* Фикс: био теперь выглядит как на скрине */
+}
 
-/* Кнопки */
-.nitro-btns { padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-.btn-save { width: 100%; background: var(--brand); color: #fff; border: none; padding: 12px; border-radius: 4px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s; box-shadow: 0 5px 15px rgba(88,101,242,0.3); }
-.btn-save:hover { background: #4752c4; }
-.btn-logout { width: 100%; background: #da373c; color: #fff; border: none; padding: 10px; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-.btn-logout:hover { background: #b82a2f; }
-
-/* Анимации */
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-.animate-pop { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-.scrollable::-webkit-scrollbar { width: 4px; }
-.scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+.neon-btn { background: var(--grad); border: none; padding: 12px; border-radius: 8px; color: #fff; width: 100%; cursor: pointer; font-weight: bold; }
+.danger-btn { background: #ff4757; border: none; padding: 8px; border-radius: 8px; color: #fff; width: 100%; margin-top: 10px; cursor: pointer; }
