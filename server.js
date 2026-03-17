@@ -1,20 +1,17 @@
-const express = require('express');
+ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http);
+const io = require('socket.io')(http, { maxHttpBufferSize: 1e8 });
 const fs = require('fs');
 
 const DB_FILE = './users.json';
-let db = { users: {} };
-
+let db = { users: {}, messages: {} };
 if (fs.existsSync(DB_FILE)) {
-    try { db = JSON.parse(fs.readFileSync(DB_FILE)); } catch (e) { console.log("Ошибка БД"); }
+    try { db = JSON.parse(fs.readFileSync(DB_FILE)); } catch (e) { console.log("DB Error"); }
 }
-
 const saveDB = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
 app.use(express.static(__dirname));
-
 const activeSockets = {}; 
 const userStatus = {};    
 
@@ -35,39 +32,31 @@ io.on('connection', (socket) => {
         socket.emit('auth-success', { user: login });
     });
 
-    socket.on('search-user', (searchName) => {
-        const query = searchName.replace('@', '').toLowerCase().trim();
-        const found = Object.keys(db.users).find(name => name.toLowerCase() === query);
-        if (found) {
-            socket.emit('search-result', { exists: true, username: found, status: userStatus[found] || 'был(а) недавно' });
-        } else {
-            socket.emit('search-result', { exists: false });
-        }
-    });
-
-    socket.on('get-status', (username) => {
-        socket.emit('status-result', { 
-            user: username, 
-            status: userStatus[username] || 'был(а) недавно' 
-        });
-    });
-
-    socket.on('typing', (data) => {
-        if (activeSockets[data.to]) {
-            io.to(activeSockets[data.to]).emit('user-typing', { from: socket.userName });
-        }
+    socket.on('get-history', (partner) => {
+        const chatID = [socket.userName, partner].sort().join('_');
+        socket.emit('chat-history', { partner, msgs: db.messages[chatID] || [] });
     });
 
     socket.on('private-message', (data) => {
+        const chatID = [socket.userName, data.to].sort().join('_');
         const msg = {
             from: socket.userName,
             to: data.to,
             text: data.text,
-            image: data.image, 
+            image: data.image,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
+        if (!db.messages[chatID]) db.messages[chatID] = [];
+        db.messages[chatID].push(msg);
+        saveDB();
         if (activeSockets[data.to]) io.to(activeSockets[data.to]).emit('msg-receive', msg);
         socket.emit('msg-receive', msg);
+    });
+
+    socket.on('search-user', (searchName) => {
+        const query = searchName.replace('@', '').toLowerCase().trim();
+        const found = Object.keys(db.users).find(name => name.toLowerCase() === query);
+        socket.emit('search-result', { exists: !!found, username: found });
     });
 
     socket.on('disconnect', () => {
@@ -79,5 +68,4 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = process.env.PORT || 3000;
-http.listen(PORT, '0.0.0.0', () => console.log(`Celestra Server: ${PORT}`));
+http.listen(3000, '0.0.0.0', () => console.log(`Server on 3000`));
