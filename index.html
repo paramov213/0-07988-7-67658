@@ -4,72 +4,90 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="style.css">
-    <title>Celestra Nitro</title>
+    <title>celestra</title>
 </head>
 <body>
     <div id="auth-screen" class="auth-wrapper">
-        <div class="glass-login animate-pop">
-            <h1 class="logo-text">CELESTRA</h1>
-            <input type="text" id="login-input" placeholder="Логин">
-            <input type="password" id="pass-input" placeholder="Пароль">
+        <div class="human-card animate-float">
+            <h1 class="brand-name">celestra</h1>
+            <p class="subtitle">Рады видеть тебя снова!</p>
+            
+            <div class="input-group">
+                <input type="text" id="login-input" required>
+                <label>Логин</label>
+                <div class="bar"></div>
+            </div>
+            
+            <div class="input-group">
+                <input type="password" id="pass-input" required>
+                <label>Пароль</label>
+                <div class="bar"></div>
+            </div>
+
             <p id="error-msg" class="error-txt"></p>
-            <button onclick="auth('login')" class="neon-btn">ВОЙТИ</button>
-            <button onclick="auth('register')" class="ghost-btn">Регистрация</button>
+            
+            <div class="auth-btns">
+                <button onclick="auth('login')" class="primary-btn">Войти</button>
+                <button onclick="auth('register')" class="link-btn">Зарегистрироваться</button>
+            </div>
         </div>
     </div>
 
     <div id="app-container" class="main-layout" style="display: none;">
         <aside class="sidebar">
             <div class="search-bar">
-                <input type="text" id="user-search" placeholder="Поиск @юзера..." oninput="doSearch()">
+                <input type="text" id="user-search" placeholder="Найти человека..." oninput="doSearch()">
                 <div id="search-results"></div>
             </div>
             <div id="chats-list" class="scrollable"></div>
-            <div class="my-profile-mini">
-                <img id="my-avatar-btn" src="" onclick="openSettings()" class="mini-ava">
-                <span id="my-name-display" onclick="openSettings()">Загрузка...</span>
+            <div class="my-profile-mini" onclick="openSettings()">
+                <div class="mini-ava-wrapper">
+                    <img id="my-avatar-btn" src="">
+                    <div class="status-dot"></div>
+                </div>
+                <span id="my-name-display">Загрузка...</span>
+                <span class="settings-icon">⚙️</span>
             </div>
         </aside>
 
         <main class="chat-area">
             <header class="chat-top">
-                <div id="current-contact" onclick="viewOtherProfile()" class="clickable-name">Выберите чат</div>
+                <div id="current-contact" onclick="viewOtherProfile()" class="chat-title">Выберите чат</div>
             </header>
             <div id="chat-window" class="scrollable"></div>
             <div class="input-container" id="input-block" style="display:none;">
-                <div class="input-glass">
-                    <label class="btn-img">📷<input type="file" id="photo-input" onchange="sendPhoto()" hidden></label>
-                    <input type="text" id="msg" placeholder="Написать..." onkeydown="if(event.key==='Enter') sendPrivate()">
-                    <button onclick="sendPrivate()" class="send-arr">➤</button>
+                <div class="input-wrapper">
+                    <label class="attach-file">📷<input type="file" id="photo-input" onchange="sendPhoto()" hidden></label>
+                    <input type="text" id="msg" placeholder="Напишите сообщение..." onkeydown="if(event.key==='Enter') sendPrivate()">
+                    <button onclick="sendPrivate()" class="send-icon">➤</button>
                 </div>
             </div>
         </main>
     </div>
 
     <div id="settings-modal" class="overlay" style="display:none;" onclick="if(event.target==this)this.style.display='none'">
-        <div class="nitro-card animate-pop">
-            <div id="nitro-banner" class="nitro-banner"></div>
+        <div class="nitro-card animate-slide-up">
+            <div id="nitro-banner" class="nitro-banner">
+                <div class="banner-edit-overlay" id="banner-edit-btn">🎨 Сменить баннер</div>
+            </div>
             <div class="nitro-content">
                 <div class="nitro-header">
-                    <div class="ava-nitro-container" id="ava-edit-click">
+                    <div class="ava-nitro-wrapper" id="ava-edit-click">
                         <img id="edit-avatar-preview" src="">
+                        <div class="ava-overlay">ИЗМЕНИТЬ</div>
                         <input type="file" id="avatar-upload" hidden onchange="previewAva(this)">
                     </div>
                 </div>
                 <div class="nitro-body">
-                    <div class="nitro-name-box">
-                        <h2 id="nitro-display-name">Nickname</h2>
+                    <div class="nitro-main-info">
+                        <input type="text" id="edit-name" class="nitro-name-input" placeholder="Никнейм">
                         <p id="nitro-username">@username</p>
                     </div>
                     <div class="nitro-divider"></div>
                     <div class="nitro-section">
                         <label>О СЕБЕ</label>
-                        <div id="bio-view" class="bio-text"></div>
-                        <textarea id="edit-bio" style="display:none;"></textarea>
-                    </div>
-                    <div id="edit-inputs" style="display:none;">
-                        <label>ИЗМЕНИТЬ ИМЯ</label>
-                        <input type="text" id="edit-name">
+                        <div id="bio-view" class="bio-display"></div>
+                        <textarea id="edit-bio" class="nitro-bio-edit" placeholder="Напиши что-нибудь интересное о себе..."></textarea>
                     </div>
                 </div>
                 <div class="nitro-footer" id="modal-btns"></div>
@@ -82,11 +100,6 @@
         const socket = io();
         let myName = "", currentChatUser = null, chatMessages = {}, myProfile = {};
 
-        window.onload = () => {
-            const saved = localStorage.getItem('cel_creds');
-            if(saved) socket.emit('auth', {...JSON.parse(saved), type: 'login'});
-        };
-
         function auth(type) {
             const login = document.getElementById('login-input').value;
             const password = document.getElementById('pass-input').value;
@@ -97,10 +110,12 @@
 
         socket.on('auth-success', data => {
             myName = data.user; myProfile = data.profile;
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('app-container').style.display = 'flex';
-            document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-            document.getElementById('my-name-display').innerText = myProfile.displayName;
+            document.getElementById('auth-screen').classList.add('fade-out');
+            setTimeout(() => {
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('app-container').style.display = 'flex';
+                updateMyUI();
+            }, 400);
             if(data.history) {
                 data.history.forEach(m => {
                     const p = m.from === myName ? m.to : m.from;
@@ -111,7 +126,17 @@
             }
         });
 
-        socket.on('auth-error', msg => document.getElementById('error-msg').innerText = msg);
+        function updateMyUI() {
+            document.getElementById('my-avatar-btn').src = myProfile.avatar || 'https://cdn0.iconfinder.com/data/icons/social-messaging-ui-color-shapes-3/3/51-512.png';
+            document.getElementById('my-name-display').innerText = myProfile.displayName;
+        }
+
+        socket.on('auth-error', msg => {
+            const err = document.getElementById('error-msg');
+            err.innerText = msg;
+            err.classList.add('shake');
+            setTimeout(() => err.classList.remove('shake'), 400);
+        });
 
         function doSearch() {
             const v = document.getElementById('user-search').value;
@@ -120,13 +145,15 @@
 
         socket.on('search-result', d => {
             const res = document.getElementById('search-results');
-            res.innerHTML = d.exists ? `<div class="search-res-item" onclick="openChat('${d.username}')">@${d.username}</div>` : '';
+            res.innerHTML = d.exists && d.username !== myName ? `<div class="search-res-item" onclick="openChat('${d.username}')">@${d.username}</div>` : '';
         });
 
         function openChat(u) {
             currentChatUser = u;
-            document.getElementById('current-contact').innerText = "@" + u;
+            document.getElementById('current-contact').innerText = u;
             document.getElementById('input-block').style.display = 'block';
+            document.getElementById('search-results').innerHTML = '';
+            document.getElementById('user-search').value = '';
             renderMsgs(u);
             updateChatsUI();
         }
@@ -135,8 +162,8 @@
             const win = document.getElementById('chat-window'); win.innerHTML = '';
             (chatMessages[u] || []).forEach(m => {
                 const div = document.createElement('div');
-                div.className = `msg ${m.from === myName ? 'me' : 'them'}`;
-                div.innerHTML = `<div class="msg-bubble">${m.text || ''} ${m.image ? `<img src="${m.image}">` : ''}</div><div class="m-time">${m.time}</div>`;
+                div.className = `msg-row ${m.from === myName ? 'me' : 'them'}`;
+                div.innerHTML = `<div class="bubble">${m.text || ''} ${m.image ? `<img src="${m.image}">` : ''}</div><div class="time">${m.time}</div>`;
                 win.appendChild(div);
             });
             win.scrollTop = win.scrollHeight;
@@ -180,38 +207,43 @@
             }
         }
 
-        // NITRO PROFILE LOGIC
         function viewOtherProfile() { if(currentChatUser) socket.emit('get-user-profile', currentChatUser); }
         function openSettings() { showNitroProfile(myProfile, true, myName); }
-
         socket.on('user-profile-data', d => showNitroProfile(d, false, d.username));
 
         function showNitroProfile(data, isMe, username) {
+            const modal = document.getElementById('settings-modal');
             document.getElementById('nitro-banner').style.background = data.banner || 'var(--grad)';
-            document.getElementById('edit-avatar-preview').src = data.avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
-            document.getElementById('nitro-display-name').innerText = data.displayName;
+            document.getElementById('edit-avatar-preview').src = data.avatar || 'https://cdn0.iconfinder.com/data/icons/social-messaging-ui-color-shapes-3/3/51-512.png';
             document.getElementById('nitro-username').innerText = "@" + username;
             
             const bioView = document.getElementById('bio-view');
             const bioEdit = document.getElementById('edit-bio');
+            const nameEdit = document.getElementById('edit-name');
             const btns = document.getElementById('modal-btns');
-            const editInputs = document.getElementById('edit-inputs');
 
             if(isMe) {
                 bioView.style.display = 'none'; bioEdit.style.display = 'block';
-                editInputs.style.display = 'block';
+                nameEdit.removeAttribute('readonly');
+                nameEdit.value = data.displayName;
                 bioEdit.value = data.bio || "";
-                document.getElementById('edit-name').value = data.displayName;
-                btns.innerHTML = `<button onclick="saveProfile()" class="neon-btn">Сохранить</button><button onclick="logout()" class="danger-btn">Выход</button>`;
+                document.getElementById('banner-edit-btn').style.display = 'flex';
+                btns.innerHTML = `<button onclick="saveProfile()" class="save-btn">Сохранить</button><button onclick="logout()" class="exit-btn">Выход</button>`;
                 document.getElementById('ava-edit-click').onclick = () => document.getElementById('avatar-upload').click();
+                document.getElementById('banner-edit-btn').onclick = () => {
+                   const color = prompt("Введи HEX код цвета или градиент (например #ff0000):", "#6e8efb");
+                   if(color) document.getElementById('nitro-banner').style.background = color;
+                };
             } else {
                 bioView.style.display = 'block'; bioEdit.style.display = 'none';
-                editInputs.style.display = 'none';
-                bioView.innerText = data.bio || "Тут пока пусто...";
-                btns.innerHTML = `<button onclick="document.getElementById('settings-modal').style.display='none'" class="ghost-btn">Закрыть</button>`;
+                nameEdit.setAttribute('readonly', true);
+                nameEdit.value = data.displayName;
+                bioView.innerText = data.bio || "Пользователь не оставил описания.";
+                document.getElementById('banner-edit-btn').style.display = 'none';
+                btns.innerHTML = `<button onclick="document.getElementById('settings-modal').style.display='none'" class="close-btn">Закрыть</button>`;
                 document.getElementById('ava-edit-click').onclick = null;
             }
-            document.getElementById('settings-modal').style.display = 'flex';
+            modal.style.display = 'flex';
         }
 
         function previewAva(i) {
@@ -226,14 +258,13 @@
             const avatar = document.getElementById('edit-avatar-preview').src;
             const displayName = document.getElementById('edit-name').value;
             const bio = document.getElementById('edit-bio').value;
-            socket.emit('update-profile', {avatar, displayName, bio});
+            const banner = document.getElementById('nitro-banner').style.background;
+            socket.emit('update-profile', {avatar, displayName, bio, banner});
             document.getElementById('settings-modal').style.display = 'none';
         }
 
         socket.on('profile-updated', d => {
-            myProfile = d;
-            document.getElementById('my-avatar-btn').src = d.avatar;
-            document.getElementById('my-name-display').innerText = d.displayName;
+            myProfile = d; updateMyUI();
         });
 
         function logout() { localStorage.removeItem('cel_creds'); location.reload(); }
