@@ -63,7 +63,7 @@ io.on('connection', (socket) => {
             from: socket.userName,
             to: data.to,
             text: data.text,
-            image: data.image,
+            image: data.image, 
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         if (activeSockets[data.to]) io.to(activeSockets[data.to]).emit('msg-receive', msg);
