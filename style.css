@@ -9,11 +9,34 @@
 
 body { margin: 0; background: var(--bg-img); color: #fff; font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
 
-/* ВХОД */
+/* ЭКРАН ВХОДА */
 .auth-wrapper { height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #1b1d2e 0%, #05060a 100%); }
-.auth-card { background: rgba(255,255,255,0.03); padding: 40px; border-radius: 25px; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); width: 320px; text-align: center; }
+.auth-card { background: rgba(255,255,255,0.03); padding: 40px; border-radius: 25px; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); width: 320px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 .logo-text { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 36px; font-weight: 900; margin-bottom: 25px; }
 .auth-inputs input { width: 100%; background: #1a1c26; border: 1px solid #333; padding: 12px; border-radius: 10px; color: #fff; margin-bottom: 12px; outline: none; box-sizing: border-box; }
+
+/* НОВАЯ КРАСИВАЯ КНОПКА РЕГИСТРАЦИИ */
+.reg-btn-graphic {
+    background: transparent;
+    border: 2px solid var(--neon);
+    color: var(--neon);
+    padding: 12px;
+    border-radius: 10px;
+    width: 100%;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.1);
+}
+.reg-btn-graphic:hover {
+    background: var(--neon);
+    color: #000;
+    box-shadow: 0 0 25px rgba(0, 212, 255, 0.5);
+    transform: translateY(-2px);
+}
 
 /* ИНТЕРФЕЙС */
 .main-layout { display: flex; height: 100vh; }
@@ -25,16 +48,15 @@ body { margin: 0; background: var(--bg-img); color: #fff; font-family: 'Segoe UI
 .tab:hover { background: rgba(255,255,255,0.03); transform: translateX(5px); }
 .tab.active { background: var(--grad); color: #fff; box-shadow: 0 5px 15px rgba(110, 142, 251, 0.3); }
 
-/* БЕДЖИКИ */
-.badge { background: #ff4b4b; color: #fff; font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 10px; box-shadow: 0 0 10px rgba(255, 75, 75, 0.5); }
+.badge { background: #ff4b4b; color: #fff; font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
 
-/* ПРИВЕТСТВИЕ ПО ЦЕНТРУ */
+/* ПРИВЕТСТВИЕ */
 .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-img); position: relative; }
 .welcome-screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(110,142,251,0.05) 0%, transparent 70%); }
 .welcome-box { text-align: center; }
-.logo-icon { width: 80px; height: 80px; background: var(--grad); border-radius: 20px; margin: 0 auto 15px; font-size: 40px; line-height: 80px; font-weight: 900; box-shadow: 0 10px 30px rgba(110,142,251,0.4); }
+.logo-icon { width: 80px; height: 80px; background: var(--grad); border-radius: 20px; margin: 0 auto 15px; font-size: 40px; line-height: 80px; font-weight: 900; }
 
-/* СООБЩЕНИЯ */
+/* ЧАТ */
 .chat-main-wrap { display: flex; flex-direction: column; height: 100%; width: 100%; animation: fadeIn 0.4s ease; }
 #chat-window { flex: 1; padding: 25px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
 .bubble { padding: 12px 18px; border-radius: 18px; font-size: 15px; line-height: 1.4; }
