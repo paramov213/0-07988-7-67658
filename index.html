@@ -10,11 +10,20 @@
     <audio id="msg-sound" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
 
     <div id="auth-screen" class="auth-wrapper">
+        <div class="auth-glow"></div>
         <div class="glass-login animate-pop">
-            <h1 class="logo-text">CELESTRA</h1>
-            <p class="auth-subtext">Next-gen messaging</p>
-            <input type="text" id="login-input" placeholder="Логин">
-            <input type="password" id="pass-input" placeholder="Пароль">
+            <div class="auth-header">
+                <h1 class="logo-text">CELESTRA</h1>
+                <div class="logo-underline"></div>
+            </div>
+            <div class="input-group">
+                <input type="text" id="login-input" placeholder=" " required>
+                <label>Логин</label>
+            </div>
+            <div class="input-group">
+                <input type="password" id="pass-input" placeholder=" " required>
+                <label>Пароль</label>
+            </div>
             <p id="error-msg" class="error-txt"></p>
             <button onclick="auth('login')" class="neon-btn">ВОЙТИ</button>
             <button onclick="auth('register')" class="ghost-btn">Создать аккаунт</button>
@@ -42,18 +51,28 @@
         </aside>
 
         <main class="chat-area">
-            <header class="chat-top" onclick="viewOtherProfile()">
-                <div class="header-info">
-                    <span id="current-contact">Выберите чат</span>
-                    <small id="typing-indicator" style="display: none;">печатает...</small>
+            <div id="welcome-layer" class="welcome-placeholder">
+                <div class="welcome-content">
+                    <div class="welcome-logo">C</div>
+                    <h2>Celestra Premium</h2>
+                    <p>Выберите чат или найдите собеседника, чтобы начать общение</p>
                 </div>
-            </header>
-            <div id="chat-window" class="scrollable"></div>
-            <div class="input-container" id="input-block" style="display:none;">
-                <div class="input-glass">
-                    <label class="btn-img">📷<input type="file" id="photo-input" onchange="sendPhoto()" hidden></label>
-                    <input type="text" id="msg" placeholder="Напишите сообщение..." oninput="sendTyping()" onkeydown="if(event.key==='Enter') sendPrivate()">
-                    <button onclick="sendPrivate()" class="send-arr">➤</button>
+            </div>
+
+            <div id="chat-active-ui" style="display: none; flex-direction: column; height: 100%;">
+                <header class="chat-top" onclick="viewOtherProfile()">
+                    <div class="header-info">
+                        <span id="current-contact">Выберите чат</span>
+                        <small id="typing-indicator" style="display: none;">печатает...</small>
+                    </div>
+                </header>
+                <div id="chat-window" class="scrollable"></div>
+                <div class="input-container">
+                    <div class="input-glass">
+                        <label class="btn-img">📷<input type="file" id="photo-input" onchange="sendPhoto()" hidden></label>
+                        <input type="text" id="msg" placeholder="Напишите сообщение..." onkeydown="if(event.key==='Enter') sendPrivate()">
+                        <button onclick="sendPrivate()" class="send-arr">➤</button>
+                    </div>
                 </div>
             </div>
         </main>
@@ -75,7 +94,6 @@
                     <p id="nitro-username" class="tag">@username</p>
                     <div class="divider"></div>
                     <label class="section-label">ОБО МНЕ</label>
-                    <div id="bio-view" class="bio-display"></div>
                     <textarea id="edit-bio" class="bio-edit" placeholder="Расскажите о себе..."></textarea>
                 </div>
                 <div class="nitro-footer" id="modal-btns"></div>
@@ -86,14 +104,13 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let myName = "", currentChatUser = null, chatMessages = {}, myProfile = {}, typingTimeout;
+        let myName = "", currentChatUser = null, chatMessages = {}, myProfile = {};
 
-        // === АВТО-ВХОД ===
+        // АВТО-ВХОД
         window.onload = () => {
             const saved = localStorage.getItem('celestra_creds');
             if (saved) {
                 const data = JSON.parse(saved);
-                document.getElementById('auth-screen').style.opacity = '0.5';
                 socket.emit('auth', { ...data, type: 'login' });
             }
         };
@@ -123,7 +140,6 @@
 
         socket.on('auth-error', msg => {
             document.getElementById('error-msg').innerText = msg;
-            document.getElementById('auth-screen').style.opacity = '1';
             localStorage.removeItem('celestra_creds');
         });
 
@@ -132,70 +148,57 @@
             document.getElementById('my-name-display').innerText = myProfile.displayName || myName;
         }
 
-        // === NITRO ПРОФИЛЬ ===
+        // ОТКРЫТИЕ НАСТРОЕК
         function openSettings() { showNitroProfile(myProfile, true, myName); }
-        function viewOtherProfile() { if(currentChatUser) socket.emit('get-user-profile', currentChatUser); }
-        socket.on('user-profile-data', d => showNitroProfile(d, false, d.username));
 
         function showNitroProfile(data, isMe, username) {
             document.getElementById('nitro-banner').style.background = data.banner || 'var(--grad)';
             document.getElementById('edit-avatar-preview').src = data.avatar || 'https://i.pravatar.cc/150?u='+username;
             document.getElementById('nitro-username').innerText = "@" + username;
             
-            const bioView = document.getElementById('bio-view');
             const bioEdit = document.getElementById('edit-bio');
             const nameEdit = document.getElementById('edit-name');
             const btns = document.getElementById('modal-btns');
 
             if(isMe) {
-                bioView.style.display = 'none'; bioEdit.style.display = 'block';
-                nameEdit.removeAttribute('readonly'); nameEdit.value = data.displayName || "";
-                bioEdit.value = data.bio || "";
+                nameEdit.removeAttribute('readonly'); 
+                nameEdit.value = data.displayName || "";
+                bioEdit.value = data.bio || ""; // Заполняем текущим био
                 document.getElementById('edit-banner-trigger').style.display = 'block';
                 btns.innerHTML = `<button onclick="saveProfile()" class="neon-btn">Сохранить</button><button onclick="logout()" class="danger-btn">Выйти</button>`;
-                document.getElementById('edit-banner-trigger').onclick = () => {
-                    const b = prompt("Вставь HEX, Gradient или URL:", data.banner || "");
-                    if(b) document.getElementById('nitro-banner').style.background = b;
-                };
             } else {
-                bioView.style.display = 'block'; bioEdit.style.display = 'none';
-                nameEdit.setAttribute('readonly', true); nameEdit.value = data.displayName || username;
-                bioView.innerText = data.bio || "Пользователь скрыл информацию о себе.";
+                nameEdit.setAttribute('readonly', true); 
+                nameEdit.value = data.displayName || username;
+                bioEdit.value = data.bio || "Пользователь еще не заполнил био.";
                 document.getElementById('edit-banner-trigger').style.display = 'none';
                 btns.innerHTML = `<button onclick="document.getElementById('settings-modal').style.display='none'" class="ghost-btn">Закрыть</button>`;
             }
             document.getElementById('settings-modal').style.display = 'flex';
         }
 
+        // ФУНКЦИЯ СОХРАНЕНИЯ (ИСПРАВЛЕНА)
         function saveProfile() {
             const profileData = {
                 avatar: document.getElementById('edit-avatar-preview').src,
                 displayName: document.getElementById('edit-name').value,
-                bio: document.getElementById('edit-bio').value,
+                bio: document.getElementById('edit-bio').value, // Сохраняем био
                 banner: document.getElementById('nitro-banner').style.background
             };
             socket.emit('update-profile', profileData);
             document.getElementById('settings-modal').style.display = 'none';
         }
 
-        socket.on('profile-updated', d => { myProfile = d; updateMyUI(); });
-        function logout() { localStorage.removeItem('celestra_creds'); location.reload(); }
-
-        // === ЧАТ И СООБЩЕНИЯ ===
-        function doSearch() {
-            const v = document.getElementById('user-search').value;
-            if(v.length > 1) socket.emit('search-user', v);
-        }
-        socket.on('search-result', d => {
-            const res = document.getElementById('search-results');
-            res.innerHTML = (d.exists && d.username !== myName) ? `<div class="search-res-item" onclick="openChat('${d.username}')">@${d.username}</div>` : '';
+        socket.on('profile-updated', d => { 
+            myProfile = d; 
+            updateMyUI(); 
         });
 
+        // ЧАТ
         function openChat(u) {
             currentChatUser = u;
+            document.getElementById('welcome-layer').style.display = 'none';
+            document.getElementById('chat-active-ui').style.display = 'flex';
             document.getElementById('current-contact').innerText = "@" + u;
-            document.getElementById('input-block').style.display = 'block';
-            document.getElementById('search-results').innerHTML = '';
             renderMsgs(u);
             updateChatsUI();
         }
@@ -238,21 +241,24 @@
                 document.getElementById('msg').value = '';
             }
         }
-        
-        function sendPhoto() {
-            const f = document.getElementById('photo-input').files[0];
-            if(f && currentChatUser) {
-                const r = new FileReader();
-                r.onload = e => socket.emit('private-message', {to: currentChatUser, text: "", image: e.target.result});
-                r.readAsDataURL(f);
-            }
+
+        function doSearch() {
+            const v = document.getElementById('user-search').value;
+            if(v.length > 1) socket.emit('search-user', v);
         }
+
+        socket.on('search-result', d => {
+            const res = document.getElementById('search-results');
+            res.innerHTML = (d.exists && d.username !== myName) ? `<div class="search-res-item" onclick="openChat('${d.username}')">@${d.username}</div>` : '';
+        });
 
         function previewAva(i) {
             const r = new FileReader();
             r.onload = e => document.getElementById('edit-avatar-preview').src = e.target.result;
             r.readAsDataURL(i.files[0]);
         }
+
+        function logout() { localStorage.removeItem('celestra_creds'); location.reload(); }
     </script>
 </body>
 </html>
