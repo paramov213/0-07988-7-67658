@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, { maxHttpBufferSize: 5e6 }); // Лимит 5МБ для фото
+const io = require('socket.io')(http, { maxHttpBufferSize: 5e6 });
 const fs = require('fs');
 
 const DB_FILE = './users.json';
@@ -22,15 +22,21 @@ app.use(express.static(__dirname));
 
 io.on('connection', (socket) => {
     socket.on('auth', (data) => {
-        if (!data.login || !data.password || data.login.trim() === "") return socket.emit('auth-error', 'Заполните поля!');
+        if (!data.login || !data.password || data.login.trim() === "") return socket.emit('auth-error', 'Укажите данные для входа');
         
         const login = data.login.trim().toLowerCase();
         if (data.type === 'register') {
-            if (db.users[login]) return socket.emit('auth-error', 'Логин занят');
-            db.users[login] = { password: data.password, displayName: data.login, avatar: "", bio: "Я использую Celestra ✨", banner: "#6e8efb" };
+            if (db.users[login]) return socket.emit('auth-error', 'Этот логин уже занят');
+            db.users[login] = { 
+                password: data.password, 
+                displayName: data.login, 
+                avatar: "", 
+                bio: "Привет! Я новый пользователь celestra.", 
+                banner: "linear-gradient(45deg, #6e8efb, #a777e3)" 
+            };
             saveData();
         } else {
-            if (!db.users[login] || db.users[login].password !== data.password) return socket.emit('auth-error', 'Неверный вход');
+            if (!db.users[login] || db.users[login].password !== data.password) return socket.emit('auth-error', 'Неверный логин или пароль');
         }
         
         socket.userName = login;
@@ -46,15 +52,17 @@ io.on('connection', (socket) => {
                 displayName: u.displayName,
                 avatar: u.avatar,
                 bio: u.bio,
-                banner: u.banner || "#6e8efb"
+                banner: u.banner
             });
         }
     });
 
-    socket.on('search-user', (query) => {
-        const target = query.replace('@', '').toLowerCase().trim();
-        const found = Object.keys(db.users).find(u => u === target);
-        if (found) socket.emit('search-result', { exists: true, username: found });
+    socket.on('update-profile', (data) => {
+        if (db.users[socket.userName]) {
+            Object.assign(db.users[socket.userName], data);
+            saveData();
+            socket.emit('profile-updated', db.users[socket.userName]);
+        }
     });
 
     socket.on('private-message', (data) => {
@@ -68,18 +76,16 @@ io.on('connection', (socket) => {
             ts: Date.now()
         };
         history.push(msg);
-        if (history.length > 500) history.shift(); // Чтобы хостинг не падал
+        if (history.length > 500) history.shift();
         saveData();
         io.emit('msg-receive', msg);
     });
 
-    socket.on('update-profile', (data) => {
-        if (db.users[socket.userName]) {
-            Object.assign(db.users[socket.userName], data);
-            saveData();
-            socket.emit('profile-updated', db.users[socket.userName]);
-        }
+    socket.on('search-user', (query) => {
+        const target = query.replace('@', '').toLowerCase().trim();
+        const found = Object.keys(db.users).find(u => u === target);
+        if (found) socket.emit('search-result', { exists: true, username: found });
     });
 });
 
-http.listen(3000, '0.0.0.0', () => console.log('Celestra Nitro: Port 3000'));
+http.listen(3000, '0.0.0.0', () => console.log('celestra is live'));
