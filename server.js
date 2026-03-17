@@ -1,10 +1,7 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http, { 
-    maxHttpBufferSize: 5e6, // Ограничение 5МБ, чтобы сервер не падал от тяжелых фото
-    pingTimeout: 30000 
-});
+const io = require('socket.io')(http, { maxHttpBufferSize: 5e6 });
 const fs = require('fs');
 
 const DB_FILE = './users.json';
@@ -13,11 +10,8 @@ const MSG_FILE = './messages.json';
 let db = { users: {} };
 let history = [];
 
-// Загрузка с проверкой на ошибки
-try {
-    if (fs.existsSync(DB_FILE)) db = JSON.parse(fs.readFileSync(DB_FILE));
-    if (fs.existsSync(MSG_FILE)) history = JSON.parse(fs.readFileSync(MSG_FILE));
-} catch (e) { console.log("Ошибка БД, создаем чистую"); }
+if (fs.existsSync(DB_FILE)) db = JSON.parse(fs.readFileSync(DB_FILE));
+if (fs.existsSync(MSG_FILE)) history = JSON.parse(fs.readFileSync(MSG_FILE));
 
 const saveData = () => {
     fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
@@ -25,27 +19,40 @@ const saveData = () => {
 };
 
 app.use(express.static(__dirname));
-const activeSockets = {}; 
 
 io.on('connection', (socket) => {
     socket.on('auth', (data) => {
+        if (!data.login || !data.password || data.login.trim() === "") {
+            return socket.emit('auth-error', 'Введите логин и пароль!');
+        }
+        
         const login = data.login.trim().toLowerCase();
         if (data.type === 'register') {
-            if (db.users[login]) return socket.emit('auth-error', 'Занят');
-            db.users[login] = { password: data.password, displayName: data.login, bio: "", avatar: "" };
+            if (db.users[login]) return socket.emit('auth-error', 'Пользователь уже существует');
+            db.users[login] = { password: data.password, displayName: data.login, avatar: "", bio: "" };
             saveData();
         } else {
-            if (!db.users[login] || db.users[login].password !== data.password) return socket.emit('auth-error', 'Ошибка');
+            if (!db.users[login] || db.users[login].password !== data.password) {
+                return socket.emit('auth-error', 'Неверные данные');
+            }
         }
         socket.userName = login;
-        activeSockets[login] = socket.id;
-        
         const userHistory = history.filter(m => m.from === login || m.to === login);
         socket.emit('auth-success', { user: login, profile: db.users[login], history: userHistory });
     });
 
+    socket.on('search-user', (query) => {
+        const target = query.replace('@', '').toLowerCase().trim();
+        const found = Object.keys(db.users).find(u => u === target);
+        if (found) {
+            socket.emit('search-result', { exists: true, username: found, avatar: db.users[found].avatar });
+        } else {
+            socket.emit('search-result', { exists: false });
+        }
+    });
+
     socket.on('private-message', (data) => {
-        if (!socket.userName) return;
+        if (!socket.userName || !data.to) return;
         const msg = {
             from: socket.userName,
             to: data.to,
@@ -55,27 +62,18 @@ io.on('connection', (socket) => {
             ts: Date.now()
         };
         history.push(msg);
-        if (history.length > 1000) history.shift(); // Храним последние 1000, чтоб хостинг не лагал
+        if (history.length > 500) history.shift();
         saveData();
-        
-        if (activeSockets[data.to]) io.to(activeSockets[data.to]).emit('msg-receive', msg);
-        socket.emit('msg-receive', msg);
+        io.emit('msg-receive', msg); // Упрощенная рассылка для стабильности
     });
 
     socket.on('update-profile', (data) => {
         if (db.users[socket.userName]) {
-            // Ограничение размера аватарки в БД
-            if(data.avatar && data.avatar.length > 1000000) return; 
             Object.assign(db.users[socket.userName], data);
             saveData();
             socket.emit('profile-updated', db.users[socket.userName]);
         }
     });
-
-    socket.on('disconnect', () => { delete activeSockets[socket.userName]; });
 });
 
-// Пинг-понг для поддержания жизни на бесплатных хостингах
-setInterval(() => io.emit('ping'), 25000);
-
-http.listen(3000, '0.0.0.0', () => console.log('Celestra Discord Edition Ready'));
+http.listen(3000, '0.0.0.0', () => console.log('Celestra Color Edition: http://localhost:3000'));
