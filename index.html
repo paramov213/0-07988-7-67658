@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link rel="stylesheet" href="style.css">
-    <title>Celestra Messenger</title>
+    <title>Celestra</title>
 </head>
 <body>
     <div id="auth-screen" class="modal">
@@ -14,7 +14,6 @@
             <input type="password" id="pass-input" placeholder="Пароль">
             <button onclick="auth('login')">Войти</button>
             <button onclick="auth('register')" class="secondary">Регистрация</button>
-            <p id="error-msg"></p>
         </div>
     </div>
 
@@ -24,9 +23,7 @@
                 <input type="text" id="user-search" placeholder="Поиск @юзер..." oninput="searchUser()">
                 <div id="search-results"></div>
             </div>
-            <div id="chats-list">
-                <div class="sidebar-label">Ваши чаты</div>
-            </div>
+            <div id="chats-list"></div>
             <div class="sidebar-footer">
                 <span id="my-name"></span>
                 <button onclick="logout()" class="exit-btn">Выход</button>
@@ -36,13 +33,15 @@
         <main class="chat-area" id="chat-area">
             <header id="chat-header">
                 <button class="back-btn" onclick="toggleMobile(true)">←</button>
-                <div id="header-user">Выберите чат</div>
-                <div id="header-status"></div>
+                <div class="header-text">
+                    <div id="header-user">Чат</div>
+                    <div id="header-status"></div>
+                </div>
             </header>
             <div id="chat-window"></div>
             <div class="input-area" id="input-block" style="display: none;">
                 <label class="icon-btn">📷<input type="file" id="photo-input" accept="image/*" onchange="sendPhoto()" hidden></label>
-                <input type="text" id="msg" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') sendPrivate()">
+                <input type="text" id="msg" placeholder="Сообщение..." autocomplete="off">
                 <button onclick="sendPrivate()" class="send-btn">➤</button>
             </div>
         </main>
@@ -52,13 +51,16 @@
     <script>
         const socket = io();
         let myName = "", currentChatUser = null;
-        const unreadCounts = {}; 
         const chatMessages = {}; 
+        const unreadCounts = {};
 
-        window.onload = () => {
-            const saved = localStorage.getItem('celestra_session');
-            if (saved) socket.emit('auth', { ...JSON.parse(saved), type: 'login' });
-        };
+        // ФИКС ВЫСОТЫ ДЛЯ МОБИЛОК
+        function fixVH() {
+            let vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+        window.addEventListener('resize', fixVH);
+        fixVH();
 
         function auth(type) {
             const login = document.getElementById('login-input').value.trim();
@@ -72,6 +74,7 @@
             document.getElementById('my-name').innerText = "@" + myName;
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
+            fixVH();
         });
 
         function searchUser() {
@@ -88,7 +91,7 @@
 
         function openChat(user) {
             currentChatUser = user;
-            unreadCounts[user] = 0; 
+            unreadCounts[user] = 0;
             document.getElementById('header-user').innerText = "@" + user;
             document.getElementById('input-block').style.display = 'flex';
             toggleMobile(false);
@@ -102,20 +105,22 @@
         });
 
         function sendPrivate() {
-            const txt = document.getElementById('msg').value;
-            if (txt.trim()) socket.emit('private-message', { to: currentChatUser, text: txt });
-            document.getElementById('msg').value = '';
+            const el = document.getElementById('msg');
+            if (el.value.trim()) {
+                socket.emit('private-message', { to: currentChatUser, text: el.value });
+                el.value = '';
+            }
         }
 
         function sendPhoto() {
-            const file = document.getElementById('photo-input').files[0];
-            if (file) {
+            const input = document.getElementById('photo-input');
+            if (input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     socket.emit('private-message', { to: currentChatUser, image: e.target.result });
-                    document.getElementById('photo-input').value = '';
+                    input.value = '';
                 };
-                reader.readAsDataURL(file);
+                reader.readAsDataURL(input.files[0]);
             }
         }
 
@@ -146,12 +151,13 @@
             if (window.innerWidth <= 768) {
                 document.getElementById('sidebar').style.display = showSide ? 'flex' : 'none';
                 document.getElementById('chat-area').style.display = showSide ? 'none' : 'flex';
+                fixVH();
             }
         }
 
         function updateChatsUI() {
             const list = document.getElementById('chats-list');
-            list.innerHTML = '<div class="sidebar-label">Ваши чаты</div>';
+            list.innerHTML = '';
             Object.keys(chatMessages).forEach(user => {
                 const div = document.createElement('div');
                 div.className = `chat-item ${currentChatUser === user ? 'active' : ''}`;
