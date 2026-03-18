@@ -66,7 +66,7 @@ io.on('connection', (socket) => {
         const { login, password, type } = data;
         if (!login || !password) return socket.emit('err', 'Введите данные');
         
-        const u = login.trim().toLowerCase(); // Строгий нижний регистр для ключей
+        const u = login.trim().toLowerCase(); 
 
         if (type === 'reg') {
             if (db.users[u]) return socket.emit('err', 'Этот логин занят');
@@ -131,7 +131,7 @@ io.on('connection', (socket) => {
                 
                 if (last === yesterdayStr) {
                     db.streaks[id].days += 1;
-                } else {
+                } else if (last !== today) {
                     db.streaks[id].days = 1;
                 }
                 db.streaks[id].lastDate = today;
@@ -142,7 +142,7 @@ io.on('connection', (socket) => {
             f: socket.un,
             t: d.to,
             txt: d.txt || "",
-            type: d.type || "text", // text, image, video, audio
+            type: d.type || "text", 
             file: d.file || null,
             time: getMSKTime(),
             timestamp: Date.now() 
@@ -151,7 +151,6 @@ io.on('connection', (socket) => {
         if (!db.messages[id]) db.messages[id] = [];
         db.messages[id].push(msg);
         
-        // +10 монет за сообщение
         if (db.economy[socket.un]) db.economy[socket.un].coins += 10;
         
         await saveDB();
@@ -181,6 +180,27 @@ io.on('connection', (socket) => {
             econ: db.economy[target] || { coins: 0 },
             streak 
         });
+    });
+
+    // Исправленный поиск по логину (юзу) и нику
+    socket.on('search_user', (q) => {
+        if (!socket.un) return;
+        const query = q ? q.trim().toLowerCase() : "";
+        if (query.length < 1) return socket.emit('search_res', []);
+        
+        const res = Object.keys(db.profiles)
+            .filter(login => {
+                const p = db.profiles[login];
+                return login !== socket.un && (login.includes(query) || (p.nick && p.nick.toLowerCase().includes(query)));
+            })
+            .map(login => ({
+                login: login,
+                nick: db.profiles[login].nick,
+                ava: db.profiles[login].ava
+            }))
+            .slice(0, 15);
+            
+        socket.emit('search_res', res);
     });
 
     socket.on('update_profile', async (data) => {
