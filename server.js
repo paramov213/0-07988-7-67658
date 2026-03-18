@@ -10,17 +10,17 @@ const io = require('socket.io')(http, {
 const fs = require('fs').promises;
 const path = require('path');
 
-// Система анти-сна (axios)
+// Система анти-сна
 let axios;
 try {
     axios = require('axios');
 } catch (e) {
-    console.log("⚠️ Axios не установлен. Система пинга отключена.");
+    console.log("⚠️ Запуск без модуля axios.");
 }
 
 const DB_FILE = path.join(__dirname, 'database.json');
 
-// Глобальный объект базы данных
+// Структура базы данных
 let db = { 
     users: {}, 
     profiles: {}, 
@@ -34,11 +34,10 @@ let db = {
 async function initDB() {
     try {
         const data = await fs.readFile(DB_FILE, 'utf8');
-        const parsed = JSON.parse(data);
-        db = { ...db, ...parsed };
-        console.log("✅ База данных загружена.");
+        db = JSON.parse(data);
+        console.log("✅ База данных загружена успешно.");
     } catch (e) {
-        console.log("⚠️ Файл базы не найден, создаю новый...");
+        console.log("⚠️ База данных не найдена, инициализация...");
         await saveDB();
     }
 }
@@ -48,13 +47,12 @@ async function saveDB() {
     try {
         await fs.writeFile(DB_FILE, JSON.stringify(db, null, 4));
     } catch (e) {
-        console.log("❌ Ошибка записи в БД:", e);
+        console.log("❌ Ошибка записи базы данных:", e);
     }
 }
 
 initDB();
 
-const sessions = {}; 
 app.use(express.static(__dirname));
 
 function getMSKTime() {
@@ -69,21 +67,23 @@ function getMSKDate() {
     return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" });
 }
 
-// Пинг для предотвращения сна сервера
+// Пинг сервера для Render/Heroku
 setInterval(() => {
     if (axios) {
         const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:3000`;
-        if (url.includes('http')) {
+        if (url && url.includes('http')) {
             axios.get(url).catch(() => {});
         }
     }
 }, 300000);
 
+const sessions = {}; 
+
 io.on('connection', (socket) => {
     
     socket.on('auth', async (data) => {
         const { login, password, type } = data;
-        if (!login || !password) return socket.emit('err', 'Введите логин и пароль');
+        if (!login || !password) return socket.emit('err', 'Введите данные');
         
         const u = login.trim().toLowerCase(); 
 
@@ -93,7 +93,7 @@ io.on('connection', (socket) => {
             db.profiles[u] = { 
                 nick: login, 
                 ava: `https://api.dicebear.com/7.x/identicon/svg?seed=${u}`, 
-                bio: "Новый пользователь", 
+                bio: "Статус Celestra", 
                 ls: "Online",
                 nfts: [] 
             };
@@ -102,21 +102,21 @@ io.on('connection', (socket) => {
         }
 
         if (!db.users[u] || db.users[u] !== password) {
-            return socket.emit('err', 'Ошибка авторизации');
+            return socket.emit('err', 'Неверный логин или пароль');
         }
 
         socket.un = u;
         sessions[u] = socket.id;
         db.profiles[u].ls = "Online";
         
-        // Проверка на админа (бесконечные монеты)
-        let displayCoins = db.economy[u].coins;
-        if (u === db.system.admin) displayCoins = Infinity;
+        // Монеты админа
+        let userCoins = db.economy[u] ? db.economy[u].coins : 0;
+        if (u === db.system.admin) userCoins = Infinity;
 
         socket.emit('auth_ok', { 
             un: u, 
             prof: db.profiles[u], 
-            econ: { coins: displayCoins },
+            econ: { coins: userCoins },
             isAdmin: (u === db.system.admin)
         });
     });
@@ -127,7 +127,7 @@ io.on('connection', (socket) => {
         const id = [socket.un, d.to].sort().join('_');
         const today = getMSKDate();
 
-        // Логика стриков (огоньков)
+        // Стрики
         if (!db.streaks[id]) {
             db.streaks[id] = { lastDate: today, days: 1 };
         } else {
@@ -136,7 +136,6 @@ io.on('connection', (socket) => {
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
                 const yesterdayStr = yesterday.toISOString().split('T')[0];
-                
                 if (last === yesterdayStr) {
                     db.streaks[id].days += 1;
                 } else {
@@ -159,9 +158,9 @@ io.on('connection', (socket) => {
         if (!db.messages[id]) db.messages[id] = [];
         db.messages[id].push(msg);
         
-        // Заработок монет (кроме админа)
-        if (socket.un !== db.system.admin) {
-            if (db.economy[socket.un]) db.economy[socket.un].coins += 10;
+        // Начисление монет за общение
+        if (socket.un !== db.system.admin && db.economy[socket.un]) {
+            db.economy[socket.un].coins += 10;
         }
         
         await saveDB();
@@ -185,14 +184,14 @@ io.on('connection', (socket) => {
         
         if (sessions[target]) prof.ls = "Online";
 
-        let targetCoins = db.economy[target]?.coins || 0;
-        if (target === db.system.admin) targetCoins = Infinity;
+        let coins = db.economy[target] ? db.economy[target].coins : 0;
+        if (target === db.system.admin) coins = Infinity;
 
         socket.emit('h_res', { 
             target, 
             msgs: db.messages[id] || [], 
             prof, 
-            econ: { coins: targetCoins },
+            econ: { coins },
             streak 
         });
     });
@@ -203,11 +202,11 @@ io.on('connection', (socket) => {
         if (query.length < 1) return socket.emit('search_res', []);
         
         const res = Object.keys(db.profiles)
-            .filter(login => login !== socket.un && (login.includes(query) || db.profiles[login].nick.toLowerCase().includes(query)))
-            .map(login => ({
-                login: login,
-                nick: db.profiles[login].nick,
-                ava: db.profiles[login].ava
+            .filter(l => l !== socket.un && (l.includes(query) || db.profiles[l].nick.toLowerCase().includes(query)))
+            .map(l => ({
+                login: l,
+                nick: db.profiles[l].nick,
+                ava: db.profiles[l].ava
             }))
             .slice(0, 10);
             
@@ -219,28 +218,39 @@ io.on('connection', (socket) => {
         if (data.nick) db.profiles[socket.un].nick = data.nick;
         if (data.bio) db.profiles[socket.un].bio = data.bio;
         if (data.ava) db.profiles[socket.un].ava = data.ava; 
+        
         await saveDB();
+        
+        // Отправляем обновленные данные обратно клиенту
         socket.emit('update_ok', db.profiles[socket.un]);
+        
+        // Уведомляем тех, кто может сейчас смотреть этот профиль
+        socket.broadcast.emit('user_updated', { login: socket.un, prof: db.profiles[socket.un] });
     });
 
     socket.on('buy_nft', async (nftName) => {
         if (!socket.un) return;
         const price = 1000;
-        const isAdm = (socket.un === db.system.admin);
+        const isAdmin = (socket.un === db.system.admin);
 
-        if (isAdm || (db.economy[socket.un] && db.economy[socket.un].coins >= price)) {
-            if (!isAdm) db.economy[socket.un].coins -= price;
+        if (isAdmin || (db.economy[socket.un] && db.economy[socket.un].coins >= price)) {
+            if (!isAdmin) db.economy[socket.un].coins -= price;
             
-            if (!db.profiles[socket.un].nfts) db.profiles[socket.un].nfts = [];
+            // Инициализация массива NFT если его нет
+            if (!db.profiles[socket.un].nfts) {
+                db.profiles[socket.un].nfts = [];
+            }
+            
             if (!db.profiles[socket.un].nfts.includes(nftName)) {
                 db.profiles[socket.un].nfts.push(nftName);
             }
             
             await saveDB();
+            
             socket.emit('update_ok', db.profiles[socket.un]);
-            socket.emit('econ_update', { coins: isAdm ? Infinity : db.economy[socket.un].coins });
+            socket.emit('econ_update', { coins: isAdmin ? Infinity : db.economy[socket.un].coins });
         } else {
-            socket.emit('err', 'Нужно 1000 монет');
+            socket.emit('err', 'Недостаточно монет для покупки NFT');
         }
     });
 
@@ -254,9 +264,9 @@ io.on('connection', (socket) => {
         try {
             db = JSON.parse(jsonStr);
             await saveDB();
-            socket.emit('err', 'Данные импортированы!');
+            socket.emit('err', 'База данных успешно импортирована');
         } catch (e) {
-            socket.emit('err', 'Ошибка файла');
+            socket.emit('err', 'Ошибка при парсинге JSON');
         }
     });
 
@@ -268,6 +278,7 @@ io.on('connection', (socket) => {
     });
 });
 
-http.listen(process.env.PORT || 3000, '0.0.0.0', () => {
-    console.log("🚀 Celestra Server Running...");
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ Сервер Celestra запущен на порту ${PORT}`);
 });
