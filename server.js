@@ -2,18 +2,25 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, { 
-    maxHttpBufferSize: 1e8, // 100MB для тяжелого контента
+    maxHttpBufferSize: 1e8, 
     cors: { origin: "*" },
     pingTimeout: 60000, 
     pingInterval: 25000
 });
 const fs = require('fs').promises;
 const path = require('path');
-const axios = require('axios'); // Для предотвращения сна сервера
+
+// Система анти-сна (axios)
+let axios;
+try {
+    axios = require('axios');
+} catch (e) {
+    console.log("⚠️ Axios не установлен. Система пинга отключена.");
+}
 
 const DB_FILE = path.join(__dirname, 'database.json');
 
-// Основная структура базы данных Celestra
+// Глобальный объект базы данных
 let db = { 
     users: {}, 
     profiles: {}, 
@@ -23,36 +30,33 @@ let db = {
     system: { locked: false, admin: "shict" } 
 };
 
-// Функция инициализации: загружает всё из файла при старте
+// Загрузка базы данных
 async function initDB() {
     try {
         const data = await fs.readFile(DB_FILE, 'utf8');
         const parsed = JSON.parse(data);
-        // Используем оператор расширения, чтобы сохранить структуру при обновлении кода
         db = { ...db, ...parsed };
-        console.log("✅ [DATABASE] Все аккаунты и переписки успешно восстановлены из файла.");
+        console.log("✅ База данных загружена.");
     } catch (e) {
-        console.log("⚠️ [DATABASE] Файл базы не найден или пуст. Создаю новую структуру...");
+        console.log("⚠️ Файл базы не найден, создаю новый...");
         await saveDB();
     }
 }
 
-// Функция сохранения: записывает каждое изменение на диск
+// Сохранение базы данных
 async function saveDB() {
     try {
         await fs.writeFile(DB_FILE, JSON.stringify(db, null, 4));
     } catch (e) {
-        console.log("❌ [DATABASE] Ошибка при записи на диск:", e);
+        console.log("❌ Ошибка записи в БД:", e);
     }
 }
 
 initDB();
 
 const sessions = {}; 
-
 app.use(express.static(__dirname));
 
-// Системное время по МСК
 function getMSKTime() {
     return new Date().toLocaleTimeString("ru-RU", {
         timeZone: "Europe/Moscow",
@@ -65,29 +69,31 @@ function getMSKDate() {
     return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" });
 }
 
-// АНТИ-СОН (Keep-Alive)
+// Пинг для предотвращения сна сервера
 setInterval(() => {
-    const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:3000`;
-    if (url.includes('http')) {
-        axios.get(url).then(() => console.log('[System] Пинг активности отправлен')).catch(() => {});
+    if (axios) {
+        const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:3000`;
+        if (url.includes('http')) {
+            axios.get(url).catch(() => {});
+        }
     }
-}, 300000); // Раз в 5 минут
+}, 300000);
 
 io.on('connection', (socket) => {
     
     socket.on('auth', async (data) => {
         const { login, password, type } = data;
-        if (!login || !password) return socket.emit('err', 'Заполните поля');
+        if (!login || !password) return socket.emit('err', 'Введите логин и пароль');
         
         const u = login.trim().toLowerCase(); 
 
         if (type === 'reg') {
-            if (db.users[u]) return socket.emit('err', 'Этот логин уже занят');
+            if (db.users[u]) return socket.emit('err', 'Логин занят');
             db.users[u] = password;
             db.profiles[u] = { 
                 nick: login, 
                 ava: `https://api.dicebear.com/7.x/identicon/svg?seed=${u}`, 
-                bio: "Новый пользователь Celestra", 
+                bio: "Новый пользователь", 
                 ls: "Online",
                 nfts: [] 
             };
@@ -96,17 +102,21 @@ io.on('connection', (socket) => {
         }
 
         if (!db.users[u] || db.users[u] !== password) {
-            return socket.emit('err', 'Неверный логин или пароль');
+            return socket.emit('err', 'Ошибка авторизации');
         }
 
         socket.un = u;
         sessions[u] = socket.id;
         db.profiles[u].ls = "Online";
         
+        // Проверка на админа (бесконечные монеты)
+        let displayCoins = db.economy[u].coins;
+        if (u === db.system.admin) displayCoins = Infinity;
+
         socket.emit('auth_ok', { 
             un: u, 
             prof: db.profiles[u], 
-            econ: db.economy[u],
+            econ: { coins: displayCoins },
             isAdmin: (u === db.system.admin)
         });
     });
@@ -117,7 +127,7 @@ io.on('connection', (socket) => {
         const id = [socket.un, d.to].sort().join('_');
         const today = getMSKDate();
 
-        // Система Огоньков
+        // Логика стриков (огоньков)
         if (!db.streaks[id]) {
             db.streaks[id] = { lastDate: today, days: 1 };
         } else {
@@ -149,7 +159,10 @@ io.on('connection', (socket) => {
         if (!db.messages[id]) db.messages[id] = [];
         db.messages[id].push(msg);
         
-        if (db.economy[socket.un]) db.economy[socket.un].coins += 10;
+        // Заработок монет (кроме админа)
+        if (socket.un !== db.system.admin) {
+            if (db.economy[socket.un]) db.economy[socket.un].coins += 10;
+        }
         
         await saveDB();
 
@@ -167,35 +180,36 @@ io.on('connection', (socket) => {
     socket.on('get_h', (target) => {
         if (!socket.un) return;
         const id = [socket.un, target].sort().join('_');
-        const prof = db.profiles[target] || { nick: target, ls: "Offline", bio: "", ava: "", nfts: [] };
+        const prof = db.profiles[target] || { nick: target, ls: "Offline", ava: "", nfts: [] };
         const streak = db.streaks[id] ? db.streaks[id].days : 0;
         
         if (sessions[target]) prof.ls = "Online";
+
+        let targetCoins = db.economy[target]?.coins || 0;
+        if (target === db.system.admin) targetCoins = Infinity;
+
         socket.emit('h_res', { 
             target, 
             msgs: db.messages[id] || [], 
             prof, 
-            econ: db.economy[target] || { coins: 0 },
+            econ: { coins: targetCoins },
             streak 
         });
     });
 
     socket.on('search_user', (q) => {
         if (!socket.un) return;
-        const query = q ? q.trim().toLowerCase() : "";
+        const query = q.trim().toLowerCase();
         if (query.length < 1) return socket.emit('search_res', []);
         
         const res = Object.keys(db.profiles)
-            .filter(login => {
-                const p = db.profiles[login];
-                return login !== socket.un && (login.includes(query) || (p.nick && p.nick.toLowerCase().includes(query)));
-            })
+            .filter(login => login !== socket.un && (login.includes(query) || db.profiles[login].nick.toLowerCase().includes(query)))
             .map(login => ({
                 login: login,
                 nick: db.profiles[login].nick,
                 ava: db.profiles[login].ava
             }))
-            .slice(0, 15);
+            .slice(0, 10);
             
         socket.emit('search_res', res);
     });
@@ -212,33 +226,37 @@ io.on('connection', (socket) => {
     socket.on('buy_nft', async (nftName) => {
         if (!socket.un) return;
         const price = 1000;
-        if (db.economy[socket.un].coins >= price) {
-            db.economy[socket.un].coins -= price;
+        const isAdm = (socket.un === db.system.admin);
+
+        if (isAdm || (db.economy[socket.un] && db.economy[socket.un].coins >= price)) {
+            if (!isAdm) db.economy[socket.un].coins -= price;
+            
             if (!db.profiles[socket.un].nfts) db.profiles[socket.un].nfts = [];
-            db.profiles[socket.un].nfts.push(nftName);
+            if (!db.profiles[socket.un].nfts.includes(nftName)) {
+                db.profiles[socket.un].nfts.push(nftName);
+            }
+            
             await saveDB();
             socket.emit('update_ok', db.profiles[socket.un]);
-            socket.emit('econ_update', db.economy[socket.un]);
+            socket.emit('econ_update', { coins: isAdm ? Infinity : db.economy[socket.un].coins });
         } else {
-            socket.emit('err', 'Недостаточно монет (1000)');
+            socket.emit('err', 'Нужно 1000 монет');
         }
     });
 
-    // АДМИН-ФУНКЦИИ: БЭКАП БАЗЫ ДАННЫХ
     socket.on('admin_export_db', () => {
         if (socket.un !== db.system.admin) return;
         socket.emit('admin_db_data', JSON.stringify(db));
     });
 
-    socket.on('admin_import_db', async (jsonString) => {
+    socket.on('admin_import_db', async (jsonStr) => {
         if (socket.un !== db.system.admin) return;
         try {
-            const imported = JSON.parse(jsonString);
-            db = imported;
+            db = JSON.parse(jsonStr);
             await saveDB();
-            socket.emit('err', 'База данных успешно импортирована! Перезагрузите страницу.');
+            socket.emit('err', 'Данные импортированы!');
         } catch (e) {
-            socket.emit('err', 'Ошибка импорта: неверный формат JSON');
+            socket.emit('err', 'Ошибка файла');
         }
     });
 
@@ -250,4 +268,6 @@ io.on('connection', (socket) => {
     });
 });
 
-http.listen(3000, '0.0.0.0', () => console.log('Celestra Engine Running...'));
+http.listen(process.env.PORT || 3000, '0.0.0.0', () => {
+    console.log("🚀 Celestra Server Running...");
+});
