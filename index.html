@@ -3,8 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-    <title>Celestra v3.1</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Celestra v3.3</title>
+    <style>
+        /* CSS СТИЛИ - ПОЛНЫЙ КОД */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; position: fixed; width: 100%; }
+
+        .flex-center { display: flex; align-items: center; justify-content: center; }
+        .full-page { position: fixed; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%); z-index: 5000; }
+        .auth-box { width: 85%; max-width: 320px; text-align: center; }
+        .brand { font-size: 42px; font-weight: 900; color: #007aff; margin-bottom: 30px; letter-spacing: -1px; text-shadow: 0 0 15px rgba(0,122,255,0.3); }
+        
+        input, textarea { width: 100%; padding: 16px; background: #1c1c1e; border: 1px solid #333; border-radius: 18px; color: #fff; margin-bottom: 12px; font-size: 16px; transition: 0.3s; }
+        input:focus { border-color: #007aff; }
+
+        .btn-primary { background: #007aff; border: none; padding: 16px; width: 100%; border-radius: 18px; color: #fff; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-link { background: none; border: none; color: #8e8e93; margin-top: 15px; cursor: pointer; font-size: 14px; text-decoration: underline; }
+
+        .page { position: absolute; inset: 0; background: #000; display: none; flex-direction: column; }
+        .page.active { display: flex; }
+        #chat-view { transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 100; }
+        #chat-view.active { transform: translateX(0); }
+
+        .header { height: 65px; padding: 0 15px; display: flex; align-items: center; background: rgba(28,28,30,0.8); backdrop-filter: blur(20px); border-bottom: 1px solid #222; gap: 12px; position: sticky; top: 0; z-index: 10; }
+        .mini-ava { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid #007aff; }
+        .logo-text { font-weight: 800; font-size: 22px; flex: 1; letter-spacing: -0.5px; }
+        .coins-top { background: #32d74b; color: #000; padding: 6px 12px; border-radius: 12px; font-weight: 900; font-size: 14px; }
+
+        .search-container { padding: 12px 15px; position: relative; background: #000; }
+        .search-results { position: absolute; top: 70px; left: 15px; right: 15px; background: #1c1c1e; border-radius: 20px; z-index: 2000; display: none; border: 1px solid #333; max-height: 300px; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .search-item { padding: 12px 15px; display: flex; gap: 15px; border-bottom: 1px solid #2c2c2e; align-items: center; cursor: pointer; }
+        .search-item img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .search-item b { font-size: 16px; color: #fff; }
+        .search-item small { color: #8e8e93; }
+
+        .content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .chat-row { padding: 15px 20px; display: flex; gap: 15px; border-bottom: 1px solid #111; align-items: center; transition: 0.2s; }
+        .chat-row:active { background: #1c1c1e; }
+        .row-ava { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; }
+        .row-info b { display: block; margin-bottom: 4px; font-size: 17px; }
+        .row-info p { margin: 0; color: #8e8e93; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+
+        .messages { padding: 20px 15px; display: flex; flex-direction: column; gap: 12px; }
+        .msg-row { display: flex; width: 100%; }
+        .msg-row.me { justify-content: flex-end; }
+        .bubble { max-width: 75%; padding: 12px 16px; border-radius: 20px; position: relative; font-size: 16px; line-height: 1.4; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .me .bubble { background: #007aff; color: #fff; border-bottom-right-radius: 4px; }
+        .ot .bubble { background: #2c2c2e; color: #fff; border-bottom-left-radius: 4px; }
+        .bubble small { display: block; font-size: 10px; opacity: 0.7; margin-top: 6px; text-align: right; }
+
+        .msg-media { max-width: 100%; border-radius: 12px; margin-top: 5px; }
+
+        .input-area { padding: 12px 15px; background: #1c1c1e; border-top: 1px solid #222; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+        .row { display: flex; gap: 12px; align-items: center; }
+        .btn-icon { font-size: 22px; cursor: pointer; transition: 0.2s; }
+        .btn-icon:active { transform: scale(0.85); }
+        .btn-send { background: none; border: none; font-size: 26px; cursor: pointer; transition: 0.2s; }
+        .btn-send:active { transform: scale(0.85); }
+
+        .media-preview { padding: 8px; background: #2c2c2e; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 6000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
+        .modal-card { background: #1c1c1e; width: 88%; max-width: 360px; padding: 30px; border-radius: 35px; text-align: center; border: 1px solid #333; }
+        .big-ava { width: 110px; height: 110px; border-radius: 50%; border: 3px solid #007aff; margin-bottom: 20px; object-fit: cover; box-shadow: 0 0 20px rgba(0,122,255,0.4); }
+        .bio-box { background: #2c2c2e; padding: 15px; border-radius: 18px; margin: 15px 0; color: #d1d1d6; font-size: 15px; }
+        .nft-badge { display: inline-block; background: linear-gradient(135deg, #ffd700, #ffae00); color: #000; padding: 6px 12px; border-radius: 12px; font-weight: 900; margin: 5px; font-size: 12px; }
+
+        .streak-badge { color: #ff9500; font-weight: 900; font-size: 20px; text-shadow: 0 0 10px rgba(255,149,0,0.3); }
+        .btn-adm.ban { background: #ff3b30; color: #fff; border: none; padding: 10px; border-radius: 12px; width: 100%; font-weight: bold; }
+    </style>
 </head>
 <body>
 
@@ -26,7 +96,6 @@
             <header class="header">
                 <div class="me-trigger" onclick="openSettings()">
                     <img id="my-ava" src="" class="mini-ava">
-                    <div class="online-dot"></div>
                 </div>
                 <span class="logo-text">Celestra</span>
                 <div class="coins-top">💰 <span id="my-coins">0</span></div>
@@ -40,9 +109,9 @@
 
         <section id="chat-view" class="page">
             <header class="header">
-                <button onclick="closeChat()" class="btn-back">✕</button>
-                <div class="chat-info" onclick="viewP()">
-                    <b id="h-nick">...</b>
+                <button onclick="closeChat()" class="btn-primary" style="width:50px; padding:10px">✕</button>
+                <div class="chat-info" onclick="viewP()" style="flex:1">
+                    <b id="h-nick">...</b><br>
                     <small id="h-status">...</small>
                 </div>
                 <div id="h-streak" class="streak-badge"></div>
@@ -54,7 +123,7 @@
                     <label class="btn-icon">
                         📁<input type="file" id="f-in" hidden onchange="handleFile(this)" accept="image/*,video/*">
                     </label>
-                    <button id="rec-btn" class="btn-icon" onclick="toggleRecord()">🎤</button>
+                    <button id="rec-btn" class="btn-icon" style="background:none; border:none" onclick="toggleRecord()">🎤</button>
                     <input type="text" id="m-in" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') send()">
                     <button onclick="send()" class="btn-send">🚀</button>
                 </div>
@@ -74,12 +143,12 @@
                 </div>
             </div>
             <div id="settings-mode" style="display:none">
-                <p>Настройки профиля</p>
-                <input type="text" id="edit-ava" class="modal-input" placeholder="URL Аватара">
-                <input type="text" id="edit-nick" class="modal-input" placeholder="Ник">
-                <textarea id="edit-bio" class="modal-input" placeholder="О себе..."></textarea>
+                <p>Редактировать профиль</p>
+                <input type="text" id="edit-ava" placeholder="URL Аватара">
+                <input type="text" id="edit-nick" placeholder="Ник">
+                <textarea id="edit-bio" placeholder="О себе..."></textarea>
                 <button onclick="saveProfile()" class="btn-primary">Сохранить</button>
-                <button onclick="logout()" class="btn-adm ban" style="margin-top:10px">Выйти из системы</button>
+                <button onclick="logout()" class="btn-adm ban" style="margin-top:10px">Выйти</button>
             </div>
         </div>
     </div>
@@ -87,25 +156,49 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let me = "", myData = {}, cur = null, chatData = {}, profs = {}, econ = {}, streaks = {};
+        let me = "", myData = {}, cur = null, chatData = {}, profs = {}, streaks = {};
         let mediaFile = null, mediaType = "text";
         let mediaRecorder, audioChunks = [];
 
-        if (Notification.permission !== "granted") Notification.requestPermission();
+        // ВНУТРЕННИЙ SERVICE WORKER ЧЕРЕЗ BLOB (Чтобы не создавать отдельный файл)
+        const swCode = `
+            self.addEventListener('push', function(e) {
+                const data = e.data ? e.data.json() : { title: 'Celestra', body: 'Новое сообщение!' };
+                e.waitUntil(self.registration.showNotification(data.title, {
+                    body: data.body,
+                    icon: data.icon || '/icon.png'
+                }));
+            });
+            self.addEventListener('notificationclick', function(e) {
+                e.notification.close();
+                e.waitUntil(clients.openWindow('/'));
+            });
+        `;
+        const blob = new Blob([swCode], { type: 'text/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register(swUrl).then(() => console.log("Inline SW Registered"));
+        }
+
+        function requestNotify() {
+            if (Notification.permission !== "granted") Notification.requestPermission();
+        }
 
         function showPush(title, body, icon) {
             if (Notification.permission === "granted" && document.hidden) {
-                const n = new Notification(title, { body, icon });
-                n.onclick = () => { window.focus(); };
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification(title, { body, icon, vibrate: [200, 100, 200] });
+                });
             }
         }
 
         function doAuth(type) {
             const l = document.getElementById('auth-l').value.trim();
             const p = document.getElementById('auth-p').value.trim();
-            if(!l || !p) return alert('Заполните поля!');
+            if(!l || !p) return alert('Заполните все поля!');
             localStorage.setItem('cel_save', JSON.stringify({l, p}));
             socket.emit('auth', { login: l, password: p, type });
+            requestNotify();
         }
 
         window.onload = () => {
@@ -122,22 +215,21 @@
             document.getElementById('my-coins').innerText = d.econ.coins;
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app').style.display = 'block';
-            loadPersisted();
+            
+            // Загружаем чаты, которые были открыты ранее
+            const active = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
+            active.forEach(u => socket.emit('get_h', u));
         });
 
         socket.on('econ_update', d => {
             document.getElementById('my-coins').innerText = d.coins;
         });
 
-        // Исправленная логика поиска
         function doSearch() {
             const v = document.getElementById('s-in').value.trim();
             const resBox = document.getElementById('s-res');
-            if(v.length > 0) {
-                socket.emit('search_user', v);
-            } else {
-                resBox.style.display = 'none';
-            }
+            if(v.length > 0) socket.emit('search_user', v);
+            else resBox.style.display = 'none';
         }
 
         socket.on('search_res', res => {
@@ -156,9 +248,7 @@
                     };
                     box.appendChild(d);
                 });
-            } else {
-                box.style.display = 'none';
-            }
+            } else box.style.display = 'none';
         });
 
         function handleFile(input) {
@@ -168,8 +258,7 @@
             mediaType = file.type.startsWith('image') ? 'image' : 'video';
             reader.onload = (e) => {
                 mediaFile = e.target.result;
-                document.getElementById('m-prev').innerHTML = mediaType === 'image' ? 
-                    `<img src="${mediaFile}" style="height:50px; border-radius:5px">` : `<div style="font-size:10px">Видео выбрано</div>`;
+                document.getElementById('m-prev').innerHTML = `<div style="color:#007aff">Файл готов к отправке</div>`;
                 document.getElementById('m-prev').style.display = 'block';
             };
             reader.readAsDataURL(file);
@@ -217,11 +306,17 @@
             streaks[room] = d.streak;
             
             if (d.msg.f !== me) {
-                showPush(profs[room]?.nick || room, d.msg.type === 'text' ? d.msg.txt : 'Отправил медиа файл', profs[room]?.ava);
+                showPush(profs[room]?.nick || room, d.msg.type === 'text' ? d.msg.txt : 'Прислал медиа', profs[room]?.ava);
             }
             if(room === cur) { renderMsgs(); updateStreakDisplay(); }
             updateUI();
-            saveActiveChats(room);
+            
+            // Сохраняем список активных чатов локально
+            let active = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
+            if(!active.includes(room)) {
+                active.push(room);
+                localStorage.setItem('cel_active_chats', JSON.stringify(active));
+            }
         });
 
         function renderMsgs() {
@@ -233,7 +328,6 @@
                 if(m.type === 'image') content = `<img src="${m.file}" class="msg-media">`;
                 if(m.type === 'video') content = `<video src="${m.file}" controls class="msg-media"></video>`;
                 if(m.type === 'audio') content = `<audio src="${m.file}" controls></audio>`;
-                
                 win.innerHTML += `<div class="msg-row ${isMe?'me':'ot'}"><div class="bubble">${content}<small>${m.time}</small></div></div>`;
             });
             win.scrollTop = win.scrollHeight;
@@ -290,9 +384,7 @@
             updateUI();
         });
 
-        function buyNFT(name) {
-            socket.emit('buy_nft', name);
-        }
+        function buyNFT(name) { socket.emit('buy_nft', name); }
 
         socket.on('update_ok', d => {
             myData = d;
@@ -328,19 +420,6 @@
                 bio: document.getElementById('edit-bio').value
             });
             document.getElementById('modal-p').style.display = 'none';
-        }
-
-        function saveActiveChats(user) {
-            let active = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
-            if(!active.includes(user)) {
-                active.push(user);
-                localStorage.setItem('cel_active_chats', JSON.stringify(active));
-            }
-        }
-
-        function loadPersisted() {
-            const p = localStorage.getItem('cel_active_chats');
-            if(p) JSON.parse(p).forEach(u => socket.emit('get_h', u));
         }
 
         function logout() { localStorage.clear(); location.reload(); }
