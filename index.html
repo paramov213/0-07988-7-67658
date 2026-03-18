@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-    <title>Celestra NextGen</title>
+    <title>Celestra v3</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,11 +12,11 @@
         <div class="auth-box">
             <h1 class="brand">CELESTRA</h1>
             <div class="glass-input">
-                <input type="text" id="auth-l" placeholder="Ваш логин" autocomplete="username">
-                <input type="password" id="auth-p" placeholder="Ваш пароль" autocomplete="current-password">
+                <input type="text" id="auth-l" placeholder="Логин">
+                <input type="password" id="auth-p" placeholder="Пароль">
             </div>
             <button onclick="doAuth('login')" class="btn-primary">ВОЙТИ</button>
-            <button onclick="doAuth('reg')" class="btn-link">Создать аккаунт</button>
+            <button onclick="doAuth('reg')" class="btn-link">Создать новый аккаунт</button>
         </div>
     </div>
 
@@ -29,14 +29,12 @@
                     <div class="online-dot"></div>
                 </div>
                 <span class="logo-text">Celestra</span>
-                <button onclick="logout()" class="btn-icon">🚪</button>
+                <div class="coins-top">💰 <span id="my-coins">0</span></div>
             </header>
-            
             <div class="search-container">
-                <input type="text" id="s-in" placeholder="Найти собеседника..." oninput="doSearch()" autocomplete="off">
+                <input type="text" id="s-in" placeholder="Поиск по логину..." oninput="doSearch()">
                 <div id="s-res" class="search-results"></div>
             </div>
-
             <div id="chat-items" class="content"></div>
         </section>
 
@@ -45,14 +43,20 @@
                 <button onclick="closeChat()" class="btn-back">✕</button>
                 <div class="chat-info" onclick="viewP()">
                     <b id="h-nick">...</b>
-                    <small id="h-status">загрузка...</small>
+                    <small id="h-status">...</small>
                 </div>
+                <div id="h-streak" class="streak-badge"></div>
             </header>
             <div id="chat-win" class="content messages"></div>
             <footer class="input-area">
+                <div class="media-preview" id="m-prev" style="display:none"></div>
                 <div class="row">
-                    <input type="text" id="m-in" placeholder="Ваше сообщение..." onkeydown="if(event.key==='Enter') send()">
-                    <button onclick="send()" class="btn-send">🔥</button>
+                    <label class="btn-icon">
+                        📁<input type="file" id="f-in" hidden onchange="handleFile(this)" accept="image/*,video/*">
+                    </label>
+                    <button id="rec-btn" class="btn-icon" onclick="toggleRecord()">🎤</button>
+                    <input type="text" id="m-in" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') send()">
+                    <button onclick="send()" class="btn-send">🚀</button>
                 </div>
             </footer>
         </section>
@@ -60,83 +64,49 @@
 
     <div id="modal-p" class="modal" style="display:none" onclick="this.style.display='none'">
         <div class="modal-card" onclick="event.stopPropagation()">
-            <div class="ava-container">
-                <img id="v-ava" src="" class="big-ava">
-            </div>
-            
+            <img id="v-ava" src="" class="big-ava">
             <div id="profile-view-mode">
                 <h2 id="v-nick"></h2>
                 <div id="v-bio" class="bio-box"></div>
-                <div class="coin-badge">💰 <span id="v-c">0</span> монет</div>
-                
-                <div id="admin-panel" style="display:none;" class="admin-box">
-                    <p>Администрирование:</p>
-                    <button onclick="admCoins()" class="btn-adm">Выдать монеты</button>
-                    <button onclick="admBan()" class="btn-adm ban">Бан</button>
+                <div class="nft-list" id="v-nfts"></div>
+                <div id="nft-shop" style="margin-top:15px">
+                    <button onclick="buyNFT('Good')" class="btn-primary" style="background:#ff9500">Купить NFT "Good" (1000 💰)</button>
                 </div>
             </div>
-
             <div id="settings-mode" style="display:none">
-                <p>Редактирование профиля</p>
-                <input type="text" id="edit-ava" class="modal-input" placeholder="Ссылка на GIF/IMG аватара">
-                <input type="text" id="edit-nick" class="modal-input" placeholder="Ваш ник">
+                <input type="text" id="edit-ava" class="modal-input" placeholder="URL Аватара">
+                <input type="text" id="edit-nick" class="modal-input" placeholder="Ник">
                 <textarea id="edit-bio" class="modal-input" placeholder="О себе..."></textarea>
                 <button onclick="saveProfile()" class="btn-primary">Сохранить</button>
+                <button onclick="logout()" class="btn-adm ban" style="margin-top:10px">Выйти из аккаунта</button>
             </div>
-            
-            <button onclick="document.getElementById('modal-p').style.display='none'" class="btn-close">ЗАКРЫТЬ</button>
         </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let me = "", myData = {}, cur = null, chatData = {}, profs = {}, econ = {};
-        let isAdmin = false;
+        let me = "", myData = {}, cur = null, chatData = {}, profs = {}, econ = {}, streaks = {};
+        let mediaFile = null, mediaType = "text";
+        let mediaRecorder, audioChunks = [];
 
-        // Notification API
-        if (Notification.permission !== "granted") {
-            Notification.requestPermission();
-        }
+        // Push Logic
+        if (Notification.permission !== "granted") Notification.requestPermission();
 
         function showPush(title, body, icon) {
             if (Notification.permission === "granted" && document.hidden) {
-                new Notification(title, { body: body, icon: icon });
+                const n = new Notification(title, { body, icon });
+                n.onclick = () => { window.focus(); };
             }
         }
 
-        function checkConnection() {
-            if (!socket.connected && me) {
-                console.log("Восстановление соединения...");
-                const saved = localStorage.getItem('cel_save');
-                if(saved) {
-                    const {l, p} = JSON.parse(saved);
-                    socket.emit('auth', { login: l, password: p, type: 'login' });
-                }
-            } else if (socket.connected && me) {
-                if(cur) socket.emit('get_h', cur);
-                loadPersistedChats();
-            }
-        }
-
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') checkConnection();
-        });
-
-        window.onfocus = () => {
-            checkConnection();
-        };
-
+        // Auth
         function doAuth(type) {
             const l = document.getElementById('auth-l').value.trim();
             const p = document.getElementById('auth-p').value.trim();
-            if(!l || !p) return alert('Заполните все поля!');
-            
-            // Сохраняем данные для авто-входа
+            if(!l || !p) return alert('Заполни поля!');
             localStorage.setItem('cel_save', JSON.stringify({l, p}));
-            
-            // Отправляем запрос на сервер
-            socket.emit('auth', { login: l, password: p, type: type });
+            socket.emit('auth', { login: l, password: p, type });
         }
 
         window.onload = () => {
@@ -145,89 +115,82 @@
                 const {l, p} = JSON.parse(saved);
                 socket.emit('auth', { login: l, password: p, type: 'login' });
             }
-        }
+        };
 
         socket.on('auth_ok', d => {
-            me = d.un; myData = d.prof; isAdmin = d.isAdmin;
+            me = d.un; myData = d.prof;
             document.getElementById('my-ava').src = d.prof.ava;
+            document.getElementById('my-coins').innerText = d.econ.coins;
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app').style.display = 'block';
-            
-            loadPersistedChats();
-            if(cur) socket.emit('get_h', cur);
-            updateUI();
+            loadPersisted();
         });
 
-        function persistChat(username) {
-            let saved = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
-            if(!saved.includes(username)) {
-                saved.push(username);
-                localStorage.setItem('cel_active_chats', JSON.stringify(saved));
-            }
+        socket.on('econ_update', d => {
+            document.getElementById('my-coins').innerText = d.coins;
+        });
+
+        // Media Handling
+        function handleFile(input) {
+            const file = input.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            mediaType = file.type.startsWith('image') ? 'image' : 'video';
+            reader.onload = (e) => {
+                mediaFile = e.target.result;
+                document.getElementById('m-prev').innerHTML = mediaType === 'image' ? 
+                    `<img src="${mediaFile}" style="height:50px">` : `<div style="font-size:10px">Видео готово</div>`;
+                document.getElementById('m-prev').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
         }
 
-        function loadPersistedChats() {
-            let saved = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
-            saved.forEach(user => {
-                if(!chatData[user]) chatData[user] = []; 
-                socket.emit('get_h', user); 
-            });
-        }
-
-        socket.on('err', m => alert(m));
-
-        function doSearch() {
-            const v = document.getElementById('s-in').value;
-            if(v.length > 0) socket.emit('search_user', v);
-            else document.getElementById('s-res').style.display = 'none';
-        }
-
-        socket.on('search_res', res => {
-            const box = document.getElementById('s-res');
-            box.innerHTML = '';
-            if(res.length > 0) {
-                box.style.display = 'block';
-                res.forEach(u => {
-                    if(u.login === me) return;
-                    const d = document.createElement('div');
-                    d.className = 'search-item';
-                    d.innerHTML = `<img src="${u.ava}"> <div><b>${u.nick}</b><br><small>@${u.login}</small></div>`;
-                    d.onclick = () => {
-                        if(!chatData[u.login]) chatData[u.login] = [];
-                        profs[u.login] = { nick: u.nick, ava: u.ava };
-                        persistChat(u.login); 
-                        box.style.display = 'none';
-                        document.getElementById('s-in').value = '';
-                        openChat(u.login);
-                        updateUI();
+        // Voice Recording
+        async function toggleRecord() {
+            const btn = document.getElementById('rec-btn');
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                btn.innerText = "🎤";
+            } else {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        mediaFile = e.target.result;
+                        mediaType = 'audio';
+                        send(); // Сразу отправляем голосовое
                     };
-                    box.appendChild(d);
-                });
-            } else { box.style.display = 'none'; }
-        });
-
-        function openChat(u) {
-            cur = u;
-            persistChat(u); 
-            socket.emit('get_h', u);
-            document.getElementById('chat-view').classList.add('active');
-        }
-
-        function closeChat() {
-            cur = null;
-            document.getElementById('chat-view').classList.remove('active');
-            updateUI();
-        }
-
-        socket.on('h_res', d => {
-            chatData[d.target] = d.msgs;
-            profs[d.target] = d.prof;
-            econ[d.target] = d.econ;
-            if(cur === d.target) {
-                document.getElementById('h-nick').textContent = d.prof.nick;
-                document.getElementById('h-status').textContent = d.prof.ls === 'Online' ? 'в сети' : d.prof.ls;
-                renderMsgs();
+                    reader.readAsDataURL(blob);
+                };
+                mediaRecorder.start();
+                btn.innerText = "🛑";
             }
+        }
+
+        function send() {
+            const txt = document.getElementById('m-in').value;
+            if(!txt.trim() && !mediaFile) return;
+            socket.emit('msg', { to: cur, txt, type: mediaType, file: mediaFile });
+            document.getElementById('m-in').value = '';
+            mediaFile = null; mediaType = "text";
+            document.getElementById('m-prev').style.display = 'none';
+        }
+
+        socket.on('receive', d => {
+            const room = (d.msg.f === me) ? d.room : d.msg.f;
+            if(!chatData[room]) chatData[room] = [];
+            chatData[room].push(d.msg);
+            profs[room] = d.senderProf;
+            streaks[room] = d.streak;
+            
+            if (d.msg.f !== me) {
+                showPush(profs[room]?.nick || room, d.msg.type === 'text' ? d.msg.txt : 'Отправил медиа', profs[room]?.ava);
+            }
+            if(room === cur) { renderMsgs(); updateStreakDisplay(); }
             updateUI();
         });
 
@@ -236,101 +199,110 @@
             win.innerHTML = '';
             (chatData[cur] || []).forEach(m => {
                 const isMe = m.f === me;
-                win.innerHTML += `<div class="msg-row ${isMe?'me':'ot'}"><div class="bubble">${m.txt}<small>${m.time}</small></div></div>`;
+                let content = m.txt;
+                if(m.type === 'image') content = `<img src="${m.file}" class="msg-media">`;
+                if(m.type === 'video') content = `<video src="${m.file}" controls class="msg-media"></video>`;
+                if(m.type === 'audio') content = `<audio src="${m.file}" controls></audio>`;
+                
+                win.innerHTML += `<div class="msg-row ${isMe?'me':'ot'}"><div class="bubble">${content}<small>${m.time}</small></div></div>`;
             });
-            setTimeout(() => { win.scrollTop = win.scrollHeight; }, 50);
+            win.scrollTop = win.scrollHeight;
         }
 
-        function send() {
-            const i = document.getElementById('m-in');
-            if(!i.value.trim() || !cur) return;
-            socket.emit('msg', { to: cur, txt: i.value });
-            i.value = '';
+        function updateStreakDisplay() {
+            const s = streaks[cur] || 0;
+            document.getElementById('h-streak').innerHTML = s > 0 ? `🔥 ${s}` : '';
         }
-
-        socket.on('receive', d => {
-            const room = (d.msg.f === me) ? d.room : d.msg.f;
-            if(!chatData[room]) chatData[room] = [];
-            chatData[room].push(d.msg);
-            
-            if(d.senderProf) profs[room] = d.senderProf;
-            
-            persistChat(room); 
-
-            if (d.msg.f !== me) {
-                showPush(profs[room]?.nick || room, d.msg.txt, profs[room]?.ava);
-            }
-
-            if(room === cur) renderMsgs();
-            updateUI();
-        });
 
         function updateUI() {
             const list = document.getElementById('chat-items');
             list.innerHTML = '';
-            
-            const ids = Object.keys(chatData).sort((a,b) => {
-                const lastA = chatData[a][chatData[a].length - 1]?.timestamp || 0;
-                const lastB = chatData[b][chatData[b].length - 1]?.timestamp || 0;
+            const sorted = Object.keys(chatData).sort((a,b) => {
+                const lastA = chatData[a][chatData[a].length-1]?.timestamp || 0;
+                const lastB = chatData[b][chatData[b].length-1]?.timestamp || 0;
                 return lastB - lastA;
             });
-
-            ids.forEach(u => {
-                const last = chatData[u][chatData[u].length - 1];
-                const p = profs[u] || { nick: u };
+            sorted.forEach(u => {
+                const last = chatData[u][chatData[u].length-1];
+                const p = profs[u] || { nick: u, ava: '' };
+                const s = streaks[u] || 0;
                 list.innerHTML += `<div class="chat-row" onclick="openChat('${u}')">
-                    <img src="${p.ava || 'https://via.placeholder.com/50'}" class="row-ava">
-                    <div class="row-info"><b>${p.nick}</b><p>${last?last.txt:'Начните чат...'}</p></div>
+                    <img src="${p.ava}" class="row-ava">
+                    <div class="row-info">
+                        <b>${p.nick} ${s > 0 ? '🔥'+s : ''}</b>
+                        <p>${last?.type === 'text' ? last.txt : 'Медиа файл'}</p>
+                    </div>
                 </div>`;
             });
         }
+
+        function openChat(u) {
+            cur = u;
+            socket.emit('get_h', u);
+            document.getElementById('chat-view').classList.add('active');
+        }
+
+        function closeChat() { 
+            cur = null; 
+            document.getElementById('chat-view').classList.remove('active'); 
+        }
+
+        socket.on('h_res', d => {
+            chatData[d.target] = d.msgs;
+            profs[d.target] = d.prof;
+            streaks[d.target] = d.streak;
+            if(cur === d.target) {
+                document.getElementById('h-nick').innerText = d.prof.nick;
+                document.getElementById('h-status').innerText = d.prof.ls === 'Online' ? 'в сети' : 'был в ' + d.prof.ls;
+                updateStreakDisplay();
+                renderMsgs();
+            }
+            updateUI();
+        });
+
+        function buyNFT(name) {
+            socket.emit('buy_nft', name);
+        }
+
+        socket.on('update_ok', d => {
+            if(d.nick) myData = d;
+            document.getElementById('my-ava').src = d.ava;
+            alert('Успешно!');
+        });
 
         function openSettings() {
             document.getElementById('profile-view-mode').style.display = 'none';
             document.getElementById('settings-mode').style.display = 'block';
             document.getElementById('edit-nick').value = myData.nick;
-            document.getElementById('edit-bio').value = myData.bio;
             document.getElementById('edit-ava').value = myData.ava;
-            document.getElementById('v-ava').src = myData.ava;
+            document.getElementById('modal-p').style.display = 'flex';
+        }
+
+        function viewP() {
+            const p = profs[cur];
+            document.getElementById('settings-mode').style.display = 'none';
+            document.getElementById('profile-view-mode').style.display = 'block';
+            document.getElementById('v-ava').src = p.ava;
+            document.getElementById('v-nick').innerText = p.nick;
+            document.getElementById('v-bio').innerText = p.bio || 'Нет статуса';
+            document.getElementById('v-nfts').innerHTML = (p.nfts || []).map(n => `<div class="nft-badge">${n} NFT</div>`).join('');
             document.getElementById('modal-p').style.display = 'flex';
         }
 
         function saveProfile() {
-            const n = document.getElementById('edit-nick').value;
-            const b = document.getElementById('edit-bio').value;
-            const a = document.getElementById('edit-ava').value;
-            socket.emit('update_profile', { nick: n, bio: b, ava: a });
-            document.getElementById('modal-p').style.display = 'none';
-        }
-
-        socket.on('update_ok', d => { 
-            myData = d; 
-            document.getElementById('my-ava').src = d.ava; 
-            updateUI(); 
-        });
-
-        function viewP() {
-            const p = profs[cur]; const e = econ[cur] || { coins: 0 };
-            document.getElementById('settings-mode').style.display = 'none';
-            document.getElementById('profile-view-mode').style.display = 'block';
-            document.getElementById('v-ava').src = p.ava;
-            document.getElementById('v-nick').textContent = p.nick;
-            document.getElementById('v-bio').textContent = p.bio || "Нет информации";
-            document.getElementById('v-c').textContent = e.coins;
-            document.getElementById('admin-panel').style.display = isAdmin ? 'block' : 'none';
-            document.getElementById('modal-p').style.display = 'flex';
-        }
-
-        function admCoins() {
-            const v = prompt("Сколько монет выдать?");
-            if(v) socket.emit('admin_cmd', { cmd: 'set_coins', target: cur, value: v });
-        }
-        
-        function admBan() {
-            if(confirm("ЗАБАНИТЬ?")) socket.emit('admin_cmd', { cmd: 'ban', target: cur });
+            socket.emit('update_profile', { 
+                nick: document.getElementById('edit-nick').value,
+                ava: document.getElementById('edit-ava').value,
+                bio: document.getElementById('edit-bio').value
+            });
         }
 
         function logout() { localStorage.clear(); location.reload(); }
+        function loadPersisted() {
+            const p = localStorage.getItem('cel_active_chats');
+            if(p) JSON.parse(p).forEach(u => socket.emit('get_h', u));
+        }
+        socket.on('err', e => alert(e));
     </script>
 </body>
 </html>
