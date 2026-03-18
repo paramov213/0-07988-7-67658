@@ -6,7 +6,9 @@ body, html { margin: 0; padding: 0; height: 100%; background: #080808; color: #f
 .auth-box { width: 85%; max-width: 350px; text-align: center; }
 .auth-box input { width: 100%; padding: 18px; background: #151515; border: 1px solid #333; color: #fff; border-radius: 20px; margin-bottom: 15px; font-size: 16px; transition: 0.3s; }
 .auth-box input:focus { border-color: #007aff; box-shadow: 0 0 10px rgba(0,122,255,0.2); }
-.btn-primary { width: 100%; padding: 18px; background: #007aff; border: none; color: #fff; border-radius: 20px; font-weight: bold; font-size: 16px; cursor: pointer; }
+.btn-primary { width: 100%; padding: 18px; background: #007aff; border: none; color: #fff; border-radius: 20px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; }
+.btn-primary:active { transform: scale(0.97); background: #0056b3; }
+.btn-link { background: none; border: none; color: #888; margin-top: 15px; cursor: pointer; font-size: 14px; text-decoration: underline; }
 
 .page { position: absolute; inset: 0; background: #000; display: none; flex-direction: column; z-index: 10; transition: transform 0.4s cubic-bezier(0.1, 0.7, 0.1, 1); }
 .page.active { display: flex; }
