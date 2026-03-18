@@ -2,234 +2,224 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Celestra Online</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <title>Celestra</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div id="auth-screen" class="overlay">
-        <div class="card">
-            <h1 style="letter-spacing: 5px; color: #007aff;">CELESTRA</h1>
-            <p style="font-size: 12px; opacity: 0.6; margin-bottom: 20px;">PROJECT BROKE SYSTEM</p>
-            
-            <input type="text" id="auth-l" placeholder="Логин (например, admin)">
+    <div id="auth-screen" class="full-page flex-center">
+        <div class="auth-box">
+            <h1 class="brand">CELESTRA</h1>
+            <input type="text" id="auth-l" placeholder="Логин">
             <input type="password" id="auth-p" placeholder="Пароль">
-            
-            <button onclick="doAuth('login')" class="btn-p">ВОЙТИ</button>
-            <button onclick="doAuth('reg')" class="btn-s">СОЗДАТЬ АККАУНТ</button>
+            <button onclick="doAuth('login')" class="btn-primary">ВОЙТИ</button>
+            <button onclick="doAuth('reg')" class="btn-link">Создать аккаунт</button>
         </div>
     </div>
 
-    <div id="app" class="main-grid" style="display:none">
-        <aside class="side">
-            <div class="search">
-                <input type="text" id="u-search" placeholder="Поиск @юзера..." oninput="searchUser()">
-            </div>
-            
-            <div id="chat-list" class="scroll">
-                <div class="nav-label">КАНАЛЫ</div>
-                <div class="chat-item" id="chat-global" onclick="openChat('global')">🌍 Глобальный чат</div>
-                
-                <div class="nav-label">ДИАЛОГИ</div>
-                <div id="dm-list"></div>
-            </div>
-
-            <div class="me-footer" onclick="openSettings()">
-                <img id="my-ava-img" src="" style="width:30px; height:30px; border-radius:50%; margin-right:10px; vertical-align:middle; display:none;">
-                <span id="my-nick-txt">Профиль</span>
-                <span style="float:right">⚙️</span>
-            </div>
-        </aside>
-
-        <main class="chat">
-            <header id="chat-head" onclick="viewProfile()">
-                <b>Выберите чат</b><br><small>Celestra v3.0</small>
+    <div id="app" style="display:none">
+        
+        <section id="list-view" class="page active">
+            <header class="header">
+                <span class="logo-small">Celestra</span>
+                <button onclick="openSet()" class="btn-icon">⚙️</button>
             </header>
             
-            <div id="chat-win" class="scroll">
-                <div style="text-align:center; opacity:0.3; margin-top:100px;">Здесь будет ваша переписка</div>
+            <div class="search-bar">
+                <input type="text" id="s-in" placeholder="Поиск @юзера..." oninput="doSearch()">
+                <div id="s-res" class="search-results"></div>
             </div>
 
-            <footer class="input-zone">
-                <div id="typer" style="height:20px; font-size:11px; color:#3ba55d; padding-left:10px;"></div>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <input type="text" id="m-in" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') sendMsg()">
-                    <button onclick="sendMsg()" style="width:50px; height:45px; border-radius:12px; border:none; background:#007aff; color:white; cursor:pointer;">➡️</button>
+            <div id="chat-items" class="content"></div>
+        </section>
+
+        <section id="chat-view" class="page">
+            <header class="header">
+                <button onclick="closeChat()" class="btn-back">⬅</button>
+                <div class="chat-info" onclick="viewP()">
+                    <b id="h-nick">...</b>
+                    <small id="h-status">загрузка</small>
+                </div>
+            </header>
+            
+            <div id="chat-win" class="content messages"></div>
+
+            <footer class="input-area">
+                <div id="typing"></div>
+                <div class="row">
+                    <input type="text" id="m-in" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') send()">
+                    <button onclick="send()" class="btn-send">🚀</button>
                 </div>
             </footer>
-        </main>
+        </section>
     </div>
 
-    <div id="modal-set" class="modal" style="display:none">
-        <div class="card">
-            <h2>Настройки</h2>
-            <input id="set-n" placeholder="Новый ник">
-            <input id="set-a" placeholder="Ссылка на GIF аватарку">
-            <textarea id="set-b" placeholder="О себе (Bio)" style="height:80px;"></textarea>
-            <button onclick="saveSet()" class="btn-p">СОХРАНИТЬ</button>
-            <button onclick="closeModal('modal-set')" class="btn-s">ОТМЕНА</button>
+    <div id="modal-p" class="modal" style="display:none" onclick="this.style.display='none'">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <img id="v-ava" src="" class="big-ava">
+            <h2 id="v-nick"></h2>
+            <p id="v-ls" class="status-txt"></p>
+            <p id="v-bio" class="bio-txt"></p>
+            <div class="coin-box">💰 <span id="v-c">0</span></div>
+            <button onclick="document.getElementById('modal-p').style.display='none'" class="btn-close">Закрыть</button>
         </div>
     </div>
 
-    <div id="modal-view" class="modal" style="display:none" onclick="closeModal('modal-view')">
-        <div class="card" onclick="event.stopPropagation()">
-            <img id="v-ava" src="" style="width:100px; height:100px; border-radius:30px; border:3px solid #007aff; margin-bottom:15px; object-fit:cover;">
-            <h2 id="v-nick" style="margin:5px 0;"></h2>
-            <p id="v-ls" style="font-size:12px; color:#3ba55d; margin-bottom:15px;"></p>
-            <p id="v-bio" style="font-size:14px; opacity:0.8; margin-bottom:20px;"></p>
-            <div style="background:#222; padding:10px; border-radius:10px; margin-bottom:20px;">
-                💰 Баланс: <span id="v-coins" style="font-weight:bold; color:gold;">0</span>
-            </div>
-            <button onclick="closeModal('modal-view')" class="btn-s">ЗАКРЫТЬ</button>
+    <div id="modal-s" class="modal" style="display:none">
+        <div class="modal-card">
+            <h3>Настройки</h3>
+            <input id="set-n" placeholder="Новый ник">
+            <input id="set-a" placeholder="URL аватарки (GIF)">
+            <textarea id="set-b" placeholder="О себе..."></textarea>
+            <button onclick="saveSet()" class="btn-primary">Сохранить</button>
+            <button onclick="logout()" class="btn-danger">Выйти</button>
+            <button onclick="document.getElementById('modal-s').style.display='none'" class="btn-link">Отмена</button>
         </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let me = "", cur = "global", chatData = {}, profs = {}, tyT;
+        let me = "", cur = null, chatData = {}, profs = {}, typeT;
 
-        // --- АВТОРИЗАЦИЯ ---
+        // Авто-вход
+        window.onload = () => {
+            const creds = localStorage.getItem('cel_v3');
+            if(creds) {
+                const {l, p} = JSON.parse(creds);
+                socket.emit('auth', { login: l, password: p, type: 'login' });
+            }
+        };
+
         function doAuth(type) {
-            const l = document.getElementById('auth-l').value;
-            const p = document.getElementById('auth-p').value;
-            if(!l || !p) return alert("Заполни данные!");
-            
-            socket.emit('auth', { login: l, password: p, type: type });
+            const l = document.getElementById('auth-l').value, p = document.getElementById('auth-p').value;
+            if(!l || !p) return;
+            localStorage.setItem('cel_v3', JSON.stringify({l, p}));
+            socket.emit('auth', { login: l, password: p, type });
         }
 
         socket.on('auth_ok', d => {
             me = d.un;
             document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('app').style.display = 'grid';
-            
-            document.getElementById('my-nick-txt').textContent = d.prof.nick;
-            if(d.prof.ava) {
-                const img = document.getElementById('my-ava-img');
-                img.src = d.prof.ava;
-                img.style.display = 'inline-block';
-            }
-            openChat('global');
+            document.getElementById('app').style.display = 'block';
+            updateUI();
         });
 
-        socket.on('err', m => alert(m));
+        socket.on('err', m => {
+            alert(m);
+            localStorage.removeItem('cel_v3');
+        });
 
-        // --- ЧАТЫ ---
-        function openChat(target) {
-            cur = target;
-            socket.emit('get_h', target);
-            
-            // Подсветка в списке
-            document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
-            if(target === 'global') document.getElementById('chat-global').classList.add('active');
-            
-            updateList();
+        // Поиск
+        function doSearch() {
+            socket.emit('search_user', document.getElementById('s-in').value);
+        }
+
+        socket.on('search_res', res => {
+            const box = document.getElementById('s-res'); box.innerHTML = '';
+            if(res.length > 0) {
+                box.style.display = 'block';
+                res.forEach(u => {
+                    if(u.login === me) return;
+                    const d = document.createElement('div');
+                    d.className = 'search-item';
+                    d.innerHTML = `<img src="${u.ava}"> <span>${u.nick}</span>`;
+                    d.onclick = () => { openChat(u.login); box.style.display = 'none'; document.getElementById('s-in').value = ''; };
+                    box.appendChild(d);
+                });
+            } else { box.style.display = 'none'; }
+        });
+
+        // Навигация
+        function openChat(u) {
+            cur = u;
+            socket.emit('get_h', u);
+            document.getElementById('chat-view').classList.add('active');
+        }
+
+        function closeChat() {
+            cur = null;
+            document.getElementById('chat-view').classList.remove('active');
         }
 
         socket.on('h_res', d => {
             chatData[d.target] = d.msgs;
             profs[d.target] = d.prof;
-            renderChat(d.target);
-            
-            const head = document.getElementById('chat-head');
-            const st = d.prof.ls === "Online" ? '<span style="color:#3ba55d">Online</span>' : `был(а) в ${d.prof.ls}`;
-            head.innerHTML = `<b>${d.prof.nick}</b><br><small>${d.target==='global'?'Общий канал':st}</small>`;
+            document.getElementById('h-nick').textContent = d.prof.nick;
+            const s = document.getElementById('h-status');
+            s.textContent = d.prof.ls === 'Online' ? 'в сети' : 'был(а) в ' + d.prof.ls;
+            s.style.color = d.prof.ls === 'Online' ? '#3ba55d' : '#888';
+            renderMsgs();
         });
 
-        function renderChat(target) {
-            const win = document.getElementById('chat-win');
-            win.innerHTML = '';
-            (chatData[target]||[]).forEach(m => {
+        function renderMsgs() {
+            const win = document.getElementById('chat-win'); win.innerHTML = '';
+            (chatData[cur]||[]).forEach(m => {
                 const isMe = m.f === me;
-                const div = document.createElement('div');
-                div.className = `msg ${isMe ? 'me' : 'other'}`;
-                
-                // Эффекты ника
-                const items = m.e?.items || [];
-                const isRain = items.some(i => i.value === 'rainbow');
-                const isGold = items.some(i => i.value === 'gold');
-                let color = isGold ? '#FFD700' : '#fff';
-
-                div.innerHTML = `
-                    <div class="msg-box">
-                        <b class="${isRain?'rainbow':''}" style="color:${color}; cursor:pointer;" onclick="viewFriend('${m.f}')">
-                            ${m.p?.nick || m.f}
-                        </b>: 
-                        <span>${m.txt}</span>
-                        <small style="display:block; font-size:9px; opacity:0.4; margin-top:4px;">${m.time}</small>
-                    </div>
-                `;
-                win.appendChild(div);
+                win.innerHTML += `<div class="msg-row ${isMe?'me':'ot'}"><div class="bubble">${m.txt}<small>${m.time}</small></div></div>`;
             });
             win.scrollTop = win.scrollHeight;
         }
 
-        function sendMsg() {
-            const inp = document.getElementById('m-in');
-            if(inp.value.trim()) {
-                socket.emit('msg', { to: cur, txt: inp.value });
-                inp.value = '';
-            }
+        function send() {
+            const i = document.getElementById('m-in');
+            if(!i.value.trim() || !cur) return;
+            socket.emit('msg', { to: cur, txt: i.value });
+            i.value = '';
         }
 
         socket.on('receive', d => {
-            const room = (d.room === 'global') ? 'global' : (d.msg.f === me ? d.room : d.msg.f);
+            const room = d.msg.f === me ? d.room : d.msg.f;
             if(!chatData[room]) chatData[room] = [];
             chatData[room].push(d.msg);
-            if(room === cur) renderChat(room);
-            updateList();
+            if(room === cur) renderMsgs();
+            updateUI();
         });
 
-        // --- ПРОФИЛИ ---
-        function viewFriend(u) {
-            if(['global','shict','system'].includes(u)) return;
-            socket.emit('get_h', u);
-            setTimeout(() => {
-                const p = profs[u];
-                if(!p) return;
-                document.getElementById('v-ava').src = p.ava || '';
-                document.getElementById('v-nick').textContent = p.nick;
-                document.getElementById('v-ls').textContent = p.ls === 'Online' ? 'Сейчас в сети' : 'Был(а) в ' + p.ls;
-                document.getElementById('v-bio').textContent = p.bio || "О себе ничего не указано";
-                document.getElementById('v-coins').textContent = p.coins || 0;
-                document.getElementById('modal-view').style.display = 'flex';
-            }, 300);
+        function updateUI() {
+            const list = document.getElementById('chat-items'); list.innerHTML = '';
+            Object.keys(chatData).forEach(u => {
+                const last = chatData[u][chatData[u].length - 1];
+                list.innerHTML += `
+                    <div class="chat-row" onclick="openChat('${u}')">
+                        <div class="row-info">
+                            <b>${profs[u]?.nick || u}</b>
+                            <p>${last ? last.txt : 'Нет сообщений'}</p>
+                        </div>
+                    </div>
+                `;
+            });
         }
 
-        function viewProfile() { if(cur !== 'global') viewFriend(cur); }
+        function viewP() {
+            const p = profs[cur]; if(!p) return;
+            document.getElementById('v-ava').src = p.ava;
+            document.getElementById('v-nick').textContent = p.nick;
+            document.getElementById('v-ls').textContent = p.ls === 'Online' ? 'Онлайн' : 'Был(а) в ' + p.ls;
+            document.getElementById('v-bio').textContent = p.bio || "Bio пуст";
+            document.getElementById('v-c').textContent = p.coins || 0;
+            document.getElementById('modal-p').style.display = 'flex';
+        }
 
-        function openSettings() { document.getElementById('modal-set').style.display='flex'; }
-        function closeModal(id) { document.getElementById(id).style.display='none'; }
-
+        function openSet() { document.getElementById('modal-s').style.display='flex'; }
         function saveSet() {
             socket.emit('update_prof', {
                 nick: document.getElementById('set-n').value,
                 ava: document.getElementById('set-a').value,
                 bio: document.getElementById('set-b').value
             });
-            closeModal('modal-set');
+            document.getElementById('modal-s').style.display='none';
         }
 
-        // --- ВСПОМОГАТЕЛЬНОЕ ---
-        function updateList() {
-            const list = document.getElementById('dm-list');
-            list.innerHTML = '';
-            Object.keys(chatData).forEach(u => {
-                if(u === 'global') return;
-                const d = document.createElement('div');
-                d.className = `chat-item ${cur === u ? 'active' : ''}`;
-                d.onclick = () => openChat(u);
-                d.textContent = `@${u}`;
-                list.appendChild(d);
-            });
-        }
+        function logout() { localStorage.removeItem('cel_v3'); location.reload(); }
 
         document.getElementById('m-in').oninput = () => socket.emit('typing', cur);
         socket.on('is_typing', d => {
             if(d.f === cur) {
-                document.getElementById('typer').textContent = '...печатает';
-                clearTimeout(tyT); tyT = setTimeout(() => document.getElementById('typer').textContent = '', 2000);
+                document.getElementById('typing').textContent = 'печатает...';
+                clearTimeout(typeT);
+                typeT = setTimeout(() => document.getElementById('typing').textContent = '', 2000);
             }
         });
     </script>
