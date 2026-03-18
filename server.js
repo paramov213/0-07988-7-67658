@@ -10,7 +10,7 @@ const path = require('path');
 
 const DB_FILE = path.join(__dirname, 'database.json');
 
-// Глобальная структура БД
+// Глобальная структура БД Celestra
 let db = { 
     users: {}, 
     profiles: {}, 
@@ -59,7 +59,7 @@ io.on('connection', (socket) => {
                 bio: "Статус не установлен", 
                 ls: "Online" 
             };
-            db.economy[u] = { coins: 250 }; // Стартовый капитал
+            db.economy[u] = { coins: 250 }; 
             await saveDB();
         }
 
@@ -77,12 +77,11 @@ io.on('connection', (socket) => {
         });
     });
 
-    // Изменение профиля (Аватар, Ник, Био)
     socket.on('update_profile', async (data) => {
         if (!socket.un) return;
         if (data.nick) db.profiles[socket.un].nick = data.nick;
         if (data.bio) db.profiles[socket.un].bio = data.bio;
-        if (data.ava) db.profiles[socket.un].ava = data.ava; // Поддержка GIF/URL
+        if (data.ava) db.profiles[socket.un].ava = data.ava; 
         await saveDB();
         socket.emit('update_ok', db.profiles[socket.un]);
     });
@@ -114,7 +113,6 @@ io.on('connection', (socket) => {
     socket.on('msg', async (d) => {
         if (!socket.un || !d.to || !d.txt.trim()) return;
         
-        // Логика Бота
         if (d.txt.startsWith('/')) {
             handleBotCommand(socket, d.txt);
         }
@@ -144,7 +142,6 @@ io.on('connection', (socket) => {
         socket.emit('receive', { room: d.to, msg, senderProf: db.profiles[d.to] });
     });
 
-    // Обработчик системных ботов
     function handleBotCommand(socket, cmd) {
         const command = cmd.toLowerCase();
         let botMsg = "";
@@ -157,12 +154,11 @@ io.on('connection', (socket) => {
         if (botMsg) {
             socket.emit('receive', { 
                 room: "Система", 
-                msg: { f: "SystemBot", txt: botMsg, time: "Now" } 
+                msg: { f: "SystemBot", txt: botMsg, time: "Сейчас" } 
             });
         }
     }
 
-    // АДМИН-ПАНЕЛЬ
     socket.on('admin_cmd', async (data) => {
         if (socket.un !== db.system.admin) return;
         const { cmd, target, value } = data;
