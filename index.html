@@ -94,11 +94,46 @@
         let me = "", myData = {}, cur = null, chatData = {}, profs = {}, econ = {};
         let isAdmin = false;
 
+        // Notification API
+        if (Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+
+        function showPush(title, body, icon) {
+            if (Notification.permission === "granted" && document.hidden) {
+                new Notification(title, { body: body, icon: icon });
+            }
+        }
+
+        // --- МЕХАНИЗМ АВТО-РЕКОННЕКТА ПРИ ВЫХОДЕ ИЗ «КВАДРАТА» ---
+        function checkConnection() {
+            if (!socket.connected && me) {
+                console.log("Восстановление соединения...");
+                const saved = localStorage.getItem('cel_save');
+                if(saved) {
+                    const {l, p} = JSON.parse(saved);
+                    socket.emit('auth', { login: l, password: p, type: 'login' });
+                }
+            } else if (socket.connected && me) {
+                // Если соединение живо, просто обновляем данные текущего чата
+                if(cur) socket.emit('get_h', cur);
+                loadPersistedChats();
+            }
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') checkConnection();
+        });
+
+        window.onfocus = () => {
+            checkConnection();
+        };
+
         function doAuth(type) {
             const l = document.getElementById('auth-l').value, p = document.getElementById('auth-p').value;
             if(!l || !p) return;
             localStorage.setItem('cel_save', JSON.stringify({l, p}));
-            socket.emit('auth', { login: l, password: p, type });
+            socket.emit('auth', { login: l, password: p, type: });
         }
 
         window.onload = () => {
@@ -115,12 +150,11 @@
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app').style.display = 'block';
             
-            // Восстановление чатов из локальной памяти
             loadPersistedChats();
+            if(cur) socket.emit('get_h', cur); // Актуализируем текущий чат
             updateUI();
         });
 
-        // Функция сохранения списка чатов
         function persistChat(username) {
             let saved = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
             if(!saved.includes(username)) {
@@ -132,10 +166,8 @@
         function loadPersistedChats() {
             let saved = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
             saved.forEach(user => {
-                if(!chatData[user]) {
-                    chatData[user] = []; // Создаем пустой массив, чтобы updateUI видел чат
-                    socket.emit('get_h', user); // Запрашиваем историю
-                }
+                if(!chatData[user]) chatData[user] = []; 
+                socket.emit('get_h', user); 
             });
         }
 
@@ -160,7 +192,7 @@
                     d.onclick = () => {
                         if(!chatData[u.login]) chatData[u.login] = [];
                         profs[u.login] = { nick: u.nick, ava: u.ava };
-                        persistChat(u.login); // Сохраняем пользователя
+                        persistChat(u.login); 
                         box.style.display = 'none';
                         document.getElementById('s-in').value = '';
                         openChat(u.login);
@@ -173,7 +205,7 @@
 
         function openChat(u) {
             cur = u;
-            persistChat(u); // Дублируем сохранение при открытии
+            persistChat(u); 
             socket.emit('get_h', u);
             document.getElementById('chat-view').classList.add('active');
         }
@@ -217,9 +249,14 @@
             const room = (d.msg.f === me) ? d.room : d.msg.f;
             if(!chatData[room]) chatData[room] = [];
             chatData[room].push(d.msg);
+            
             if(d.senderProf) profs[room] = d.senderProf;
             
-            persistChat(room); // Сохраняем диалог при получении сообщения
+            persistChat(room); 
+
+            if (d.msg.f !== me) {
+                showPush(profs[room]?.nick || room, d.msg.txt, profs[room]?.ava);
+            }
 
             if(room === cur) renderMsgs();
             updateUI();
@@ -228,11 +265,13 @@
         function updateUI() {
             const list = document.getElementById('chat-items');
             list.innerHTML = '';
+            
             const ids = Object.keys(chatData).sort((a,b) => {
-                const tA = chatData[a][chatData[a].length - 1]?.time || "0";
-                const tB = chatData[b][chatData[b].length - 1]?.time || "0";
-                return tB.localeCompare(tA);
+                const lastA = chatData[a][chatData[a].length - 1]?.timestamp || 0;
+                const lastB = chatData[b][chatData[b].length - 1]?.timestamp || 0;
+                return lastB - lastA;
             });
+
             ids.forEach(u => {
                 const last = chatData[u][chatData[u].length - 1];
                 const p = profs[u] || { nick: u };
