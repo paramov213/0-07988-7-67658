@@ -2,173 +2,171 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>Celestra Web</title>
     <link rel="stylesheet" href="style.css">
-    <title>Celestra</title>
 </head>
 <body>
-    <div id="auth-screen" class="modal">
-        <div class="auth-box">
+
+    <div id="auth-screen" class="overlay">
+        <div class="card">
             <h1>CELESTRA</h1>
-            <input type="text" id="login-input" placeholder="Логин">
-            <input type="password" id="pass-input" placeholder="Пароль">
-            <button onclick="auth('login')">Войти</button>
-            <button onclick="auth('register')" class="secondary">Регистрация</button>
+            <input type="text" id="auth-l" placeholder="Логин">
+            <input type="password" id="auth-p" placeholder="Пароль">
+            <button onclick="doAuth('login')" class="btn-p">Войти</button>
+            <button onclick="doAuth('reg')" class="btn-s">Создать аккаунт</button>
         </div>
     </div>
 
-    <div id="app-container" class="app-container" style="display: none;">
-        <aside class="sidebar" id="sidebar">
-            <div class="search-section">
-                <input type="text" id="user-search" placeholder="Поиск @юзер..." oninput="searchUser()">
-                <div id="search-results"></div>
-            </div>
-            <div id="chats-list"></div>
-            <div class="sidebar-footer">
-                <span id="my-name"></span>
-                <button onclick="logout()" class="exit-btn">Выход</button>
-            </div>
+    <div id="app" class="main-grid" style="display:none">
+        <aside class="side">
+            <div class="search"><input type="text" placeholder="Поиск @юзера..." oninput="searchUser(this.value)"></div>
+            <div id="chat-list" class="scroll"></div>
+            <div class="me-footer" onclick="openSettings()">⚙️ Настройки</div>
         </aside>
 
-        <main class="chat-area" id="chat-area">
-            <header id="chat-header">
-                <button class="back-btn" onclick="toggleMobile(true)">←</button>
-                <div class="header-text">
-                    <div id="header-user">Чат</div>
-                    <div id="header-status"></div>
+        <main class="chat">
+            <header id="chat-head" onclick="viewProfile()"></header>
+            <div id="chat-win" class="scroll"></div>
+            <footer class="input-zone">
+                <div id="typer" class="typer-label"></div>
+                <div class="row">
+                    <input type="text" id="m-in" placeholder="Сообщение..." onkeydown="handleInput(event)">
+                    <button onclick="sendMsg()">➡️</button>
                 </div>
-            </header>
-            <div id="chat-window"></div>
-            <div class="input-area" id="input-block" style="display: none;">
-                <label class="icon-btn">📷<input type="file" id="photo-input" accept="image/*" onchange="sendPhoto()" hidden></label>
-                <input type="text" id="msg" placeholder="Сообщение..." autocomplete="off">
-                <button onclick="sendPrivate()" class="send-btn">➤</button>
-            </div>
+            </footer>
         </main>
+    </div>
+
+    <div id="modal-set" class="modal" style="display:none">
+        <div class="card">
+            <h2>Профиль</h2>
+            <input id="set-n" placeholder="Никнейм">
+            <input id="set-a" placeholder="Ссылка на GIF аватарку">
+            <textarea id="set-b" placeholder="Описание профиля"></textarea>
+            <button onclick="saveSet()" class="btn-p">Сохранить</button>
+            <button onclick="closeModal('modal-set')" class="btn-s">Закрыть</button>
+        </div>
+    </div>
+
+    <div id="modal-view" class="modal" style="display:none" onclick="closeModal('modal-view')">
+        <div class="card profile-card" onclick="event.stopPropagation()">
+            <img id="v-ava" src="">
+            <h2 id="v-nick"></h2>
+            <p id="v-ls" class="status"></p>
+            <p id="v-bio"></p>
+            <div class="coins">💰 Баланс: <span id="v-coins">0</span></div>
+            <button onclick="closeModal('modal-view')" class="btn-s">Назад</button>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let myName = "", currentChatUser = null;
-        const chatMessages = {}; 
-        const unreadCounts = {};
+        let me = "", cur = "global", data = {}, profs = {}, tyT;
 
-        // ФИКС ВЫСОТЫ ДЛЯ МОБИЛОК
-        function fixVH() {
-            let vh = window.innerHeight * 0.01;
-            document.documentElement.style.setProperty('--vh', `${vh}px`);
-        }
-        window.addEventListener('resize', fixVH);
-        fixVH();
-
-        function auth(type) {
-            const login = document.getElementById('login-input').value.trim();
-            const pass = document.getElementById('pass-input').value;
-            localStorage.setItem('celestra_session', JSON.stringify({login, password: pass}));
-            socket.emit('auth', { login, password: pass, type });
+        function doAuth(type) {
+            socket.emit('auth', { login: auth-l.value, password: auth-p.value, type });
         }
 
-        socket.on('auth-success', (data) => {
-            myName = data.user;
-            document.getElementById('my-name').innerText = "@" + myName;
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('app-container').style.display = 'flex';
-            fixVH();
+        socket.on('auth_ok', d => {
+            me = d.un;
+            auth-screen.style.display = 'none';
+            app.style.display = 'grid';
+            openChat('global');
         });
 
-        function searchUser() {
-            const val = document.getElementById('user-search').value;
-            if(val.length >= 1) socket.emit('search-user', val);
+        socket.on('err', m => alert(m));
+        socket.on('lockdown', () => location.reload());
+
+        function openChat(target) {
+            cur = target;
+            socket.emit('get_h', target);
+            updateList();
         }
 
-        socket.on('search-result', (data) => {
-            const res = document.getElementById('search-results');
-            if (data.exists && data.username !== myName) {
-                res.innerHTML = `<div class="found-user-card" onclick="openChat('${data.username}')"><b>@${data.username}</b></div>`;
-            }
+        socket.on('h_res', d => {
+            data[d.target] = d.msgs;
+            profs[d.target] = d.prof;
+            renderChat(d.target);
+            updateHeader(d.prof, d.target);
         });
 
-        function openChat(user) {
-            currentChatUser = user;
-            unreadCounts[user] = 0;
-            document.getElementById('header-user').innerText = "@" + user;
-            document.getElementById('input-block').style.display = 'flex';
-            toggleMobile(false);
-            socket.emit('get-history', user);
-            updateChatsUI();
+        function updateHeader(p, target) {
+            const st = p.ls === "Online" ? '<span class="on">Online</span>' : `был в ${p.ls}`;
+            document.getElementById('chat-head').innerHTML = `
+                <b>${p.nick}</b><br><small>${target==='global'?'Общий чат':st}</small>
+            `;
         }
 
-        socket.on('chat-history', data => {
-            chatMessages[data.partner] = data.msgs;
-            renderMessages(data.partner);
-        });
-
-        function sendPrivate() {
-            const el = document.getElementById('msg');
-            if (el.value.trim()) {
-                socket.emit('private-message', { to: currentChatUser, text: el.value });
-                el.value = '';
-            }
-        }
-
-        function sendPhoto() {
-            const input = document.getElementById('photo-input');
-            if (input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    socket.emit('private-message', { to: currentChatUser, image: e.target.result });
-                    input.value = '';
-                };
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-
-        socket.on('msg-receive', (data) => {
-            const partner = data.from === myName ? data.to : data.from;
-            if (!chatMessages[partner]) chatMessages[partner] = [];
-            chatMessages[partner].push(data);
-            if (partner !== currentChatUser && data.from !== myName) unreadCounts[partner] = (unreadCounts[partner] || 0) + 1;
-            if (partner === currentChatUser) renderMessages(partner);
-            updateChatsUI();
-        });
-
-        function renderMessages(user) {
-            const win = document.getElementById('chat-window');
+        function renderChat(target) {
+            const win = document.getElementById('chat-win');
             win.innerHTML = '';
-            (chatMessages[user] || []).forEach(msg => {
+            (data[target]||[]).forEach(m => {
+                const isMe = m.f === me;
                 const div = document.createElement('div');
-                div.className = `msg-bubble ${msg.from === myName ? 'my-msg' : ''}`;
-                let content = msg.text ? `<div>${msg.text}</div>` : "";
-                if(msg.image) content += `<img src="${msg.image}" class="chat-img" onload="this.parentElement.parentElement.scrollTop = this.parentElement.parentElement.scrollHeight">`;
-                div.innerHTML = `${content}<div class="msg-time">${msg.time}</div>`;
+                div.className = `msg ${isMe ? 'me' : 'other'}`;
+                
+                // Радужный эффект
+                const items = m.e?.items || [];
+                const isRain = items.some(i => i.value === 'rainbow');
+                const isGold = items.some(i => i.value === 'gold');
+                let clr = isGold ? 'gold' : 'white';
+
+                div.innerHTML = `
+                    <span class="${isRain?'rainbow':''}" style="color:${clr};cursor:pointer" onclick="openFriend('${m.f}')">
+                        ${m.p?.nick || m.f}
+                    </span>: ${m.txt} <small>${m.time}</small>
+                `;
                 win.appendChild(div);
             });
             win.scrollTop = win.scrollHeight;
         }
 
-        function toggleMobile(showSide) {
-            if (window.innerWidth <= 768) {
-                document.getElementById('sidebar').style.display = showSide ? 'flex' : 'none';
-                document.getElementById('chat-area').style.display = showSide ? 'none' : 'flex';
-                fixVH();
+        function sendMsg() {
+            const inp = document.getElementById('m-in');
+            if (inp.value.trim()) {
+                socket.emit('msg', { to: cur, txt: inp.value });
+                inp.value = '';
             }
         }
 
-        function updateChatsUI() {
-            const list = document.getElementById('chats-list');
-            list.innerHTML = '';
-            Object.keys(chatMessages).forEach(user => {
-                const div = document.createElement('div');
-                div.className = `chat-item ${currentChatUser === user ? 'active' : ''}`;
-                div.onclick = () => openChat(user);
-                let badge = unreadCounts[user] > 0 ? `<span class="badge">${unreadCounts[user]}</span>` : '';
-                div.innerHTML = `<span>@${user}</span> ${badge}`;
-                list.appendChild(div);
-            });
+        socket.on('receive', d => {
+            const room = (d.room === 'global') ? 'global' : (d.msg.f === me ? d.room : d.msg.f);
+            if (!data[room]) data[room] = [];
+            data[room].push(d.msg);
+            if (room === cur) renderChat(room);
+            else updateList();
+        });
+
+        function openSettings() { document.getElementById('modal-set').style.display='flex'; }
+        function saveSet() {
+            socket.emit('update_prof', { nick: set-n.value, ava: set-a.value, bio: set-b.value });
+            closeModal('modal-set');
         }
 
-        function logout() { localStorage.clear(); location.reload(); }
+        function openFriend(u) {
+            if(['global','shict','system'].includes(u)) return;
+            socket.emit('get_h', u);
+            setTimeout(() => {
+                const p = profs[u];
+                v-ava.src = p.ava; v-nick.textContent = p.nick;
+                v-ls.textContent = p.ls === 'Online' ? 'В сети' : 'Был в сети: '+p.ls;
+                v-bio.textContent = p.bio; v-coins.textContent = p.coins;
+                document.getElementById('modal-view').style.display='flex';
+            }, 200);
+        }
+
+        function handleInput(e) { if(e.key==='Enter') sendMsg(); socket.emit('typing', cur); }
+        socket.on('is_typing', d => {
+            if(d.f === cur) {
+                typer.textContent = "...печатает";
+                clearTimeout(tyT); tyT = setTimeout(()=>typer.textContent='', 2000);
+            }
+        });
+
+        function updateList() { /* Логика списка чатов */ }
+        function closeModal(id) { document.getElementById(id).style.display='none'; }
     </script>
 </body>
 </html>
