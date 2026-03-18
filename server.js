@@ -2,7 +2,7 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, { 
-    maxHttpBufferSize: 1e8, 
+    maxHttpBufferSize: 1e8, // 100MB для видео и аудио
     cors: { origin: "*" },
     pingTimeout: 60000, 
     pingInterval: 25000
@@ -18,13 +18,15 @@ let db = {
     profiles: {}, 
     economy: {}, 
     messages: {}, 
+    streaks: {}, // Для огоньков
     system: { locked: false, admin: "shict" } 
 };
 
 async function initDB() {
     try {
         const data = await fs.readFile(DB_FILE, 'utf8');
-        db = JSON.parse(data);
+        const parsed = JSON.parse(data);
+        db = { ...db, ...parsed };
         console.log("✅ База Celestra успешно загружена");
     } catch (e) {
         await saveDB();
@@ -45,12 +47,26 @@ const sessions = {};
 
 app.use(express.static(__dirname));
 
+// Функция получения времени МСК
+function getMSKTime() {
+    return new Date().toLocaleTimeString("ru-RU", {
+        timeZone: "Europe/Moscow",
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function getMSKDate() {
+    return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" }); // YYYY-MM-DD
+}
+
 io.on('connection', (socket) => {
     
     socket.on('auth', async (data) => {
         const { login, password, type } = data;
         if (!login || !password) return socket.emit('err', 'Введите данные');
-        const u = login.trim().toLowerCase();
+        
+        const u = login.trim().toLowerCase(); // Строгий нижний регистр для ключей
 
         if (type === 'reg') {
             if (db.users[u]) return socket.emit('err', 'Этот логин занят');
@@ -59,7 +75,8 @@ io.on('connection', (socket) => {
                 nick: login, 
                 ava: `https://api.dicebear.com/7.x/identicon/svg?seed=${u}`, 
                 bio: "Статус не установлен", 
-                ls: "Online" 
+                ls: "Online",
+                nfts: [] 
             };
             db.economy[u] = { coins: 250 }; 
             await saveDB();
@@ -81,6 +98,91 @@ io.on('connection', (socket) => {
         });
     });
 
+    socket.on('buy_nft', async (nftName) => {
+        if (!socket.un) return;
+        const price = 1000;
+        if (db.economy[socket.un].coins >= price) {
+            db.economy[socket.un].coins -= price;
+            if (!db.profiles[socket.un].nfts) db.profiles[socket.un].nfts = [];
+            db.profiles[socket.un].nfts.push(nftName);
+            await saveDB();
+            socket.emit('update_ok', db.profiles[socket.un]);
+            socket.emit('econ_update', db.economy[socket.un]);
+        } else {
+            socket.emit('err', 'Недостаточно монет (нужно 1000)');
+        }
+    });
+
+    socket.on('msg', async (d) => {
+        if (!socket.un || !d.to) return;
+        
+        const id = [socket.un, d.to].sort().join('_');
+        const today = getMSKDate();
+
+        // Логика огоньков (Стрики)
+        if (!db.streaks[id]) {
+            db.streaks[id] = { lastDate: today, days: 1 };
+        } else {
+            const last = db.streaks[id].lastDate;
+            if (last !== today) {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toISOString().split('T')[0];
+                
+                if (last === yesterdayStr) {
+                    db.streaks[id].days += 1;
+                } else {
+                    db.streaks[id].days = 1;
+                }
+                db.streaks[id].lastDate = today;
+            }
+        }
+
+        const msg = {
+            f: socket.un,
+            t: d.to,
+            txt: d.txt || "",
+            type: d.type || "text", // text, image, video, audio
+            file: d.file || null,
+            time: getMSKTime(),
+            timestamp: Date.now() 
+        };
+        
+        if (!db.messages[id]) db.messages[id] = [];
+        db.messages[id].push(msg);
+        
+        // +10 монет за сообщение
+        if (db.economy[socket.un]) db.economy[socket.un].coins += 10;
+        
+        await saveDB();
+
+        const payload = { 
+            room: socket.un, 
+            msg, 
+            senderProf: db.profiles[socket.un],
+            streak: db.streaks[id].days
+        };
+
+        if (sessions[d.to]) io.to(sessions[d.to]).emit('receive', payload);
+        socket.emit('receive', { ...payload, room: d.to });
+    });
+
+    socket.on('get_h', (target) => {
+        if (!socket.un) return;
+        const id = [socket.un, target].sort().join('_');
+        const prof = db.profiles[target] || { nick: target, ls: "Offline", bio: "", ava: "", nfts: [] };
+        const streak = db.streaks[id] ? db.streaks[id].days : 0;
+        
+        if (sessions[target]) prof.ls = "Online";
+        socket.emit('h_res', { 
+            target, 
+            msgs: db.messages[id] || [], 
+            prof, 
+            econ: db.economy[target] || { coins: 0 },
+            streak 
+        });
+    });
+
     socket.on('update_profile', async (data) => {
         if (!socket.un) return;
         if (data.nick) db.profiles[socket.un].nick = data.nick;
@@ -90,100 +192,12 @@ io.on('connection', (socket) => {
         socket.emit('update_ok', db.profiles[socket.un]);
     });
 
-    socket.on('search_user', (q) => {
-        const query = q ? q.trim().toLowerCase() : "";
-        if (query.length < 1) return socket.emit('search_res', []);
-        
-        const res = Object.keys(db.profiles)
-            .filter(l => l.includes(query) || db.profiles[l].nick.toLowerCase().includes(query))
-            .map(l => ({
-                login: l,
-                nick: db.profiles[l].nick,
-                ava: db.profiles[l].ava
-            })).slice(0, 15);
-            
-        socket.emit('search_res', res);
-    });
-
-    socket.on('get_h', (target) => {
-        if (!socket.un) return;
-        const id = [socket.un, target].sort().join('_');
-        const prof = db.profiles[target] || { nick: target, ls: "Offline", bio: "", ava: "" };
-        const econ = db.economy[target] || { coins: 0 };
-        if (sessions[target]) prof.ls = "Online";
-        socket.emit('h_res', { target, msgs: db.messages[id] || [], prof, econ });
-    });
-
-    socket.on('msg', async (d) => {
-        if (!socket.un || !d.to || !d.txt.trim()) return;
-        
-        if (d.txt.startsWith('/')) {
-            handleBotCommand(socket, d.txt);
-        }
-
-        const msg = {
-            f: socket.un,
-            t: d.to,
-            txt: d.txt,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            timestamp: Date.now() 
-        };
-        
-        const id = [socket.un, d.to].sort().join('_');
-        if (!db.messages[id]) db.messages[id] = [];
-        db.messages[id].push(msg);
-        
-        if (db.economy[socket.un]) db.economy[socket.un].coins += 5;
-        
-        await saveDB();
-
-        if (sessions[d.to]) {
-            io.to(sessions[d.to]).emit('receive', { 
-                room: socket.un, 
-                msg, 
-                senderProf: db.profiles[socket.un] 
-            });
-        }
-        socket.emit('receive', { room: d.to, msg, senderProf: db.profiles[d.to] });
-    });
-
-    function handleBotCommand(socket, cmd) {
-        const command = cmd.toLowerCase();
-        let botMsg = "";
-        if (command === '/баланс') {
-            botMsg = `💰 Ваш баланс: ${db.economy[socket.un].coins} монет.`;
-        } else if (command === '/хелп') {
-            botMsg = "🤖 Команды: /баланс, /хелп, /админ";
-        }
-
-        if (botMsg) {
-            socket.emit('receive', { 
-                room: "Система", 
-                msg: { f: "SystemBot", txt: botMsg, time: "Сейчас", timestamp: Date.now() } 
-            });
-        }
-    }
-
-    socket.on('admin_cmd', async (data) => {
-        if (socket.un !== db.system.admin) return;
-        const { cmd, target, value } = data;
-        
-        if (cmd === 'set_coins' && db.economy[target]) {
-            db.economy[target].coins = parseInt(value);
-        } else if (cmd === 'ban') {
-            delete db.users[target];
-            delete db.profiles[target];
-        }
-        await saveDB();
-        socket.emit('admin_res', 'Успешно применено');
-    });
-
     socket.on('disconnect', () => {
         if (socket.un) {
-            db.profiles[socket.un].ls = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            db.profiles[socket.un].ls = getMSKTime();
             delete sessions[socket.un];
         }
     });
 });
 
-http.listen(3000, '0.0.0.0', () => console.log('Celestra OS Running...'));
+http.listen(3000, '0.0.0.0', () => console.log('Celestra Engine Started on port 3000...'));
