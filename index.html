@@ -114,8 +114,30 @@
             document.getElementById('my-ava').src = d.prof.ava;
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app').style.display = 'block';
+            
+            // Восстановление чатов из локальной памяти
+            loadPersistedChats();
             updateUI();
         });
+
+        // Функция сохранения списка чатов
+        function persistChat(username) {
+            let saved = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
+            if(!saved.includes(username)) {
+                saved.push(username);
+                localStorage.setItem('cel_active_chats', JSON.stringify(saved));
+            }
+        }
+
+        function loadPersistedChats() {
+            let saved = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
+            saved.forEach(user => {
+                if(!chatData[user]) {
+                    chatData[user] = []; // Создаем пустой массив, чтобы updateUI видел чат
+                    socket.emit('get_h', user); // Запрашиваем историю
+                }
+            });
+        }
 
         socket.on('err', m => alert(m));
 
@@ -138,6 +160,7 @@
                     d.onclick = () => {
                         if(!chatData[u.login]) chatData[u.login] = [];
                         profs[u.login] = { nick: u.nick, ava: u.ava };
+                        persistChat(u.login); // Сохраняем пользователя
                         box.style.display = 'none';
                         document.getElementById('s-in').value = '';
                         openChat(u.login);
@@ -150,6 +173,7 @@
 
         function openChat(u) {
             cur = u;
+            persistChat(u); // Дублируем сохранение при открытии
             socket.emit('get_h', u);
             document.getElementById('chat-view').classList.add('active');
         }
@@ -164,9 +188,12 @@
             chatData[d.target] = d.msgs;
             profs[d.target] = d.prof;
             econ[d.target] = d.econ;
-            document.getElementById('h-nick').textContent = d.prof.nick;
-            document.getElementById('h-status').textContent = d.prof.ls === 'Online' ? 'в сети' : d.prof.ls;
-            renderMsgs();
+            if(cur === d.target) {
+                document.getElementById('h-nick').textContent = d.prof.nick;
+                document.getElementById('h-status').textContent = d.prof.ls === 'Online' ? 'в сети' : d.prof.ls;
+                renderMsgs();
+            }
+            updateUI();
         });
 
         function renderMsgs() {
@@ -191,6 +218,9 @@
             if(!chatData[room]) chatData[room] = [];
             chatData[room].push(d.msg);
             if(d.senderProf) profs[room] = d.senderProf;
+            
+            persistChat(room); // Сохраняем диалог при получении сообщения
+
             if(room === cur) renderMsgs();
             updateUI();
         });
