@@ -10,19 +10,14 @@ const path = require('path');
 
 const DB_FILE = path.join(__dirname, 'database.json');
 
-// Глобальный объект базы данных
 let db = { 
     users: {}, 
     profiles: {}, 
     economy: {}, 
     messages: {}, 
-    system: { 
-        locked: false, 
-        admin: "shict" 
-    } 
+    system: { locked: false, admin: "shict" } 
 };
 
-// Инициализация хранилища
 async function initDB() {
     try {
         const data = await fs.readFile(DB_FILE, 'utf8');
@@ -34,7 +29,6 @@ async function initDB() {
     }
 }
 
-// Запись данных
 async function saveDB() {
     try {
         await fs.writeFile(DB_FILE, JSON.stringify(db, null, 4));
@@ -45,14 +39,12 @@ async function saveDB() {
 
 initDB();
 
-// Активные сессии
 const sessions = {}; 
 
 app.use(express.static(__dirname));
 
 io.on('connection', (socket) => {
     
-    // Авторизация и создание аккаунта
     socket.on('auth', async (data) => {
         const { login, password, type } = data;
         if (!login || !password) return socket.emit('err', 'Пустые поля!');
@@ -78,16 +70,14 @@ io.on('connection', (socket) => {
         sessions[u] = socket.id;
         db.profiles[u].ls = "Online";
         
-        socket.emit('auth_ok', { 
-            un: u, 
-            prof: db.profiles[u] 
-        });
+        socket.emit('auth_ok', { un: u, prof: db.profiles[u] });
     });
 
-    // Поиск пользователей (минимум 2 символа)
+    // ИСПРАВЛЕННЫЙ ПОИСК
     socket.on('search_user', (q) => {
-        if (!q || q.length < 2) return socket.emit('search_res', []);
-        const query = q.toLowerCase();
+        const query = q ? q.trim().toLowerCase() : "";
+        if (query.length < 2) return socket.emit('search_res', []);
+        
         const res = Object.keys(db.profiles)
             .filter(l => l.includes(query) || db.profiles[l].nick.toLowerCase().includes(query))
             .map(l => ({
@@ -95,15 +85,14 @@ io.on('connection', (socket) => {
                 nick: db.profiles[l].nick,
                 ava: db.profiles[l].ava
             })).slice(0, 10);
+            
         socket.emit('search_res', res);
     });
 
-    // Загрузка диалога и профиля собеседника
     socket.on('get_h', (target) => {
         if (!socket.un) return;
         const id = [socket.un, target].sort().join('_');
         const prof = db.profiles[target] || { nick: target, ls: "??:??" };
-        
         if (sessions[target]) prof.ls = "Online";
         
         socket.emit('h_res', { 
@@ -113,7 +102,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    // Обработка сообщений + Экономика
     socket.on('msg', async (d) => {
         if (!socket.un || !d.to || !d.txt.trim()) return;
 
@@ -128,16 +116,13 @@ io.on('connection', (socket) => {
         if (!db.messages[id]) db.messages[id] = [];
         db.messages[id].push(msg);
         
-        // Начисление за сообщение
         if (db.economy[socket.un]) db.economy[socket.un].coins += 5;
-
         await saveDB();
 
         if (sessions[d.to]) io.to(sessions[d.to]).emit('receive', { room: socket.un, msg });
         socket.emit('receive', { room: d.to, msg });
     });
 
-    // Обновление личных данных
     socket.on('update_prof', async (d) => {
         if (!socket.un) return;
         const p = db.profiles[socket.un];
@@ -148,12 +133,10 @@ io.on('connection', (socket) => {
         socket.emit('auth_ok', { un: socket.un, prof: p });
     });
 
-    // Статус печати
     socket.on('typing', (to) => {
         if (sessions[to]) io.to(sessions[to]).emit('is_typing', { f: socket.un });
     });
 
-    // Выход
     socket.on('disconnect', async () => {
         if (socket.un) {
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
