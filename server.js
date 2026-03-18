@@ -4,7 +4,7 @@ const http = require('http').createServer(app);
 const io = require('socket.io')(http, { 
     maxHttpBufferSize: 1e8, 
     cors: { origin: "*" },
-    pingTimeout: 60000, // Увеличен таймаут для стабильности на мобилках
+    pingTimeout: 60000, 
     pingInterval: 25000
 });
 const fs = require('fs').promises;
@@ -65,7 +65,9 @@ io.on('connection', (socket) => {
             await saveDB();
         }
 
-        if (db.users[u] !== password) return socket.emit('err', 'Ошибка авторизации');
+        if (!db.users[u] || db.users[u] !== password) {
+            return socket.emit('err', 'Неверный логин или пароль');
+        }
 
         socket.un = u;
         sessions[u] = socket.id;
