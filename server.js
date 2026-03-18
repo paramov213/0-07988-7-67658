@@ -45,6 +45,7 @@ app.use(express.static(__dirname));
 
 io.on('connection', (socket) => {
     
+    // ВХОД / РЕГ
     socket.on('auth', async (data) => {
         const { login, password, type } = data;
         if (!login || !password) return socket.emit('err', 'Пустые поля!');
@@ -73,18 +74,22 @@ io.on('connection', (socket) => {
         socket.emit('auth_ok', { un: u, prof: db.profiles[u] });
     });
 
-    // ИСПРАВЛЕННЫЙ ПОИСК
+    // УЛУЧШЕННЫЙ ПОИСК (Исправлено)
     socket.on('search_user', (q) => {
         const query = q ? q.trim().toLowerCase() : "";
-        if (query.length < 2) return socket.emit('search_res', []);
+        if (query.length < 1) return socket.emit('search_res', []);
         
         const res = Object.keys(db.profiles)
-            .filter(l => l.includes(query) || db.profiles[l].nick.toLowerCase().includes(query))
+            .filter(l => {
+                const nick = db.profiles[l].nick.toLowerCase();
+                return l.includes(query) || nick.includes(query);
+            })
             .map(l => ({
                 login: l,
                 nick: db.profiles[l].nick,
                 ava: db.profiles[l].ava
-            })).slice(0, 10);
+            }))
+            .slice(0, 10);
             
         socket.emit('search_res', res);
     });
