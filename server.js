@@ -3,7 +3,9 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, { 
     maxHttpBufferSize: 1e8, 
-    cors: { origin: "*" } 
+    cors: { origin: "*" },
+    pingTimeout: 60000, // Увеличен таймаут для стабильности на мобилках
+    pingInterval: 25000
 });
 const fs = require('fs').promises;
 const path = require('path');
@@ -121,7 +123,8 @@ io.on('connection', (socket) => {
             f: socket.un,
             t: d.to,
             txt: d.txt,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: Date.now() 
         };
         
         const id = [socket.un, d.to].sort().join('_');
@@ -154,7 +157,7 @@ io.on('connection', (socket) => {
         if (botMsg) {
             socket.emit('receive', { 
                 room: "Система", 
-                msg: { f: "SystemBot", txt: botMsg, time: "Сейчас" } 
+                msg: { f: "SystemBot", txt: botMsg, time: "Сейчас", timestamp: Date.now() } 
             });
         }
     }
