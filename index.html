@@ -12,8 +12,8 @@
         <div class="auth-box">
             <h1 class="brand">CELESTRA</h1>
             <div class="glass-input">
-                <input type="text" id="auth-l" placeholder="Ваш логин">
-                <input type="password" id="auth-p" placeholder="Ваш пароль">
+                <input type="text" id="auth-l" placeholder="Ваш логин" autocomplete="username">
+                <input type="password" id="auth-p" placeholder="Ваш пароль" autocomplete="current-password">
             </div>
             <button onclick="doAuth('login')" class="btn-primary">ВОЙТИ</button>
             <button onclick="doAuth('reg')" class="btn-link">Создать аккаунт</button>
@@ -105,7 +105,6 @@
             }
         }
 
-        // --- МЕХАНИЗМ АВТО-РЕКОННЕКТА ПРИ ВЫХОДЕ ИЗ «КВАДРАТА» ---
         function checkConnection() {
             if (!socket.connected && me) {
                 console.log("Восстановление соединения...");
@@ -115,7 +114,6 @@
                     socket.emit('auth', { login: l, password: p, type: 'login' });
                 }
             } else if (socket.connected && me) {
-                // Если соединение живо, просто обновляем данные текущего чата
                 if(cur) socket.emit('get_h', cur);
                 loadPersistedChats();
             }
@@ -130,10 +128,15 @@
         };
 
         function doAuth(type) {
-            const l = document.getElementById('auth-l').value, p = document.getElementById('auth-p').value;
-            if(!l || !p) return;
+            const l = document.getElementById('auth-l').value.trim();
+            const p = document.getElementById('auth-p').value.trim();
+            if(!l || !p) return alert('Заполните все поля!');
+            
+            // Сохраняем данные для авто-входа
             localStorage.setItem('cel_save', JSON.stringify({l, p}));
-            socket.emit('auth', { login: l, password: p, type: });
+            
+            // Отправляем запрос на сервер
+            socket.emit('auth', { login: l, password: p, type: type });
         }
 
         window.onload = () => {
@@ -151,7 +154,7 @@
             document.getElementById('app').style.display = 'block';
             
             loadPersistedChats();
-            if(cur) socket.emit('get_h', cur); // Актуализируем текущий чат
+            if(cur) socket.emit('get_h', cur);
             updateUI();
         });
 
