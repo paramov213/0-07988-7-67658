@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-    <title>Celestra</title>
+    <title>Celestra Ultra</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,21 +14,24 @@
             <input type="text" id="auth-l" placeholder="Логин">
             <input type="password" id="auth-p" placeholder="Пароль">
             <button onclick="doAuth('login')" class="btn-primary">ВОЙТИ</button>
-            <button onclick="doAuth('reg')" class="btn-link">Создать аккаунт</button>
+            <button onclick="doAuth('reg')" class="btn-link">Создать новый аккаунт</button>
         </div>
     </div>
 
     <div id="app" style="display:none">
+        
         <section id="list-view" class="page active">
             <header class="header">
-                <img id="my-ava" src="" class="mini-ava" onclick="openMe()">
+                <img id="my-ava" src="" class="mini-ava" onclick="openSettings()">
                 <span class="logo-small">Celestra</span>
                 <button onclick="logout()" class="btn-logout">Выйти</button>
             </header>
+            
             <div class="search-container">
-                <input type="text" id="s-in" placeholder="Поиск..." oninput="doSearch()" autocomplete="off">
+                <input type="text" id="s-in" placeholder="Поиск людей..." oninput="doSearch()" autocomplete="off">
                 <div id="s-res" class="search-results"></div>
             </div>
+
             <div id="chat-items" class="content"></div>
         </section>
 
@@ -53,8 +56,19 @@
     <div id="modal-p" class="modal" style="display:none" onclick="this.style.display='none'">
         <div class="modal-card" onclick="event.stopPropagation()">
             <img id="v-ava" src="" class="big-ava">
-            <h2 id="v-nick"></h2>
-            <p id="v-ls" style="color:#007aff"></p>
+            <div id="profile-view-mode">
+                <h2 id="v-nick"></h2>
+                <p id="v-bio" class="bio-text"></p>
+                <div class="coin-box">💰 Монеты: <span id="v-c">0</span></div>
+                <div id="admin-tools" style="display:none; margin-top:10px; border-top:1px solid #333; padding-top:10px;">
+                    <button onclick="adminSetCoins()" class="btn-admin">Дать монеты</button>
+                </div>
+            </div>
+            <div id="settings-mode" style="display:none">
+                <input type="text" id="edit-nick" class="modal-input" placeholder="Новый ник">
+                <textarea id="edit-bio" class="modal-input" placeholder="О себе"></textarea>
+                <button onclick="saveProfile()" class="btn-primary">Сохранить</button>
+            </div>
             <button onclick="document.getElementById('modal-p').style.display='none'" class="btn-close">Закрыть</button>
         </div>
     </div>
@@ -62,7 +76,8 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let me = "", myData = {}, cur = null, chatData = {}, profs = {};
+        let me = "", myData = {}, cur = null, chatData = {}, profs = {}, econData = {};
+        let isMeAdmin = false;
 
         function doAuth(type) {
             const l = document.getElementById('auth-l').value, p = document.getElementById('auth-p').value;
@@ -72,12 +87,15 @@
         }
 
         window.onload = () => {
-            const s = localStorage.getItem('cel_creds');
-            if(s) { const {l, p} = JSON.parse(s); socket.emit('auth', { login: l, password: p, type: 'login' }); }
+            const saved = localStorage.getItem('cel_creds');
+            if(saved) {
+                const {l, p} = JSON.parse(saved);
+                socket.emit('auth', { login: l, password: p, type: 'login' });
+            }
         }
 
         socket.on('auth_ok', d => {
-            me = d.un; myData = d.prof;
+            me = d.un; myData = d.prof; econData[me] = d.econ; isMeAdmin = d.isAdmin;
             document.getElementById('my-ava').src = d.prof.ava;
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app').style.display = 'block';
@@ -93,7 +111,8 @@
         }
 
         socket.on('search_res', res => {
-            const box = document.getElementById('s-res'); box.innerHTML = '';
+            const box = document.getElementById('s-res');
+            box.innerHTML = '';
             if(res.length > 0) {
                 box.style.display = 'block';
                 res.forEach(u => {
@@ -129,15 +148,16 @@
         socket.on('h_res', d => {
             chatData[d.target] = d.msgs;
             profs[d.target] = d.prof;
+            econData[d.target] = d.econ;
             document.getElementById('h-nick').textContent = d.prof.nick;
-            document.getElementById('h-status').textContent = d.prof.ls === 'Online' ? 'онлайн' : d.prof.ls;
+            document.getElementById('h-status').textContent = d.prof.ls === 'Online' ? 'в сети' : d.prof.ls;
             renderMsgs();
         });
 
         function renderMsgs() {
-            const win = document.getElementById('chat-win'); win.innerHTML = '';
-            const msgs = chatData[cur] || [];
-            msgs.forEach(m => {
+            const win = document.getElementById('chat-win');
+            win.innerHTML = '';
+            (chatData[cur] || []).forEach(m => {
                 const isMe = m.f === me;
                 win.innerHTML += `<div class="msg-row ${isMe?'me':'ot'}"><div class="bubble">${m.txt}<small>${m.time}</small></div></div>`;
             });
@@ -152,7 +172,7 @@
         }
 
         socket.on('receive', d => {
-            const room = d.msg.f === me ? d.room : d.msg.f;
+            const room = (d.msg.f === me) ? d.room : d.msg.f;
             if(!chatData[room]) chatData[room] = [];
             chatData[room].push(d.msg);
             if(d.senderProf) profs[room] = d.senderProf;
@@ -164,37 +184,52 @@
             const list = document.getElementById('chat-items');
             list.innerHTML = '';
             const ids = Object.keys(chatData).sort((a,b) => {
-                const tA = chatData[a][chatData[a].length - 1]?.time || "0";
-                const tB = chatData[b][chatData[b].length - 1]?.time || "0";
-                return tB.localeCompare(tA);
+                const lastA = chatData[a][chatData[a].length - 1]?.time || "0";
+                const lastB = chatData[b][chatData[b].length - 1]?.time || "0";
+                return lastB.localeCompare(lastA);
             });
             ids.forEach(u => {
                 const last = chatData[u][chatData[u].length - 1];
                 const p = profs[u] || { nick: u };
-                list.innerHTML += `
-                    <div class="chat-row" onclick="openChat('${u}')">
-                        <div class="row-info">
-                            <b>${p.nick}</b>
-                            <p>${last ? last.txt : '<i>Начните диалог...</i>'}</p>
-                        </div>
-                    </div>
-                `;
+                list.innerHTML += `<div class="chat-row" onclick="openChat('${u}')"><div class="row-info"><b>${p.nick}</b><p>${last?last.txt:'<i>Нет сообщений</i>'}</p></div></div>`;
             });
         }
 
-        function openMe() {
+        // НАСТРОЙКИ СЕБЯ
+        function openSettings() {
+            document.getElementById('profile-view-mode').style.display = 'none';
+            document.getElementById('settings-mode').style.display = 'block';
+            document.getElementById('edit-nick').value = myData.nick;
+            document.getElementById('edit-bio').value = myData.bio;
             document.getElementById('v-ava').src = myData.ava;
-            document.getElementById('v-nick').textContent = myData.nick + " (Вы)";
-            document.getElementById('v-ls').textContent = "В сети";
             document.getElementById('modal-p').style.display = 'flex';
         }
 
+        function saveProfile() {
+            const n = document.getElementById('edit-nick').value;
+            const b = document.getElementById('edit-bio').value;
+            socket.emit('update_profile', { nick: n, bio: b });
+            document.getElementById('modal-p').style.display = 'none';
+        }
+
+        socket.on('update_ok', d => { myData = d; document.getElementById('my-ava').src = d.ava; updateUI(); });
+
+        // ПРОСМОТР ЧУЖОГО ПРОФИЛЯ
         function viewP() {
-            const p = profs[cur]; if(!p) return;
+            const p = profs[cur]; const e = econData[cur] || { coins: 0 };
+            document.getElementById('settings-mode').style.display = 'none';
+            document.getElementById('profile-view-mode').style.display = 'block';
             document.getElementById('v-ava').src = p.ava;
             document.getElementById('v-nick').textContent = p.nick;
-            document.getElementById('v-ls').textContent = p.ls;
+            document.getElementById('v-bio').textContent = p.bio || "Нет описания";
+            document.getElementById('v-c').textContent = e.coins;
+            document.getElementById('admin-tools').style.display = isMeAdmin ? 'block' : 'none';
             document.getElementById('modal-p').style.display = 'flex';
+        }
+
+        function adminSetCoins() {
+            const amt = prompt("Сколько монет выдать?");
+            if(amt) socket.emit('admin_cmd', { cmd: 'set_coins', target: cur, value: amt });
         }
 
         function logout() { localStorage.clear(); location.reload(); }
