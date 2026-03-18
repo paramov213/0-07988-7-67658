@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-    <title>Celestra v3</title>
+    <title>Celestra v3.1</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -32,7 +32,7 @@
                 <div class="coins-top">💰 <span id="my-coins">0</span></div>
             </header>
             <div class="search-container">
-                <input type="text" id="s-in" placeholder="Поиск по логину..." oninput="doSearch()">
+                <input type="text" id="s-in" placeholder="Поиск по логину или нику..." oninput="doSearch()" autocomplete="off">
                 <div id="s-res" class="search-results"></div>
             </div>
             <div id="chat-items" class="content"></div>
@@ -70,15 +70,16 @@
                 <div id="v-bio" class="bio-box"></div>
                 <div class="nft-list" id="v-nfts"></div>
                 <div id="nft-shop" style="margin-top:15px">
-                    <button onclick="buyNFT('Good')" class="btn-primary" style="background:#ff9500">Купить NFT "Good" (1000 💰)</button>
+                    <button id="buy-btn" onclick="buyNFT('Good')" class="btn-primary" style="background:#ff9500">Купить NFT "Good" (1000 💰)</button>
                 </div>
             </div>
             <div id="settings-mode" style="display:none">
+                <p>Настройки профиля</p>
                 <input type="text" id="edit-ava" class="modal-input" placeholder="URL Аватара">
                 <input type="text" id="edit-nick" class="modal-input" placeholder="Ник">
                 <textarea id="edit-bio" class="modal-input" placeholder="О себе..."></textarea>
                 <button onclick="saveProfile()" class="btn-primary">Сохранить</button>
-                <button onclick="logout()" class="btn-adm ban" style="margin-top:10px">Выйти из аккаунта</button>
+                <button onclick="logout()" class="btn-adm ban" style="margin-top:10px">Выйти из системы</button>
             </div>
         </div>
     </div>
@@ -90,7 +91,6 @@
         let mediaFile = null, mediaType = "text";
         let mediaRecorder, audioChunks = [];
 
-        // Push Logic
         if (Notification.permission !== "granted") Notification.requestPermission();
 
         function showPush(title, body, icon) {
@@ -100,11 +100,10 @@
             }
         }
 
-        // Auth
         function doAuth(type) {
             const l = document.getElementById('auth-l').value.trim();
             const p = document.getElementById('auth-p').value.trim();
-            if(!l || !p) return alert('Заполни поля!');
+            if(!l || !p) return alert('Заполните поля!');
             localStorage.setItem('cel_save', JSON.stringify({l, p}));
             socket.emit('auth', { login: l, password: p, type });
         }
@@ -130,7 +129,38 @@
             document.getElementById('my-coins').innerText = d.coins;
         });
 
-        // Media Handling
+        // Исправленная логика поиска
+        function doSearch() {
+            const v = document.getElementById('s-in').value.trim();
+            const resBox = document.getElementById('s-res');
+            if(v.length > 0) {
+                socket.emit('search_user', v);
+            } else {
+                resBox.style.display = 'none';
+            }
+        }
+
+        socket.on('search_res', res => {
+            const box = document.getElementById('s-res');
+            box.innerHTML = '';
+            if(res.length > 0) {
+                box.style.display = 'block';
+                res.forEach(u => {
+                    const d = document.createElement('div');
+                    d.className = 'search-item';
+                    d.innerHTML = `<img src="${u.ava}"> <div><b>${u.nick}</b><br><small>@${u.login}</small></div>`;
+                    d.onclick = () => {
+                        box.style.display = 'none';
+                        document.getElementById('s-in').value = '';
+                        openChat(u.login);
+                    };
+                    box.appendChild(d);
+                });
+            } else {
+                box.style.display = 'none';
+            }
+        });
+
         function handleFile(input) {
             const file = input.files[0];
             if(!file) return;
@@ -139,13 +169,12 @@
             reader.onload = (e) => {
                 mediaFile = e.target.result;
                 document.getElementById('m-prev').innerHTML = mediaType === 'image' ? 
-                    `<img src="${mediaFile}" style="height:50px">` : `<div style="font-size:10px">Видео готово</div>`;
+                    `<img src="${mediaFile}" style="height:50px; border-radius:5px">` : `<div style="font-size:10px">Видео выбрано</div>`;
                 document.getElementById('m-prev').style.display = 'block';
             };
             reader.readAsDataURL(file);
         }
 
-        // Voice Recording
         async function toggleRecord() {
             const btn = document.getElementById('rec-btn');
             if (mediaRecorder && mediaRecorder.state === "recording") {
@@ -162,7 +191,7 @@
                     reader.onload = (e) => {
                         mediaFile = e.target.result;
                         mediaType = 'audio';
-                        send(); // Сразу отправляем голосовое
+                        send(); 
                     };
                     reader.readAsDataURL(blob);
                 };
@@ -188,10 +217,11 @@
             streaks[room] = d.streak;
             
             if (d.msg.f !== me) {
-                showPush(profs[room]?.nick || room, d.msg.type === 'text' ? d.msg.txt : 'Отправил медиа', profs[room]?.ava);
+                showPush(profs[room]?.nick || room, d.msg.type === 'text' ? d.msg.txt : 'Отправил медиа файл', profs[room]?.ava);
             }
             if(room === cur) { renderMsgs(); updateStreakDisplay(); }
             updateUI();
+            saveActiveChats(room);
         });
 
         function renderMsgs() {
@@ -230,7 +260,7 @@
                     <img src="${p.ava}" class="row-ava">
                     <div class="row-info">
                         <b>${p.nick} ${s > 0 ? '🔥'+s : ''}</b>
-                        <p>${last?.type === 'text' ? last.txt : 'Медиа файл'}</p>
+                        <p>${last?.type === 'text' ? last.txt : 'Медиа сообщение'}</p>
                     </div>
                 </div>`;
             });
@@ -253,7 +283,7 @@
             streaks[d.target] = d.streak;
             if(cur === d.target) {
                 document.getElementById('h-nick').innerText = d.prof.nick;
-                document.getElementById('h-status').innerText = d.prof.ls === 'Online' ? 'в сети' : 'был в ' + d.prof.ls;
+                document.getElementById('h-status').innerText = d.prof.ls === 'Online' ? 'в сети' : 'был(а) в ' + d.prof.ls;
                 updateStreakDisplay();
                 renderMsgs();
             }
@@ -265,9 +295,9 @@
         }
 
         socket.on('update_ok', d => {
-            if(d.nick) myData = d;
+            myData = d;
             document.getElementById('my-ava').src = d.ava;
-            alert('Успешно!');
+            if(cur === me || !cur) viewP();
         });
 
         function openSettings() {
@@ -275,17 +305,19 @@
             document.getElementById('settings-mode').style.display = 'block';
             document.getElementById('edit-nick').value = myData.nick;
             document.getElementById('edit-ava').value = myData.ava;
+            document.getElementById('edit-bio').value = myData.bio || "";
             document.getElementById('modal-p').style.display = 'flex';
         }
 
         function viewP() {
-            const p = profs[cur];
+            const p = (cur && cur !== me) ? profs[cur] : myData;
             document.getElementById('settings-mode').style.display = 'none';
             document.getElementById('profile-view-mode').style.display = 'block';
             document.getElementById('v-ava').src = p.ava;
             document.getElementById('v-nick').innerText = p.nick;
             document.getElementById('v-bio').innerText = p.bio || 'Нет статуса';
             document.getElementById('v-nfts').innerHTML = (p.nfts || []).map(n => `<div class="nft-badge">${n} NFT</div>`).join('');
+            document.getElementById('nft-shop').style.display = (cur && cur !== me) ? 'none' : 'block';
             document.getElementById('modal-p').style.display = 'flex';
         }
 
@@ -295,13 +327,23 @@
                 ava: document.getElementById('edit-ava').value,
                 bio: document.getElementById('edit-bio').value
             });
+            document.getElementById('modal-p').style.display = 'none';
         }
 
-        function logout() { localStorage.clear(); location.reload(); }
+        function saveActiveChats(user) {
+            let active = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
+            if(!active.includes(user)) {
+                active.push(user);
+                localStorage.setItem('cel_active_chats', JSON.stringify(active));
+            }
+        }
+
         function loadPersisted() {
             const p = localStorage.getItem('cel_active_chats');
             if(p) JSON.parse(p).forEach(u => socket.emit('get_h', u));
         }
+
+        function logout() { localStorage.clear(); location.reload(); }
         socket.on('err', e => alert(e));
     </script>
 </body>
