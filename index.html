@@ -83,7 +83,6 @@
         const socket = io();
         let me = "", cur = null, chatData = {}, profs = {}, typeT;
 
-        // Авто-вход
         window.onload = () => {
             const creds = localStorage.getItem('cel_v3');
             if(creds) {
@@ -111,9 +110,9 @@
             localStorage.removeItem('cel_v3');
         });
 
-        // Поиск
         function doSearch() {
-            socket.emit('search_user', document.getElementById('s-in').value);
+            const val = document.getElementById('s-in').value;
+            socket.emit('search_user', val);
         }
 
         socket.on('search_res', res => {
@@ -124,14 +123,18 @@
                     if(u.login === me) return;
                     const d = document.createElement('div');
                     d.className = 'search-item';
-                    d.innerHTML = `<img src="${u.ava}"> <span>${u.nick}</span>`;
-                    d.onclick = () => { openChat(u.login); box.style.display = 'none'; document.getElementById('s-in').value = ''; };
+                    d.innerHTML = `<img src="${u.ava}"> <span>${u.nick} (@${u.login})</span>`;
+                    d.onclick = () => { 
+                        if(!chatData[u.login]) chatData[u.login] = []; // Инициализируем пустой чат
+                        openChat(u.login); 
+                        box.style.display = 'none'; 
+                        document.getElementById('s-in').value = ''; 
+                    };
                     box.appendChild(d);
                 });
             } else { box.style.display = 'none'; }
         });
 
-        // Навигация
         function openChat(u) {
             cur = u;
             socket.emit('get_h', u);
@@ -141,6 +144,7 @@
         function closeChat() {
             cur = null;
             document.getElementById('chat-view').classList.remove('active');
+            updateUI();
         }
 
         socket.on('h_res', d => {
@@ -179,13 +183,15 @@
 
         function updateUI() {
             const list = document.getElementById('chat-items'); list.innerHTML = '';
-            Object.keys(chatData).forEach(u => {
+            const sortedChats = Object.keys(chatData).reverse(); // Новые сверху
+            sortedChats.forEach(u => {
                 const last = chatData[u][chatData[u].length - 1];
+                const p = profs[u] || { nick: u };
                 list.innerHTML += `
                     <div class="chat-row" onclick="openChat('${u}')">
                         <div class="row-info">
-                            <b>${profs[u]?.nick || u}</b>
-                            <p>${last ? last.txt : 'Нет сообщений'}</p>
+                            <b>${p.nick}</b>
+                            <p>${last ? last.txt : 'Начните переписку...'}</p>
                         </div>
                     </div>
                 `;
