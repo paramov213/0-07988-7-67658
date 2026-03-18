@@ -2,42 +2,47 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, { 
-    maxHttpBufferSize: 1e8, // 100MB для видео и аудио
+    maxHttpBufferSize: 1e8, // Лимит 100MB для передачи файлов
     cors: { origin: "*" },
     pingTimeout: 60000, 
     pingInterval: 25000
 });
 const fs = require('fs').promises;
 const path = require('path');
+const https = require('https');
 
 const DB_FILE = path.join(__dirname, 'database.json');
 
-// Глобальная структура БД Celestra
+// Глобальный объект базы данных
 let db = { 
     users: {}, 
     profiles: {}, 
     economy: {}, 
     messages: {}, 
-    streaks: {}, // Для огоньков
+    streaks: {}, 
     system: { locked: false, admin: "shict" } 
 };
 
+// Загрузка базы данных из файла (обеспечивает сохранность при обновлении кода)
 async function initDB() {
     try {
         const data = await fs.readFile(DB_FILE, 'utf8');
         const parsed = JSON.parse(data);
+        // Мержим старые данные с новой структурой на случай обновлений
         db = { ...db, ...parsed };
-        console.log("✅ База Celestra успешно загружена");
+        console.log("✅ База данных Celestra успешно загружена. Все аккаунты и сообщения на месте.");
     } catch (e) {
+        console.log("⚠️ Файл базы данных не найден, создаю новый...");
         await saveDB();
     }
 }
 
+// Сохранение всех изменений в файл database.json
 async function saveDB() {
     try {
         await fs.writeFile(DB_FILE, JSON.stringify(db, null, 4));
     } catch (e) {
-        console.log("❌ Ошибка записи БД:", e);
+        console.log("❌ Ошибка сохранения базы данных:", e);
     }
 }
 
@@ -47,7 +52,7 @@ const sessions = {};
 
 app.use(express.static(__dirname));
 
-// Функция получения времени МСК
+// Утилиты для времени по МСК
 function getMSKTime() {
     return new Date().toLocaleTimeString("ru-RU", {
         timeZone: "Europe/Moscow",
@@ -57,11 +62,24 @@ function getMSKTime() {
 }
 
 function getMSKDate() {
-    return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" }); // YYYY-MM-DD
+    return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" });
 }
+
+// АНТИ-СОН: Сервер сам себя пингует каждые 5 минут, чтобы не уходить в спячку
+setInterval(() => {
+    // Если развернуто на Render или другом хостинге, он не уснет
+    const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:3000`;
+    if (url.startsWith('http')) {
+        const req = http.get(url, (res) => {
+            console.log(`[Keep-Alive] Статус: ${res.statusCode}`);
+        });
+        req.on('error', () => {});
+    }
+}, 300000);
 
 io.on('connection', (socket) => {
     
+    // Авторизация и Регистрация
     socket.on('auth', async (data) => {
         const { login, password, type } = data;
         if (!login || !password) return socket.emit('err', 'Введите данные');
@@ -98,6 +116,7 @@ io.on('connection', (socket) => {
         });
     });
 
+    // Покупка NFT
     socket.on('buy_nft', async (nftName) => {
         if (!socket.un) return;
         const price = 1000;
@@ -113,13 +132,14 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Обработка сообщений
     socket.on('msg', async (d) => {
         if (!socket.un || !d.to) return;
         
         const id = [socket.un, d.to].sort().join('_');
         const today = getMSKDate();
 
-        // Логика огоньков (Стрики)
+        // Логика Огоньков (Стриков)
         if (!db.streaks[id]) {
             db.streaks[id] = { lastDate: today, days: 1 };
         } else {
@@ -151,6 +171,7 @@ io.on('connection', (socket) => {
         if (!db.messages[id]) db.messages[id] = [];
         db.messages[id].push(msg);
         
+        // Начисляем монеты за активность
         if (db.economy[socket.un]) db.economy[socket.un].coins += 10;
         
         await saveDB();
@@ -166,6 +187,7 @@ io.on('connection', (socket) => {
         socket.emit('receive', { ...payload, room: d.to });
     });
 
+    // Получение истории чата и данных собеседника
     socket.on('get_h', (target) => {
         if (!socket.un) return;
         const id = [socket.un, target].sort().join('_');
@@ -182,7 +204,7 @@ io.on('connection', (socket) => {
         });
     });
 
-    // Исправленный поиск по логину (юзу) и нику
+    // Поиск пользователей (по логину или нику)
     socket.on('search_user', (q) => {
         if (!socket.un) return;
         const query = q ? q.trim().toLowerCase() : "";
@@ -203,6 +225,7 @@ io.on('connection', (socket) => {
         socket.emit('search_res', res);
     });
 
+    // Обновление настроек профиля
     socket.on('update_profile', async (data) => {
         if (!socket.un) return;
         if (data.nick) db.profiles[socket.un].nick = data.nick;
@@ -220,4 +243,8 @@ io.on('connection', (socket) => {
     });
 });
 
-http.listen(3000, '0.0.0.0', () => console.log('Celestra Engine Started on port 3000...'));
+http.listen(3000, '0.0.0.0', () => {
+    console.log('--- Celestra Engine Active ---');
+    console.log('Порт: 3000');
+    console.log('Данные сохраняются в database.json');
+});
