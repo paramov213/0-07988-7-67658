@@ -27,7 +27,7 @@
             </header>
             
             <div class="search-bar">
-                <input type="text" id="s-in" placeholder="Поиск @юзера..." oninput="doSearch()">
+                <input type="text" id="s-in" placeholder="Поиск юзеров..." oninput="doSearch()">
                 <div id="s-res" class="search-results"></div>
             </div>
 
@@ -70,7 +70,7 @@
         <div class="modal-card">
             <h3>Настройки</h3>
             <input id="set-n" placeholder="Новый ник">
-            <input id="set-a" placeholder="URL аватарки (GIF)">
+            <input id="set-a" placeholder="Ссылка на аватарку">
             <textarea id="set-b" placeholder="О себе..."></textarea>
             <button onclick="saveSet()" class="btn-primary">Сохранить</button>
             <button onclick="logout()" class="btn-danger">Выйти</button>
@@ -83,6 +83,7 @@
         const socket = io();
         let me = "", cur = null, chatData = {}, profs = {}, typeT;
 
+        // Авто-вход при загрузке
         window.onload = () => {
             const creds = localStorage.getItem('cel_v3');
             if(creds) {
@@ -105,34 +106,38 @@
             updateUI();
         });
 
-        socket.on('err', m => {
-            alert(m);
-            localStorage.removeItem('cel_v3');
-        });
+        socket.on('err', m => { alert(m); localStorage.removeItem('cel_v3'); });
 
+        // Поиск (Исправлено)
         function doSearch() {
             const val = document.getElementById('s-in').value;
-            socket.emit('search_user', val);
+            if(val.length > 0) socket.emit('search_user', val);
+            else document.getElementById('s-res').style.display = 'none';
         }
 
         socket.on('search_res', res => {
-            const box = document.getElementById('s-res'); box.innerHTML = '';
+            const box = document.getElementById('s-res');
+            box.innerHTML = '';
             if(res.length > 0) {
                 box.style.display = 'block';
                 res.forEach(u => {
                     if(u.login === me) return;
                     const d = document.createElement('div');
                     d.className = 'search-item';
-                    d.innerHTML = `<img src="${u.ava}"> <span>${u.nick} (@${u.login})</span>`;
-                    d.onclick = () => { 
-                        if(!chatData[u.login]) chatData[u.login] = []; // Инициализируем пустой чат
-                        openChat(u.login); 
-                        box.style.display = 'none'; 
-                        document.getElementById('s-in').value = ''; 
+                    d.innerHTML = `<img src="${u.ava}"> <div><b>${u.nick}</b><br><small>@${u.login}</small></div>`;
+                    d.onclick = () => {
+                        // Важно: создаем запись в chatData, чтобы юзер появился в списке
+                        if(!chatData[u.login]) chatData[u.login] = [];
+                        profs[u.login] = { nick: u.nick, ava: u.ava };
+                        openChat(u.login);
+                        box.style.display = 'none';
+                        document.getElementById('s-in').value = '';
                     };
                     box.appendChild(d);
                 });
-            } else { box.style.display = 'none'; }
+            } else {
+                box.style.display = 'none';
+            }
         });
 
         function openChat(u) {
@@ -182,16 +187,22 @@
         });
 
         function updateUI() {
-            const list = document.getElementById('chat-items'); list.innerHTML = '';
-            const sortedChats = Object.keys(chatData).reverse(); // Новые сверху
-            sortedChats.forEach(u => {
+            const list = document.getElementById('chat-items');
+            list.innerHTML = '';
+            // Показываем всех, с кем есть чат или кто был найден через поиск
+            const chats = Object.keys(chatData).reverse();
+            if(chats.length === 0) {
+                list.innerHTML = '<p style="text-align:center;color:#555;margin-top:20px;">Используйте поиск, чтобы найти собеседника</p>';
+                return;
+            }
+            chats.forEach(u => {
                 const last = chatData[u][chatData[u].length - 1];
                 const p = profs[u] || { nick: u };
                 list.innerHTML += `
                     <div class="chat-row" onclick="openChat('${u}')">
                         <div class="row-info">
                             <b>${p.nick}</b>
-                            <p>${last ? last.txt : 'Начните переписку...'}</p>
+                            <p>${last ? last.txt : 'Начните чат...'}</p>
                         </div>
                     </div>
                 `;
@@ -203,7 +214,7 @@
             document.getElementById('v-ava').src = p.ava;
             document.getElementById('v-nick').textContent = p.nick;
             document.getElementById('v-ls').textContent = p.ls === 'Online' ? 'Онлайн' : 'Был(а) в ' + p.ls;
-            document.getElementById('v-bio').textContent = p.bio || "Bio пуст";
+            document.getElementById('v-bio').textContent = p.bio || "Пусто";
             document.getElementById('v-c').textContent = p.coins || 0;
             document.getElementById('modal-p').style.display = 'flex';
         }
