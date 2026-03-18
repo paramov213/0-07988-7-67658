@@ -5,14 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Celestra v3.3</title>
+    <title>Celestra v3.4 Full Build</title>
     <style>
-        /* CSS СТИЛИ - ПОЛНЫЙ КОД */
+        /* ПОЛНАЯ ТАБЛИЦА СТИЛЕЙ */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
         body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; position: fixed; width: 100%; }
 
         .flex-center { display: flex; align-items: center; justify-content: center; }
         .full-page { position: fixed; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%); z-index: 5000; }
+        
         .auth-box { width: 85%; max-width: 320px; text-align: center; }
         .brand { font-size: 42px; font-weight: 900; color: #007aff; margin-bottom: 30px; letter-spacing: -1px; text-shadow: 0 0 15px rgba(0,122,255,0.3); }
         
@@ -25,11 +26,12 @@
 
         .page { position: absolute; inset: 0; background: #000; display: none; flex-direction: column; }
         .page.active { display: flex; }
+        
         #chat-view { transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 100; }
         #chat-view.active { transform: translateX(0); }
 
         .header { height: 65px; padding: 0 15px; display: flex; align-items: center; background: rgba(28,28,30,0.8); backdrop-filter: blur(20px); border-bottom: 1px solid #222; gap: 12px; position: sticky; top: 0; z-index: 10; }
-        .mini-ava { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid #007aff; }
+        .mini-ava { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid #007aff; cursor: pointer; }
         .logo-text { font-weight: 800; font-size: 22px; flex: 1; letter-spacing: -0.5px; }
         .coins-top { background: #32d74b; color: #000; padding: 6px 12px; border-radius: 12px; font-weight: 900; font-size: 14px; }
 
@@ -41,7 +43,7 @@
         .search-item small { color: #8e8e93; }
 
         .content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-        .chat-row { padding: 15px 20px; display: flex; gap: 15px; border-bottom: 1px solid #111; align-items: center; transition: 0.2s; }
+        .chat-row { padding: 15px 20px; display: flex; gap: 15px; border-bottom: 1px solid #111; align-items: center; transition: 0.2s; cursor: pointer; }
         .chat-row:active { background: #1c1c1e; }
         .row-ava { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; }
         .row-info b { display: block; margin-bottom: 4px; font-size: 17px; }
@@ -50,30 +52,36 @@
         .messages { padding: 20px 15px; display: flex; flex-direction: column; gap: 12px; }
         .msg-row { display: flex; width: 100%; }
         .msg-row.me { justify-content: flex-end; }
-        .bubble { max-width: 75%; padding: 12px 16px; border-radius: 20px; position: relative; font-size: 16px; line-height: 1.4; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .bubble { max-width: 75%; padding: 12px 16px; border-radius: 20px; position: relative; font-size: 16px; line-height: 1.4; box-shadow: 0 2px 8px rgba(0,0,0,0.2); word-wrap: break-word; }
         .me .bubble { background: #007aff; color: #fff; border-bottom-right-radius: 4px; }
         .ot .bubble { background: #2c2c2e; color: #fff; border-bottom-left-radius: 4px; }
         .bubble small { display: block; font-size: 10px; opacity: 0.7; margin-top: 6px; text-align: right; }
 
-        .msg-media { max-width: 100%; border-radius: 12px; margin-top: 5px; }
+        .msg-media { max-width: 100%; border-radius: 12px; margin-top: 5px; display: block; }
 
         .input-area { padding: 12px 15px; background: #1c1c1e; border-top: 1px solid #222; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
         .row { display: flex; gap: 12px; align-items: center; }
-        .btn-icon { font-size: 22px; cursor: pointer; transition: 0.2s; }
-        .btn-icon:active { transform: scale(0.85); }
+        .btn-icon { font-size: 22px; cursor: pointer; transition: 0.2s; user-select: none; }
+        .btn-icon:active { transform: scale(0.8); }
         .btn-send { background: none; border: none; font-size: 26px; cursor: pointer; transition: 0.2s; }
         .btn-send:active { transform: scale(0.85); }
 
-        .media-preview { padding: 8px; background: #2c2c2e; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+        .media-preview { padding: 10px; background: #2c2c2e; border-radius: 12px; margin-bottom: 8px; font-size: 13px; color: #32d74b; display: flex; justify-content: space-between; align-items: center; }
 
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 6000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
-        .modal-card { background: #1c1c1e; width: 88%; max-width: 360px; padding: 30px; border-radius: 35px; text-align: center; border: 1px solid #333; }
+        .modal-card { background: #1c1c1e; width: 88%; max-width: 360px; padding: 30px; border-radius: 35px; text-align: center; border: 1px solid #333; overflow-y: auto; max-height: 90vh; }
         .big-ava { width: 110px; height: 110px; border-radius: 50%; border: 3px solid #007aff; margin-bottom: 20px; object-fit: cover; box-shadow: 0 0 20px rgba(0,122,255,0.4); }
-        .bio-box { background: #2c2c2e; padding: 15px; border-radius: 18px; margin: 15px 0; color: #d1d1d6; font-size: 15px; }
-        .nft-badge { display: inline-block; background: linear-gradient(135deg, #ffd700, #ffae00); color: #000; padding: 6px 12px; border-radius: 12px; font-weight: 900; margin: 5px; font-size: 12px; }
+        .bio-box { background: #2c2c2e; padding: 15px; border-radius: 18px; margin: 15px 0; color: #d1d1d6; font-size: 15px; line-height: 1.4; }
+        .nft-badge { display: inline-block; background: linear-gradient(135deg, #ffd700, #ffae00); color: #000; padding: 6px 12px; border-radius: 12px; font-weight: 900; margin: 5px; font-size: 12px; text-transform: uppercase; }
 
         .streak-badge { color: #ff9500; font-weight: 900; font-size: 20px; text-shadow: 0 0 10px rgba(255,149,0,0.3); }
-        .btn-adm.ban { background: #ff3b30; color: #fff; border: none; padding: 10px; border-radius: 12px; width: 100%; font-weight: bold; }
+        
+        .admin-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; text-align: left; }
+        .admin-title { color: #8e8e93; font-size: 11px; font-weight: bold; margin-bottom: 10px; letter-spacing: 1px; }
+        .btn-admin { background: #2c2c2e; color: #fff; border: 1px solid #444; padding: 12px; width: 100%; border-radius: 14px; margin-bottom: 8px; font-size: 13px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px; }
+        .btn-admin:active { background: #3a3a3c; }
+
+        audio { height: 35px; width: 200px; }
     </style>
 </head>
 <body>
@@ -81,12 +89,10 @@
     <div id="auth-screen" class="full-page flex-center">
         <div class="auth-box">
             <h1 class="brand">CELESTRA</h1>
-            <div class="glass-input">
-                <input type="text" id="auth-l" placeholder="Логин">
-                <input type="password" id="auth-p" placeholder="Пароль">
-            </div>
+            <input type="text" id="auth-l" placeholder="Логин">
+            <input type="password" id="auth-p" placeholder="Пароль">
             <button onclick="doAuth('login')" class="btn-primary">ВОЙТИ</button>
-            <button onclick="doAuth('reg')" class="btn-link">Создать новый аккаунт</button>
+            <button onclick="doAuth('reg')" class="btn-link">Зарегистрироваться</button>
         </div>
     </div>
 
@@ -94,36 +100,45 @@
         
         <section id="list-view" class="page active">
             <header class="header">
-                <div class="me-trigger" onclick="openSettings()">
+                <div onclick="openSettings()">
                     <img id="my-ava" src="" class="mini-ava">
                 </div>
                 <span class="logo-text">Celestra</span>
                 <div class="coins-top">💰 <span id="my-coins">0</span></div>
             </header>
+            
             <div class="search-container">
-                <input type="text" id="s-in" placeholder="Поиск по логину или нику..." oninput="doSearch()" autocomplete="off">
+                <input type="text" id="s-in" placeholder="Поиск людей..." oninput="doSearch()" autocomplete="off">
                 <div id="s-res" class="search-results"></div>
             </div>
-            <div id="chat-items" class="content"></div>
+
+            <div id="chat-items" class="content">
+                </div>
         </section>
 
         <section id="chat-view" class="page">
             <header class="header">
-                <button onclick="closeChat()" class="btn-primary" style="width:50px; padding:10px">✕</button>
-                <div class="chat-info" onclick="viewP()" style="flex:1">
+                <button onclick="closeChat()" class="btn-primary" style="width:45px; padding:10px">✕</button>
+                <div class="chat-info" onclick="viewP()" style="flex:1; cursor:pointer">
                     <b id="h-nick">...</b><br>
                     <small id="h-status">...</small>
                 </div>
                 <div id="h-streak" class="streak-badge"></div>
             </header>
-            <div id="chat-win" class="content messages"></div>
+
+            <div id="chat-win" class="content messages">
+                </div>
+
             <footer class="input-area">
-                <div class="media-preview" id="m-prev" style="display:none"></div>
+                <div id="m-prev" class="media-preview" style="display:none">
+                    <span>Файл готов к отправке</span>
+                    <span onclick="cancelFile()" style="cursor:pointer; color:#ff3b30">✕</span>
+                </div>
                 <div class="row">
                     <label class="btn-icon">
                         📁<input type="file" id="f-in" hidden onchange="handleFile(this)" accept="image/*,video/*">
                     </label>
-                    <button id="rec-btn" class="btn-icon" style="background:none; border:none" onclick="toggleRecord()">🎤</button>
+                    <button id="rec-btn" onclick="toggleRecord()" style="background:none; border:none; font-size:22px; cursor:pointer">🎤</button>
                     <input type="text" id="m-in" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') send()">
                     <button onclick="send()" class="btn-send">🚀</button>
                 </div>
@@ -134,21 +149,30 @@
     <div id="modal-p" class="modal" style="display:none" onclick="this.style.display='none'">
         <div class="modal-card" onclick="event.stopPropagation()">
             <img id="v-ava" src="" class="big-ava">
+            
             <div id="profile-view-mode">
                 <h2 id="v-nick"></h2>
                 <div id="v-bio" class="bio-box"></div>
-                <div class="nft-list" id="v-nfts"></div>
-                <div id="nft-shop" style="margin-top:15px">
-                    <button id="buy-btn" onclick="buyNFT('Good')" class="btn-primary" style="background:#ff9500">Купить NFT "Good" (1000 💰)</button>
+                <div id="v-nfts" style="margin-bottom:15px"></div>
+                <div id="shop-zone">
+                    <button onclick="buyNFT('Good')" class="btn-primary" style="background:#ff9500">Купить NFT "Good" (1000 💰)</button>
                 </div>
             </div>
+
             <div id="settings-mode" style="display:none">
-                <p>Редактировать профиль</p>
-                <input type="text" id="edit-ava" placeholder="URL Аватара">
-                <input type="text" id="edit-nick" placeholder="Ник">
-                <textarea id="edit-bio" placeholder="О себе..."></textarea>
-                <button onclick="saveProfile()" class="btn-primary">Сохранить</button>
-                <button onclick="logout()" class="btn-adm ban" style="margin-top:10px">Выйти</button>
+                <p style="margin-bottom:15px; font-weight:bold">Настройки профиля</p>
+                <input type="text" id="edit-ava" placeholder="Прямая ссылка на фото">
+                <input type="text" id="edit-nick" placeholder="Ваш никнейм">
+                <textarea id="edit-bio" placeholder="Расскажите о себе..."></textarea>
+                <button onclick="saveProfile()" class="btn-primary">Сохранить изменения</button>
+                
+                <div id="admin-panel" class="admin-section" style="display:none">
+                    <div class="admin-title">УПРАВЛЕНИЕ БАЗОЙ ДАННЫХ</div>
+                    <button onclick="exportDB()" class="btn-admin">📥 Скачать бэкап (JSON)</button>
+                    <button onclick="importDB()" class="btn-admin">📤 Загрузить бэкап из файла</button>
+                </div>
+
+                <button onclick="logout()" class="btn-link" style="color:#ff3b30; font-weight:bold; margin-top:20px">Выйти из аккаунта</button>
             </div>
         </div>
     </div>
@@ -156,49 +180,37 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let me = "", myData = {}, cur = null, chatData = {}, profs = {}, streaks = {};
-        let mediaFile = null, mediaType = "text";
-        let mediaRecorder, audioChunks = [];
+        let me = "", myData = {}, cur = null, chatData = {}, profs = {}, streaks = {}, isAdmin = false;
+        let mediaFile = null, mediaType = "text", mediaRecorder, audioChunks = [];
 
-        // ВНУТРЕННИЙ SERVICE WORKER ЧЕРЕЗ BLOB (Чтобы не создавать отдельный файл)
-        const swCode = `
-            self.addEventListener('push', function(e) {
-                const data = e.data ? e.data.json() : { title: 'Celestra', body: 'Новое сообщение!' };
-                e.waitUntil(self.registration.showNotification(data.title, {
-                    body: data.body,
-                    icon: data.icon || '/icon.png'
-                }));
+        // Внутренний Service Worker для уведомлений (без внешних файлов)
+        const swSource = `
+            self.addEventListener('push', e => {
+                const d = e.data.json();
+                self.registration.showNotification(d.title, {
+                    body: d.body,
+                    icon: d.icon || 'https://cdn-icons-png.flaticon.com/512/2583/2583130.png',
+                    vibrate: [200, 100, 200]
+                });
             });
-            self.addEventListener('notificationclick', function(e) {
+            self.addEventListener('notificationclick', e => {
                 e.notification.close();
                 e.waitUntil(clients.openWindow('/'));
             });
         `;
-        const blob = new Blob([swCode], { type: 'text/javascript' });
-        const swUrl = URL.createObjectURL(blob);
+        const blob = new Blob([swSource], { type: 'text/javascript' });
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(swUrl).then(() => console.log("Inline SW Registered"));
+            navigator.serviceWorker.register(URL.createObjectURL(blob));
         }
 
-        function requestNotify() {
-            if (Notification.permission !== "granted") Notification.requestPermission();
-        }
-
-        function showPush(title, body, icon) {
-            if (Notification.permission === "granted" && document.hidden) {
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.showNotification(title, { body, icon, vibrate: [200, 100, 200] });
-                });
-            }
-        }
-
+        // Авторизация
         function doAuth(type) {
             const l = document.getElementById('auth-l').value.trim();
             const p = document.getElementById('auth-p').value.trim();
-            if(!l || !p) return alert('Заполните все поля!');
+            if(!l || !p) return alert('Введите все данные!');
             localStorage.setItem('cel_save', JSON.stringify({l, p}));
             socket.emit('auth', { login: l, password: p, type });
-            requestNotify();
+            if (Notification.permission !== 'granted') Notification.requestPermission();
         }
 
         window.onload = () => {
@@ -210,26 +222,25 @@
         };
 
         socket.on('auth_ok', d => {
-            me = d.un; myData = d.prof;
+            me = d.un; myData = d.prof; isAdmin = d.isAdmin;
             document.getElementById('my-ava').src = d.prof.ava;
             document.getElementById('my-coins').innerText = d.econ.coins;
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app').style.display = 'block';
             
-            // Загружаем чаты, которые были открыты ранее
+            if(isAdmin) document.getElementById('admin-panel').style.display = 'block';
+            
+            // Восстановление активных чатов из кэша браузера
             const active = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
             active.forEach(u => socket.emit('get_h', u));
         });
 
-        socket.on('econ_update', d => {
-            document.getElementById('my-coins').innerText = d.coins;
-        });
-
+        // Поиск пользователей
         function doSearch() {
             const v = document.getElementById('s-in').value.trim();
-            const resBox = document.getElementById('s-res');
+            const box = document.getElementById('s-res');
             if(v.length > 0) socket.emit('search_user', v);
-            else resBox.style.display = 'none';
+            else box.style.display = 'none';
         }
 
         socket.on('search_res', res => {
@@ -251,67 +262,88 @@
             } else box.style.display = 'none';
         });
 
+        // Обработка файлов
         function handleFile(input) {
             const file = input.files[0];
             if(!file) return;
+            if(file.size > 50000000) return alert('Файл слишком большой (макс 50МБ)');
+            
             const reader = new FileReader();
             mediaType = file.type.startsWith('image') ? 'image' : 'video';
-            reader.onload = (e) => {
+            reader.onload = e => {
                 mediaFile = e.target.result;
-                document.getElementById('m-prev').innerHTML = `<div style="color:#007aff">Файл готов к отправке</div>`;
-                document.getElementById('m-prev').style.display = 'block';
+                document.getElementById('m-prev').style.display = 'flex';
             };
             reader.readAsDataURL(file);
         }
 
+        function cancelFile() {
+            mediaFile = null;
+            document.getElementById('f-in').value = '';
+            document.getElementById('m-prev').style.display = 'none';
+        }
+
+        // Голосовые сообщения
         async function toggleRecord() {
             const btn = document.getElementById('rec-btn');
             if (mediaRecorder && mediaRecorder.state === "recording") {
                 mediaRecorder.stop();
                 btn.innerText = "🎤";
             } else {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        mediaFile = e.target.result;
-                        mediaType = 'audio';
-                        send(); 
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
+                        const r = new FileReader();
+                        r.onload = e => { 
+                            mediaFile = e.target.result; 
+                            mediaType = 'audio'; 
+                            send(); 
+                        };
+                        r.readAsDataURL(blob);
                     };
-                    reader.readAsDataURL(blob);
-                };
-                mediaRecorder.start();
-                btn.innerText = "🛑";
+                    mediaRecorder.start();
+                    btn.innerText = "🛑";
+                } catch(e) { alert('Микрофон недоступен'); }
             }
         }
 
+        // Отправка сообщений
         function send() {
             const txt = document.getElementById('m-in').value;
             if(!txt.trim() && !mediaFile) return;
+            
             socket.emit('msg', { to: cur, txt, type: mediaType, file: mediaFile });
+            
             document.getElementById('m-in').value = '';
-            mediaFile = null; mediaType = "text";
-            document.getElementById('m-prev').style.display = 'none';
+            cancelFile();
         }
 
         socket.on('receive', d => {
             const room = (d.msg.f === me) ? d.room : d.msg.f;
             if(!chatData[room]) chatData[room] = [];
+            
             chatData[room].push(d.msg);
             profs[room] = d.senderProf;
             streaks[room] = d.streak;
             
-            if (d.msg.f !== me) {
-                showPush(profs[room]?.nick || room, d.msg.type === 'text' ? d.msg.txt : 'Прислал медиа', profs[room]?.ava);
+            // Пуш-уведомление если приложение свернуто
+            if (d.msg.f !== me && document.hidden) {
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification(d.senderProf?.nick || room, {
+                        body: d.msg.type === 'text' ? d.msg.txt : 'Отправил медиа',
+                        icon: d.senderProf?.ava
+                    });
+                });
             }
-            if(room === cur) { renderMsgs(); updateStreakDisplay(); }
+
+            if(room === cur) { renderMsgs(); updateStreak(); }
             updateUI();
             
-            // Сохраняем список активных чатов локально
+            // Сохраняем "память" о чате в браузере
             let active = JSON.parse(localStorage.getItem('cel_active_chats') || "[]");
             if(!active.includes(room)) {
                 active.push(room);
@@ -319,44 +351,54 @@
             }
         });
 
+        // Отрисовка сообщений
         function renderMsgs() {
             const win = document.getElementById('chat-win');
             win.innerHTML = '';
             (chatData[cur] || []).forEach(m => {
                 const isMe = m.f === me;
-                let content = m.txt;
-                if(m.type === 'image') content = `<img src="${m.file}" class="msg-media">`;
-                if(m.type === 'video') content = `<video src="${m.file}" controls class="msg-media"></video>`;
-                if(m.type === 'audio') content = `<audio src="${m.file}" controls></audio>`;
-                win.innerHTML += `<div class="msg-row ${isMe?'me':'ot'}"><div class="bubble">${content}<small>${m.time}</small></div></div>`;
+                let html = m.txt;
+                if(m.type === 'image') html = `<img src="${m.file}" class="msg-media" onclick="window.open('${m.file}')">`;
+                if(m.type === 'video') html = `<video src="${m.file}" controls class="msg-media"></video>`;
+                if(m.type === 'audio') html = `<audio src="${m.file}" controls></audio>`;
+                
+                win.innerHTML += `
+                    <div class="msg-row ${isMe ? 'me' : 'ot'}">
+                        <div class="bubble">
+                            ${html}
+                            <small>${m.time}</small>
+                        </div>
+                    </div>
+                `;
             });
             win.scrollTop = win.scrollHeight;
         }
 
-        function updateStreakDisplay() {
-            const s = streaks[cur] || 0;
-            document.getElementById('h-streak').innerHTML = s > 0 ? `🔥 ${s}` : '';
-        }
-
+        // Список чатов на главной
         function updateUI() {
             const list = document.getElementById('chat-items');
             list.innerHTML = '';
-            const sorted = Object.keys(chatData).sort((a,b) => {
+            
+            const rooms = Object.keys(chatData).sort((a,b) => {
                 const lastA = chatData[a][chatData[a].length-1]?.timestamp || 0;
                 const lastB = chatData[b][chatData[b].length-1]?.timestamp || 0;
                 return lastB - lastA;
             });
-            sorted.forEach(u => {
+
+            rooms.forEach(u => {
                 const last = chatData[u][chatData[u].length-1];
                 const p = profs[u] || { nick: u, ava: '' };
                 const s = streaks[u] || 0;
-                list.innerHTML += `<div class="chat-row" onclick="openChat('${u}')">
-                    <img src="${p.ava}" class="row-ava">
-                    <div class="row-info">
-                        <b>${p.nick} ${s > 0 ? '🔥'+s : ''}</b>
-                        <p>${last?.type === 'text' ? last.txt : 'Медиа сообщение'}</p>
+                
+                list.innerHTML += `
+                    <div class="chat-row" onclick="openChat('${u}')">
+                        <img src="${p.ava}" class="row-ava">
+                        <div class="row-info">
+                            <b>${p.nick} ${s > 0 ? '🔥' + s : ''}</b>
+                            <p>${last?.type === 'text' ? last.txt : 'Вложение'}</p>
+                        </div>
                     </div>
-                </div>`;
+                `;
             });
         }
 
@@ -366,32 +408,31 @@
             document.getElementById('chat-view').classList.add('active');
         }
 
-        function closeChat() { 
-            cur = null; 
-            document.getElementById('chat-view').classList.remove('active'); 
+        function closeChat() {
+            cur = null;
+            document.getElementById('chat-view').classList.remove('active');
         }
 
         socket.on('h_res', d => {
             chatData[d.target] = d.msgs;
             profs[d.target] = d.prof;
             streaks[d.target] = d.streak;
+            
             if(cur === d.target) {
                 document.getElementById('h-nick').innerText = d.prof.nick;
-                document.getElementById('h-status').innerText = d.prof.ls === 'Online' ? 'в сети' : 'был(а) в ' + d.prof.ls;
-                updateStreakDisplay();
+                document.getElementById('h-status').innerText = d.prof.ls === 'Online' ? 'в сети' : 'был(а) ' + d.prof.ls;
+                updateStreak();
                 renderMsgs();
             }
             updateUI();
         });
 
-        function buyNFT(name) { socket.emit('buy_nft', name); }
+        function updateStreak() {
+            const s = streaks[cur] || 0;
+            document.getElementById('h-streak').innerText = s > 0 ? '🔥 ' + s : '';
+        }
 
-        socket.on('update_ok', d => {
-            myData = d;
-            document.getElementById('my-ava').src = d.ava;
-            if(cur === me || !cur) viewP();
-        });
-
+        // Профиль и Настройки
         function openSettings() {
             document.getElementById('profile-view-mode').style.display = 'none';
             document.getElementById('settings-mode').style.display = 'block';
@@ -407,22 +448,69 @@
             document.getElementById('profile-view-mode').style.display = 'block';
             document.getElementById('v-ava').src = p.ava;
             document.getElementById('v-nick').innerText = p.nick;
-            document.getElementById('v-bio').innerText = p.bio || 'Нет статуса';
-            document.getElementById('v-nfts').innerHTML = (p.nfts || []).map(n => `<div class="nft-badge">${n} NFT</div>`).join('');
-            document.getElementById('nft-shop').style.display = (cur && cur !== me) ? 'none' : 'block';
+            document.getElementById('v-bio').innerText = p.bio || 'Статус не заполнен';
+            document.getElementById('v-nfts').innerHTML = (p.nfts || []).map(n => `<span class="nft-badge">${n}</span>`).join('');
+            
+            // Скрываем покупку NFT в чужом профиле
+            document.getElementById('shop-zone').style.display = (cur && cur !== me) ? 'none' : 'block';
             document.getElementById('modal-p').style.display = 'flex';
         }
 
         function saveProfile() {
-            socket.emit('update_profile', { 
+            const data = {
                 nick: document.getElementById('edit-nick').value,
                 ava: document.getElementById('edit-ava').value,
                 bio: document.getElementById('edit-bio').value
-            });
+            };
+            socket.emit('update_profile', data);
             document.getElementById('modal-p').style.display = 'none';
         }
 
-        function logout() { localStorage.clear(); location.reload(); }
+        // Админ-функции Бэкапа
+        function exportDB() { socket.emit('admin_export_db'); }
+        
+        socket.on('admin_db_data', jsonStr => {
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `celestra_backup_${new Date().toLocaleDateString()}.json`;
+            a.click();
+        });
+
+        function importDB() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    if(confirm('ВНИМАНИЕ: Это полностью заменит текущую базу данных! Продолжить?')) {
+                        socket.emit('admin_import_db', event.target.result);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function buyNFT(n) { socket.emit('buy_nft', n); }
+        
+        function logout() {
+            localStorage.clear();
+            location.reload();
+        }
+
+        socket.on('update_ok', d => {
+            myData = d;
+            document.getElementById('my-ava').src = d.ava;
+        });
+
+        socket.on('econ_update', d => {
+            document.getElementById('my-coins').innerText = d.coins;
+        });
+
         socket.on('err', e => alert(e));
     </script>
 </body>
