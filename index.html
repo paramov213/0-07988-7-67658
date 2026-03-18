@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-    <title>Celestra Ultra</title>
+    <title>Celestra NextGen</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,10 +11,12 @@
     <div id="auth-screen" class="full-page flex-center">
         <div class="auth-box">
             <h1 class="brand">CELESTRA</h1>
-            <input type="text" id="auth-l" placeholder="Логин">
-            <input type="password" id="auth-p" placeholder="Пароль">
+            <div class="glass-input">
+                <input type="text" id="auth-l" placeholder="Ваш логин">
+                <input type="password" id="auth-p" placeholder="Ваш пароль">
+            </div>
             <button onclick="doAuth('login')" class="btn-primary">ВОЙТИ</button>
-            <button onclick="doAuth('reg')" class="btn-link">Создать новый аккаунт</button>
+            <button onclick="doAuth('reg')" class="btn-link">Создать аккаунт</button>
         </div>
     </div>
 
@@ -22,13 +24,16 @@
         
         <section id="list-view" class="page active">
             <header class="header">
-                <img id="my-ava" src="" class="mini-ava" onclick="openSettings()">
-                <span class="logo-small">Celestra</span>
-                <button onclick="logout()" class="btn-logout">Выйти</button>
+                <div class="me-trigger" onclick="openSettings()">
+                    <img id="my-ava" src="" class="mini-ava">
+                    <div class="online-dot"></div>
+                </div>
+                <span class="logo-text">Celestra</span>
+                <button onclick="logout()" class="btn-icon">🚪</button>
             </header>
             
             <div class="search-container">
-                <input type="text" id="s-in" placeholder="Поиск людей..." oninput="doSearch()" autocomplete="off">
+                <input type="text" id="s-in" placeholder="Найти собеседника..." oninput="doSearch()" autocomplete="off">
                 <div id="s-res" class="search-results"></div>
             </div>
 
@@ -37,17 +42,17 @@
 
         <section id="chat-view" class="page">
             <header class="header">
-                <button onclick="closeChat()" class="btn-back">⬅</button>
+                <button onclick="closeChat()" class="btn-back">✕</button>
                 <div class="chat-info" onclick="viewP()">
                     <b id="h-nick">...</b>
-                    <small id="h-status"></small>
+                    <small id="h-status">загрузка...</small>
                 </div>
             </header>
             <div id="chat-win" class="content messages"></div>
             <footer class="input-area">
                 <div class="row">
-                    <input type="text" id="m-in" placeholder="Сообщение..." onkeydown="if(event.key==='Enter') send()">
-                    <button onclick="send()" class="btn-send">🚀</button>
+                    <input type="text" id="m-in" placeholder="Ваше сообщение..." onkeydown="if(event.key==='Enter') send()">
+                    <button onclick="send()" class="btn-send">🔥</button>
                 </div>
             </footer>
         </section>
@@ -55,39 +60,49 @@
 
     <div id="modal-p" class="modal" style="display:none" onclick="this.style.display='none'">
         <div class="modal-card" onclick="event.stopPropagation()">
-            <img id="v-ava" src="" class="big-ava">
+            <div class="ava-container">
+                <img id="v-ava" src="" class="big-ava">
+            </div>
+            
             <div id="profile-view-mode">
                 <h2 id="v-nick"></h2>
-                <p id="v-bio" class="bio-text"></p>
-                <div class="coin-box">💰 Монеты: <span id="v-c">0</span></div>
-                <div id="admin-tools" style="display:none; margin-top:10px; border-top:1px solid #333; padding-top:10px;">
-                    <button onclick="adminSetCoins()" class="btn-admin">Дать монеты</button>
+                <div id="v-bio" class="bio-box"></div>
+                <div class="coin-badge">💰 <span id="v-c">0</span> монет</div>
+                
+                <div id="admin-panel" style="display:none;" class="admin-box">
+                    <p>Администрирование:</p>
+                    <button onclick="admCoins()" class="btn-adm">Выдать монеты</button>
+                    <button onclick="admBan()" class="btn-adm ban">Бан</button>
                 </div>
             </div>
+
             <div id="settings-mode" style="display:none">
-                <input type="text" id="edit-nick" class="modal-input" placeholder="Новый ник">
-                <textarea id="edit-bio" class="modal-input" placeholder="О себе"></textarea>
+                <p>Редактирование профиля</p>
+                <input type="text" id="edit-ava" class="modal-input" placeholder="Ссылка на GIF/IMG аватара">
+                <input type="text" id="edit-nick" class="modal-input" placeholder="Ваш ник">
+                <textarea id="edit-bio" class="modal-input" placeholder="О себе..."></textarea>
                 <button onclick="saveProfile()" class="btn-primary">Сохранить</button>
             </div>
-            <button onclick="document.getElementById('modal-p').style.display='none'" class="btn-close">Закрыть</button>
+            
+            <button onclick="document.getElementById('modal-p').style.display='none'" class="btn-close">ЗАКРЫТЬ</button>
         </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let me = "", myData = {}, cur = null, chatData = {}, profs = {}, econData = {};
-        let isMeAdmin = false;
+        let me = "", myData = {}, cur = null, chatData = {}, profs = {}, econ = {};
+        let isAdmin = false;
 
         function doAuth(type) {
             const l = document.getElementById('auth-l').value, p = document.getElementById('auth-p').value;
             if(!l || !p) return;
-            localStorage.setItem('cel_creds', JSON.stringify({l, p}));
+            localStorage.setItem('cel_save', JSON.stringify({l, p}));
             socket.emit('auth', { login: l, password: p, type });
         }
 
         window.onload = () => {
-            const saved = localStorage.getItem('cel_creds');
+            const saved = localStorage.getItem('cel_save');
             if(saved) {
                 const {l, p} = JSON.parse(saved);
                 socket.emit('auth', { login: l, password: p, type: 'login' });
@@ -95,7 +110,7 @@
         }
 
         socket.on('auth_ok', d => {
-            me = d.un; myData = d.prof; econData[me] = d.econ; isMeAdmin = d.isAdmin;
+            me = d.un; myData = d.prof; isAdmin = d.isAdmin;
             document.getElementById('my-ava').src = d.prof.ava;
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('app').style.display = 'block';
@@ -148,7 +163,7 @@
         socket.on('h_res', d => {
             chatData[d.target] = d.msgs;
             profs[d.target] = d.prof;
-            econData[d.target] = d.econ;
+            econ[d.target] = d.econ;
             document.getElementById('h-nick').textContent = d.prof.nick;
             document.getElementById('h-status').textContent = d.prof.ls === 'Online' ? 'в сети' : d.prof.ls;
             renderMsgs();
@@ -184,23 +199,26 @@
             const list = document.getElementById('chat-items');
             list.innerHTML = '';
             const ids = Object.keys(chatData).sort((a,b) => {
-                const lastA = chatData[a][chatData[a].length - 1]?.time || "0";
-                const lastB = chatData[b][chatData[b].length - 1]?.time || "0";
-                return lastB.localeCompare(lastA);
+                const tA = chatData[a][chatData[a].length - 1]?.time || "0";
+                const tB = chatData[b][chatData[b].length - 1]?.time || "0";
+                return tB.localeCompare(tA);
             });
             ids.forEach(u => {
                 const last = chatData[u][chatData[u].length - 1];
                 const p = profs[u] || { nick: u };
-                list.innerHTML += `<div class="chat-row" onclick="openChat('${u}')"><div class="row-info"><b>${p.nick}</b><p>${last?last.txt:'<i>Нет сообщений</i>'}</p></div></div>`;
+                list.innerHTML += `<div class="chat-row" onclick="openChat('${u}')">
+                    <img src="${p.ava || 'https://via.placeholder.com/50'}" class="row-ava">
+                    <div class="row-info"><b>${p.nick}</b><p>${last?last.txt:'Начните чат...'}</p></div>
+                </div>`;
             });
         }
 
-        // НАСТРОЙКИ СЕБЯ
         function openSettings() {
             document.getElementById('profile-view-mode').style.display = 'none';
             document.getElementById('settings-mode').style.display = 'block';
             document.getElementById('edit-nick').value = myData.nick;
             document.getElementById('edit-bio').value = myData.bio;
+            document.getElementById('edit-ava').value = myData.ava;
             document.getElementById('v-ava').src = myData.ava;
             document.getElementById('modal-p').style.display = 'flex';
         }
@@ -208,28 +226,36 @@
         function saveProfile() {
             const n = document.getElementById('edit-nick').value;
             const b = document.getElementById('edit-bio').value;
-            socket.emit('update_profile', { nick: n, bio: b });
+            const a = document.getElementById('edit-ava').value;
+            socket.emit('update_profile', { nick: n, bio: b, ava: a });
             document.getElementById('modal-p').style.display = 'none';
         }
 
-        socket.on('update_ok', d => { myData = d; document.getElementById('my-ava').src = d.ava; updateUI(); });
+        socket.on('update_ok', d => { 
+            myData = d; 
+            document.getElementById('my-ava').src = d.ava; 
+            updateUI(); 
+        });
 
-        // ПРОСМОТР ЧУЖОГО ПРОФИЛЯ
         function viewP() {
-            const p = profs[cur]; const e = econData[cur] || { coins: 0 };
+            const p = profs[cur]; const e = econ[cur] || { coins: 0 };
             document.getElementById('settings-mode').style.display = 'none';
             document.getElementById('profile-view-mode').style.display = 'block';
             document.getElementById('v-ava').src = p.ava;
             document.getElementById('v-nick').textContent = p.nick;
-            document.getElementById('v-bio').textContent = p.bio || "Нет описания";
+            document.getElementById('v-bio').textContent = p.bio || "Нет информации";
             document.getElementById('v-c').textContent = e.coins;
-            document.getElementById('admin-tools').style.display = isMeAdmin ? 'block' : 'none';
+            document.getElementById('admin-panel').style.display = isAdmin ? 'block' : 'none';
             document.getElementById('modal-p').style.display = 'flex';
         }
 
-        function adminSetCoins() {
-            const amt = prompt("Сколько монет выдать?");
-            if(amt) socket.emit('admin_cmd', { cmd: 'set_coins', target: cur, value: amt });
+        function admCoins() {
+            const v = prompt("Сколько монет выдать?");
+            if(v) socket.emit('admin_cmd', { cmd: 'set_coins', target: cur, value: v });
+        }
+        
+        function admBan() {
+            if(confirm("ЗАБАНИТЬ?")) socket.emit('admin_cmd', { cmd: 'ban', target: cur });
         }
 
         function logout() { localStorage.clear(); location.reload(); }
