@@ -9,71 +9,78 @@
 </head>
 <body>
 
+    <!-- Экран загрузки и автовхода -->
+    <div id="loading-screen" class="screen">
+        <div class="loader-box">
+            <div class="spinner"></div>
+            <p>Проверка сессии...</p>
+        </div>
+    </div>
+
     <!-- Экран авторизации -->
-    <div id="auth-screen" class="screen">
+    <div id="auth-screen" class="screen hidden">
         <div class="auth-card">
-            <h2>С возвращением!</h2>
-            <p class="subtitle">Мы так рады видеть вас снова!</p>
-            <input type="text" id="auth-username" placeholder="Имя пользователя">
-            <input type="password" id="auth-password" placeholder="Пароль">
-            <button id="login-btn">Вход</button>
-            <button id="register-btn" class="secondary">Зарегистрироваться</button>
+            <h2 id="auth-header">С возвращением!</h2>
+            <p id="auth-subheader" class="subtitle">Мы так рады видеть вас снова!</p>
+            
+            <div class="input-group">
+                <label>ИМЯ ПОЛЬЗОВАТЕЛЯ</label>
+                <input type="text" id="auth-username" spellcheck="false">
+            </div>
+            
+            <div class="input-group">
+                <label>ПАРОЛЬ</label>
+                <input type="password" id="auth-password">
+            </div>
+            
+            <button id="auth-submit-btn">Вход</button>
+            
+            <p class="auth-footer">
+                <span id="auth-footer-text">Нужен аккаунт?</span> 
+                <span id="auth-toggle-link">Зарегистрироваться</span>
+            </p>
         </div>
     </div>
 
-    <!-- Основной интерфейс -->
+    <!-- Главный экран приложения -->
     <div id="app-screen" class="screen hidden">
-        <div class="sidebar">
+        <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="user-profile-trigger" id="my-profile-btn">
-                    <img src="" alt="Avatar" id="my-avatar-img">
-                    <div class="status-indicator online"></div>
+                <div class="profile-preview" id="open-profile-settings">
+                    <img src="" id="user-avatar-top" alt="Avatar">
+                    <div class="status-dot online"></div>
                 </div>
-                <input type="text" id="user-search" placeholder="Поиск друзей...">
+                <div class="search-container">
+                    <input type="text" id="user-search-input" placeholder="Найти друга...">
+                </div>
             </div>
-            <div id="chat-list" class="chat-list">
-                <!-- Сюда динамически добавляются чаты -->
+            <div id="chat-list" class="chat-list-container">
+                <!-- Сюда динамически добавляются активные контакты -->
             </div>
-        </div>
+        </aside>
 
-        <div class="chat-area">
-            <div id="chat-header" class="hidden">
-                <div class="receiver-info">
-                    <span id="chat-with-name">Username</span>
-                    <span id="chat-with-status" class="status-text">Оффлайн</span>
+        <main class="chat-window">
+            <header id="chat-header" class="chat-header hidden">
+                <div class="active-user-info">
+                    <h3 id="current-chat-name">Имя пользователя</h3>
+                    <span id="current-chat-status" class="status-indicator">в сети</span>
                 </div>
-                <div id="streak-counter" class="streak-badge hidden">
-                    🔥 <span id="streak-val">0</span>
+            </header>
+            
+            <div id="messages-display" class="messages-display">
+                <div class="welcome-screen">
+                    <h3>Добро пожаловать в Nitro</h3>
+                    <p>Выберите собеседника, чтобы начать общение.</p>
                 </div>
             </div>
-            <div id="messages-container"></div>
-            <div class="input-area">
-                <input type="text" id="message-input" placeholder="Написать сообщение...">
-                <button id="send-btn">➤</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно профиля -->
-    <div id="profile-modal" class="modal hidden">
-        <div class="modal-content">
-            <div class="banner" id="profile-banner-preview"></div>
-            <div class="profile-header">
-                <img src="" id="profile-avatar-preview" class="editable-avatar">
-                <button id="close-modal">✕</button>
-            </div>
-            <div class="profile-body">
-                <label>Отображаемое имя</label>
-                <input type="text" id="edit-display-name">
-                <label>О себе</label>
-                <textarea id="edit-bio"></textarea>
-                <label>URL Аватара (GIF поддерживается)</label>
-                <input type="text" id="edit-avatar-url">
-                <label>Цвет свечения (Hex/RGBA)</label>
-                <input type="text" id="edit-glow-color">
-                <button id="save-profile">Сохранить изменения</button>
-            </div>
-        </div>
+            
+            <footer id="chat-input-area" class="chat-input-area hidden">
+                <div class="input-bar-wrapper">
+                    <input type="text" id="message-input-field" placeholder="Написать сообщение...">
+                    <button id="send-msg-btn">➤</button>
+                </div>
+            </footer>
+        </main>
     </div>
 
     <script src="script.js"></script>
