@@ -13,22 +13,24 @@ const io = new Server(server, {
     cors: { origin: "*" }
 });
 
-// Конфигурация
+// Конфигурационные константы
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = 'discord_nitro_secret_key_2026';
-const MONGODB_URI = 'mongodb://localhost:27017/messenger_db'; // Замените на вашу строку подключения
+const JWT_SECRET = 'discord_nitro_ultra_secret_2026_key';
+// ВНИМАНИЕ: Для локальной разработки используйте localhost, для деплоя — строку MongoDB Atlas
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/messenger_db';
 
-// Middleware
+// Настройка Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// Указываем Express отдавать статику прямо из корня проекта
+app.use(express.static(__dirname));
 
-// Схемы БД
+// Схемы данных MongoDB
 const UserSchema = new mongoose.Schema({
     username: { type: String, unique: true, required: true },
     password: { type: String, required: true },
-    displayName: String,
-    bio: String,
+    displayName: { type: String, default: '' },
+    bio: { type: String, default: 'Привет! Я использую Nitro Messenger.' },
     avatar: { type: String, default: 'https://i.imgur.com/6VBx3io.png' },
     banner: { type: String, default: 'https://i.imgur.com/w9O963v.png' },
     glowColor: { type: String, default: 'rgba(88, 101, 242, 0.5)' },
@@ -37,9 +39,9 @@ const UserSchema = new mongoose.Schema({
 });
 
 const MessageSchema = new mongoose.Schema({
-    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    text: String,
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    text: { type: String, required: true },
     timestamp: { type: Date, default: Date.now },
     read: { type: Boolean, default: false }
 });
@@ -54,17 +56,19 @@ const User = mongoose.model('User', UserSchema);
 const Message = mongoose.model('Message', MessageSchema);
 const Streak = mongoose.model('Streak', StreakSchema);
 
-// Подключение к БД
+// Подключение к базе данных
 mongoose.connect(MONGODB_URI)
-    .then(() => console.log('MongoDB connected'))
-    .catch(err => console.log('DB Connection Error:', err));
+    .then(() => console.log('Успешное подключение к MongoDB'))
+    .catch(err => console.error('Ошибка подключения к БД:', err));
 
-// API: Регистрация
+// API Маршруты
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
         const existingUser = await User.findOne({ username });
-        if (existingUser) return res.status(400).json({ error: 'Username already taken' });
+        if (existingUser) {
+            return res.status(400).json({ error: 'Это имя пользователя уже занято' });
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ 
@@ -74,32 +78,46 @@ app.post('/api/auth/register', async (req, res) => {
         });
         await newUser.save();
 
-        const token = jwt.sign({ id: newUser._id }, JWT_SECRET);
+        const token = jwt.sign({ id: newUser._id }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user: newUser });
     } catch (err) {
-        res.status(500).json({ error: 'Server error' });
+        res.status(500).json({ error: 'Ошибка сервера при регистрации' });
     }
 });
 
-// API: Логин
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
         const user = await User.findOne({ username });
-        if (!user) return res.status(400).json({ error: 'User not found' });
+        if (!user) {
+            return res.status(400).json({ error: 'Пользователь не найден' });
+        }
 
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+        if (!isMatch) {
+            return res.status(400).json({ error: 'Неверный пароль' });
+        }
 
-        const token = jwt.sign({ id: user._id }, JWT_SECRET);
+        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user });
     } catch (err) {
-        res.status(500).json({ error: 'Server error' });
+        res.status(500).json({ error: 'Ошибка сервера при входе' });
     }
 });
 
-// Socket.io Логика
-const onlineUsers = new Map();
+app.get('/api/users/search', async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) return res.json([]);
+        const users = await User.find({ username: new RegExp(q, 'i') }).limit(10);
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: 'Ошибка поиска' });
+    }
+});
+
+// Socket.io Логика в реальном времени
+const activeConnections = new Map();
 
 io.on('connection', (socket) => {
     socket.on('authenticate', async (token) => {
@@ -109,25 +127,28 @@ io.on('connection', (socket) => {
             if (user) {
                 user.isOnline = true;
                 await user.save();
-                onlineUsers.set(user._id.toString(), socket.id);
+                activeConnections.set(user._id.toString(), socket.id);
                 socket.userId = user._id.toString();
                 io.emit('userStatusUpdate', { userId: user._id, isOnline: true });
+                console.log(`Пользователь ${user.username} подключился`);
             }
         } catch (err) {
-            socket.disconnect();
+            console.log('Ошибка аутентификации сокета');
         }
     });
 
     socket.on('sendMessage', async (data) => {
         const { receiverId, text } = data;
+        if (!socket.userId) return;
+
         const newMessage = new Message({
             sender: socket.userId,
             receiver: receiverId,
-            text
+            text: text
         });
         await newMessage.save();
 
-        // Логика Стриков (Огней)
+        // Логика Огней (Streaks)
         let streak = await Streak.findOne({
             users: { $all: [socket.userId, receiverId] }
         });
@@ -137,20 +158,20 @@ io.on('connection', (socket) => {
             await streak.save();
         } else {
             const now = new Date();
-            const diff = (now - streak.lastInteraction) / (1000 * 60 * 60);
-            if (diff > 24 && diff < 48) {
+            const timeDiff = (now - streak.lastInteraction) / (1000 * 60 * 60);
+            if (timeDiff >= 24 && timeDiff < 48) {
                 streak.count += 1;
-            } else if (diff >= 48) {
+            } else if (timeDiff >= 48) {
                 streak.count = 1;
             }
             streak.lastInteraction = now;
             await streak.save();
         }
 
-        const receiverSocket = onlineUsers.get(receiverId);
-        if (receiverSocket) {
-            io.to(receiverSocket).emit('newMessage', newMessage);
-            io.to(receiverSocket).emit('updateStreak', streak);
+        const receiverSocketId = activeConnections.get(receiverId);
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit('newMessage', newMessage);
+            io.to(receiverSocketId).emit('updateStreak', { streak, partnerId: socket.userId });
         }
         socket.emit('newMessage', newMessage);
     });
@@ -162,18 +183,35 @@ io.on('connection', (socket) => {
                 user.isOnline = false;
                 user.lastSeen = new Date();
                 await user.save();
-                onlineUsers.delete(socket.userId);
-                io.emit('userStatusUpdate', { userId: user._id, isOnline: false, lastSeen: user.lastSeen });
+                activeConnections.delete(socket.userId);
+                io.emit('userStatusUpdate', { 
+                    userId: user._id, 
+                    isOnline: false, 
+                    lastSeen: user.lastSeen 
+                });
             }
         }
     });
 });
 
-// Пинг-скрипт для предотвращения сна (Render/Railway)
+// Пинг-система для предотвращения сна сервера
+app.get('/ping', (req, res) => res.send('Система активна'));
 setInterval(() => {
-    http.get(`http://localhost:${PORT}/ping`);
-}, 1000 * 60 * 10);
+    http.get(`http://localhost:${PORT}/ping`, (res) => {
+        console.log('Самопроверка активности выполнена');
+    });
+}, 600000); // 10 минут
 
-app.get('/ping', (req, res) => res.send('pong'));
+// Роутинг для SPA
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Глобальная обработка ошибок для предотвращения падения (Status 1)
+process.on('uncaughtException', (err) => {
+    console.error('КРИТИЧЕСКАЯ ОШИБКА:', err);
+});
+
+server.listen(PORT, () => {
+    console.log(`Сервер мессенджера запущен на порту: ${PORT}`);
+});
