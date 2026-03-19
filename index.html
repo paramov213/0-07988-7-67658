@@ -3,411 +3,407 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clash Royale Web Clone - Full Version</title>
+    <title>Clash Royale JS - Full Version</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            background-color: #2c3e50;
+            background-color: #1a1a1a;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             height: 100vh;
+            font-family: 'Verdana', sans-serif;
             overflow: hidden;
-            font-family: 'Arial', sans-serif;
-            color: white;
         }
 
-        #game-container {
+        #game-wrapper {
             position: relative;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            border: 4px solid #34495e;
+            border: 8px solid #333;
+            border-radius: 15px;
+            box-shadow: 0 0 100px rgba(0,0,0,0.8);
+        }
+
+        #menu-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 400px;
+            height: 700px;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: white;
+            text-align: center;
+        }
+
+        .btn-start {
+            padding: 15px 40px;
+            font-size: 24px;
+            background: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: 0 4px 0 #a35d1a;
+        }
+
+        .btn-start:hover {
+            background: #f39c12;
+            transform: scale(1.05);
         }
 
         canvas {
-            background-color: #7cfc00;
             display: block;
-            cursor: crosshair;
+            background-color: #4caf50;
         }
 
-        #ui-layer {
+        #ui-panel {
             position: absolute;
-            bottom: 10px;
-            width: 100%;
+            bottom: 0;
+            width: 400px;
+            height: 120px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.9));
+            pointer-events: none;
             display: flex;
             flex-direction: column;
             align-items: center;
-            pointer-events: none;
         }
 
-        #elixir-bar-container {
+        #elixir-container {
             width: 80%;
-            height: 20px;
-            background: #444;
+            height: 18px;
+            background: #333;
             border: 2px solid #fff;
-            border-radius: 10px;
+            border-radius: 9px;
+            margin-top: 10px;
             overflow: hidden;
-            margin-bottom: 10px;
         }
 
-        #elixir-fill {
+        #elixir-bar {
             height: 100%;
             width: 50%;
-            background: linear-gradient(90deg, #c018d4, #ff00ff);
-            transition: width 0.1s linear;
+            background: linear-gradient(90deg, #9b59b6, #e056fd);
         }
 
-        #cards-container {
+        #cards {
             display: flex;
-            gap: 10px;
+            gap: 15px;
+            margin-top: 10px;
             pointer-events: auto;
         }
 
         .card {
-            width: 70px;
-            height: 90px;
-            background: #ecf0f1;
+            width: 65px;
+            height: 80px;
+            background: #f1c40f;
+            border: 3px solid #fff;
             border-radius: 8px;
-            border: 3px solid #bdc3c7;
+            cursor: pointer;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: #2c3e50;
+            font-size: 11px;
             font-weight: bold;
-            font-size: 12px;
-            cursor: pointer;
-            transition: transform 0.1s;
-            user-select: none;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            background: #fff;
+            color: #2c3e50;
         }
 
         .card.active {
-            border-color: #e67e22;
-            background: #fdebd0;
-        }
-
-        #stats {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.6);
-            padding: 5px 10px;
-            border-radius: 5px;
-            pointer-events: none;
+            border-color: #3498db;
+            transform: translateY(-10px);
         }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <div id="stats">Эликсир: <span id="elixir-text">5</span></div>
-        <canvas id="gameCanvas"></canvas>
-        
-        <div id="ui-layer">
-            <div id="elixir-bar-container">
-                <div id="elixir-fill"></div>
+    <div id="game-wrapper">
+        <div id="menu-overlay">
+            <h1>CLASH ROYALE JS</h1>
+            <p>Защити свои башни!<br>Бот настроен на легкий уровень.</p>
+            <button class="btn-start" onclick="startGame()">В БОЙ!</button>
+        </div>
+
+        <canvas id="arena"></canvas>
+
+        <div id="ui-panel">
+            <div id="elixir-container">
+                <div id="elixir-bar"></div>
             </div>
-            <div id="cards-container">
-                <div class="card" onclick="selectCard(0, this)">Рыцарь<br>(3)</div>
-                <div class="card" onclick="selectCard(1, this)">Лучник<br>(2)</div>
-                <div class="card" onclick="selectCard(2, this)">Гигант<br>(5)</div>
+            <div id="cards">
+                <div class="card" id="card0" onclick="setCard(0)">РЫЦАРЬ<br>3 ЭЛ.</div>
+                <div class="card" id="card1" onclick="setCard(1)">ГИГАНТ<br>5 ЭЛ.</div>
+                <div class="card" id="card2" onclick="setCard(2)">МУШКЕТЕР<br>4 ЭЛ.</div>
             </div>
         </div>
     </div>
 
     <script>
-        const canvas = document.getElementById('gameCanvas');
+        const canvas = document.getElementById('arena');
         const ctx = canvas.getContext('2d');
-        const elixirFill = document.getElementById('elixir-fill');
-        const elixirText = document.getElementById('elixir-text');
-
-        // Настройки экрана
         canvas.width = 400;
         canvas.height = 700;
 
-        // Состояние игры
+        let gameActive = false;
         let elixir = 5;
-        let enemyElixir = 5;
-        const maxElixir = 10;
-        let selectedCardIndex = 0;
-        
-        const cardData = [
-            { name: "Рыцарь", cost: 3, hp: 600, range: 40, damage: 10, speed: 1.2, color: '#3498db' },
-            { name: "Лучник", cost: 2, hp: 250, range: 150, damage: 15, speed: 1.0, color: '#9b59b6' },
-            { name: "Гигант", cost: 5, hp: 2000, range: 30, damage: 20, speed: 0.6, color: '#f1c40f' }
+        let enemyElixir = 0;
+        let selectedSlot = 0;
+
+        const bridges = [
+            { x: 80, y: 350, w: 60, h: 40 },
+            { x: 260, y: 350, w: 60, h: 40 }
         ];
 
-        let units = [];
-        let towers = [];
-        let projectiles = [];
+        const cardStats = [
+            { name: "Knight", cost: 3, hp: 800, damage: 20, range: 30, speed: 1.2, color: '#3498db' },
+            { name: "Giant", cost: 5, hp: 2500, damage: 40, range: 35, speed: 0.7, color: '#e67e22' },
+            { name: "Musketeer", cost: 4, hp: 400, damage: 35, range: 160, speed: 1.0, color: '#9b59b6' }
+        ];
 
-        class Tower {
-            constructor(x, y, side, isKing) {
-                this.x = x;
-                this.y = y;
-                this.side = side; // 'player' или 'enemy'
-                this.isKing = isKing;
-                this.hp = isKing ? 3000 : 1500;
-                this.maxHp = this.hp;
-                this.range = 200;
-                this.fireRate = 60; // кадры между выстрелами
-                this.timer = 0;
-                this.radius = isKing ? 30 : 22;
-                this.alive = true;
-            }
+        let entities = [];
+        let particles = [];
 
-            draw() {
-                if (!this.alive) return;
-                ctx.fillStyle = this.side === 'player' ? '#2980b9' : '#c0392b';
-                ctx.beginPath();
-                ctx.roundRect(this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2, 5);
-                ctx.fill();
-                ctx.strokeStyle = 'white';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                // HP Bar
-                const barWidth = 50;
-                ctx.fillStyle = '#444';
-                ctx.fillRect(this.x - 25, this.y - 40, barWidth, 6);
-                ctx.fillStyle = '#2ecc71';
-                ctx.fillRect(this.x - 25, this.y - 40, (this.hp / this.maxHp) * barWidth, 6);
-            }
-
-            update() {
-                if (!this.alive) return;
-                this.timer++;
-                if (this.timer >= this.fireRate) {
-                    let target = this.findNearestEnemy();
-                    if (target) {
-                        projectiles.push(new Projectile(this.x, this.y, target, this.side));
-                        this.timer = 0;
-                    }
-                }
-            }
-
-            findNearestEnemy() {
-                let nearest = null;
-                let minDist = this.range;
-                units.forEach(u => {
-                    if (u.side !== this.side) {
-                        let d = Math.hypot(u.x - this.x, u.y - this.y);
-                        if (d < minDist) {
-                            minDist = d;
-                            nearest = u;
-                        }
-                    }
-                });
-                return nearest;
-            }
-        }
-
-        class Unit {
-            constructor(x, y, side, config) {
+        class Entity {
+            constructor(x, y, side, typeIndex) {
                 this.x = x;
                 this.y = y;
                 this.side = side;
-                this.hp = config.hp;
-                this.maxHp = config.hp;
-                this.range = config.range;
-                this.damage = config.damage;
-                this.speed = config.speed;
-                this.color = config.color;
-                this.radius = 12;
+                this.stat = cardStats[typeIndex];
+                this.hp = this.stat.hp;
+                this.maxHp = this.stat.hp;
                 this.alive = true;
-                this.attackTimer = 0;
+                this.animStep = 0;
             }
 
             draw() {
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = this.side === 'player' ? 'blue' : 'red';
-                ctx.lineWidth = 3;
-                ctx.stroke();
+                this.animStep += 0.1;
+                let bob = Math.sin(this.animStep) * 3;
 
-                // HP Bar
-                ctx.fillStyle = 'red';
-                ctx.fillRect(this.x - 12, this.y - 20, 24, 4);
-                ctx.fillStyle = 'lime';
-                ctx.fillRect(this.x - 12, this.y - 20, (this.hp / this.maxHp) * 24, 4);
+                // Рисуем "тело" персонажа
+                ctx.save();
+                ctx.translate(this.x, this.y + bob);
+                
+                // Тень
+                ctx.fillStyle = "rgba(0,0,0,0.2)";
+                ctx.beginPath(); ctx.ellipse(0, 15 - bob, 12, 6, 0, 0, Math.PI*2); ctx.fill();
+
+                // Плащ/Одежда
+                ctx.fillStyle = this.side === 'player' ? '#2980b9' : '#c0392b';
+                ctx.fillRect(-12, -10, 24, 20);
+
+                // Голова (Шлем)
+                ctx.fillStyle = this.stat.color;
+                ctx.beginPath(); ctx.arc(0, -15, 10, 0, Math.PI*2); ctx.fill();
+                
+                // Глаза
+                ctx.fillStyle = "white";
+                ctx.fillRect(-5, -18, 3, 3); ctx.fillRect(2, -18, 3, 3);
+
+                ctx.restore();
+
+                // Полоска здоровья
+                let bw = 30;
+                ctx.fillStyle = "black";
+                ctx.fillRect(this.x - bw/2, this.y - 40, bw, 5);
+                ctx.fillStyle = this.side === 'player' ? "#2ecc71" : "#e74c3c";
+                ctx.fillRect(this.x - bw/2, this.y - 40, (this.hp / this.maxHp) * bw, 5);
             }
 
             update() {
                 let target = this.findTarget();
-                if (target) {
-                    let dist = Math.hypot(target.x - this.x, target.y - this.y);
-                    if (dist > this.range) {
-                        let angle = Math.atan2(target.y - this.y, target.x - this.x);
-                        this.x += Math.cos(angle) * this.speed;
-                        this.y += Math.sin(angle) * this.speed;
-                    } else {
-                        // Атака
-                        this.attackTimer++;
-                        if (this.attackTimer >= 50) {
-                            target.hp -= this.damage;
-                            this.attackTimer = 0;
+                if (!target) return;
+
+                let dist = Math.hypot(target.x - this.x, target.y - this.y);
+
+                if (dist > this.stat.range) {
+                    // ЛОГИКА МОСТОВ: если река на пути, идем к ближайшему мосту
+                    let moveTargetX = target.x;
+                    let moveTargetY = target.y;
+
+                    let needsBridge = (this.side === 'player' && this.y > 370) || (this.side === 'enemy' && this.y < 330);
+                    
+                    if (Math.abs(this.y - 350) < 150) {
+                        let nearestBridge = bridges[0];
+                        if (Math.abs(this.x - bridges[1].x) < Math.abs(this.x - bridges[0].x)) {
+                            nearestBridge = bridges[1];
+                        }
+                        
+                        if ((this.side === 'player' && this.y > 350) || (this.side === 'enemy' && this.y < 350)) {
+                            moveTargetX = nearestBridge.x + nearestBridge.w/2;
+                            moveTargetY = 350;
                         }
                     }
+
+                    let angle = Math.atan2(moveTargetY - this.y, moveTargetX - this.x);
+                    this.x += Math.cos(angle) * this.stat.speed;
+                    this.y += Math.sin(angle) * this.stat.speed;
+                } else {
+                    target.hp -= this.stat.damage / 30;
                 }
+
+                if (this.hp <= 0) this.alive = false;
             }
 
             findTarget() {
-                // Сначала ищем ближайшего юнита
-                let nearest = null;
-                let minDist = 9999;
-                
-                units.concat(towers).forEach(obj => {
-                    if (obj.side !== this.side && obj.alive) {
-                        let d = Math.hypot(obj.x - this.x, obj.y - this.y);
-                        if (d < minDist) {
-                            minDist = d;
-                            nearest = obj;
-                        }
-                    }
-                });
-                return nearest;
+                let potential = entities.filter(e => e.side !== this.side && e.alive);
+                if (potential.length === 0) return null;
+                return potential.sort((a, b) => Math.hypot(a.x - this.x, a.y - this.y) - Math.hypot(b.x - this.x, b.y - this.y))[0];
             }
         }
 
-        class Projectile {
-            constructor(x, y, target, side) {
-                this.x = x;
-                this.y = y;
-                this.target = target;
-                this.side = side;
-                this.speed = 5;
-                this.damage = 40;
-                this.alive = true;
-            }
-
-            update() {
-                if (!this.target.alive) { this.alive = false; return; }
-                let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
-                this.x += Math.cos(angle) * this.speed;
-                this.y += Math.sin(angle) * this.speed;
-
-                if (Math.hypot(this.target.x - this.x, this.target.y - this.y) < 10) {
-                    this.target.hp -= this.damage;
-                    this.alive = false;
-                }
+        class Tower extends Entity {
+            constructor(x, y, side, isKing) {
+                super(x, y, side, 0);
+                this.isKing = isKing;
+                this.hp = isKing ? 3000 : 1800;
+                this.maxHp = this.hp;
+                this.stat = { range: 180, damage: 15 }; // Перезапись статов для башни
             }
 
             draw() {
-                ctx.fillStyle = 'black';
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillStyle = this.side === 'player' ? '#1f4e79' : '#7b241c';
+                let sz = this.isKing ? 40 : 30;
+                ctx.fillRect(this.x - sz, this.y - sz, sz*2, sz*2);
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 3;
+                ctx.strokeRect(this.x - sz, this.y - sz, sz*2, sz*2);
+                
+                // HP
+                ctx.fillStyle = "white";
+                ctx.font = "12px Arial";
+                ctx.fillText(Math.ceil(this.hp), this.x - 15, this.y - sz - 10);
+            }
+
+            update() {
+                let target = this.findTarget();
+                if (target && Math.hypot(target.x - this.x, target.y - this.y) < this.stat.range) {
+                    target.hp -= 0.5; // Башня стреляет постоянно
+                    if (Math.random() > 0.9) {
+                        particles.push({x: this.x, y: this.y, tx: target.x, ty: target.y, age: 0});
+                    }
+                }
+                if (this.hp <= 0) {
+                    this.alive = false;
+                    if (this.isKing) endGame(this.side === 'player' ? 'ENEMY' : 'PLAYER');
+                }
             }
         }
 
-        function initGame() {
-            // Башни игрока
-            towers.push(new Tower(200, 630, 'player', true));
-            towers.push(new Tower(80, 530, 'player', false));
-            towers.push(new Tower(320, 530, 'player', false));
-
-            // Башни врага
-            towers.push(new Tower(200, 70, 'enemy', true));
-            towers.push(new Tower(80, 170, 'enemy', false));
-            towers.push(new Tower(320, 170, 'enemy', false));
+        function setupMatch() {
+            entities = [];
+            // Игрок
+            entities.push(new Tower(200, 620, 'player', true));
+            entities.push(new Tower(80, 520, 'player', false));
+            entities.push(new Tower(320, 520, 'player', false));
+            // Бот
+            entities.push(new Tower(200, 80, 'enemy', true));
+            entities.push(new Tower(80, 180, 'enemy', false));
+            entities.push(new Tower(320, 180, 'enemy', false));
         }
 
         function drawArena() {
             // Трава
-            ctx.fillStyle = '#55a630';
+            ctx.fillStyle = "#2ecc71";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
+            // Дорожки
+            ctx.fillStyle = "#edbb99";
+            ctx.fillRect(60, 0, 60, 700);
+            ctx.fillRect(280, 0, 60, 700);
+            
             // Река
-            ctx.fillStyle = '#0077b6';
-            ctx.fillRect(0, canvas.height/2 - 25, canvas.width, 50);
-
+            ctx.fillStyle = "#3498db";
+            ctx.fillRect(0, 340, 400, 30);
+            
             // Мосты
-            ctx.fillStyle = '#795548';
-            ctx.fillRect(60, canvas.height/2 - 35, 60, 70);
-            ctx.fillRect(280, canvas.height/2 - 35, 60, 70);
-
-            // Сетка дорожек
-            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-            ctx.lineWidth = 1;
-            for(let i=0; i<canvas.width; i+=40) {
-                ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i, canvas.height); ctx.stroke();
-            }
+            ctx.fillStyle = "#8d6e63";
+            bridges.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
         }
 
-        function selectCard(index, el) {
-            selectedCardIndex = index;
-            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
-            el.classList.add('active');
+        function startGame() {
+            document.getElementById('menu-overlay').style.display = 'none';
+            setupMatch();
+            gameActive = true;
+            elixir = 5;
+            enemyElixir = 0;
+            loop();
         }
 
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+        function endGame(winner) {
+            gameActive = false;
+            document.getElementById('menu-overlay').style.display = 'flex';
+            document.getElementById('menu-overlay').innerHTML = `<h1>${winner} ПОБЕДИЛ!</h1><button class="btn-start" onclick="location.reload()">МЕНЮ</button>`;
+        }
 
-            // Ограничение зоны высадки (только на своей половине)
-            if (y > canvas.height / 2 + 30) {
-                let cost = cardData[selectedCardIndex].cost;
+        function setCard(idx) {
+            selectedSlot = idx;
+            for(let i=0; i<3; i++) document.getElementById('card'+i).classList.remove('active');
+            document.getElementById('card'+idx).classList.add('active');
+        }
+
+        canvas.onclick = (e) => {
+            if (!gameActive) return;
+            let rect = canvas.getBoundingClientRect();
+            let x = e.clientX - rect.left;
+            let y = e.clientY - rect.top;
+
+            if (y > 370) { // Только на своей стороне
+                let cost = cardStats[selectedSlot].cost;
                 if (elixir >= cost) {
-                    units.push(new Unit(x, y, 'player', cardData[selectedCardIndex]));
+                    entities.push(new Entity(x, y, 'player', selectedSlot));
                     elixir -= cost;
                 }
             }
-        });
+        };
 
-        // БОТ: Простая логика противника
-        function enemyAI() {
-            if (enemyElixir >= 5) {
-                let randomCard = cardData[Math.floor(Math.random() * cardData.length)];
-                let spawnX = Math.random() * (canvas.width - 40) + 20;
-                let spawnY = Math.random() * 100 + 100;
-                units.push(new Unit(spawnX, spawnY, 'enemy', randomCard));
-                enemyElixir -= randomCard.cost;
+        function botLogic() {
+            // ЛЕГКИЙ БОТ: копит эликсир медленнее и ходит редко
+            enemyElixir += 0.005; 
+            if (enemyElixir >= 6) {
+                let botX = Math.random() > 0.5 ? 90 : 310;
+                entities.push(new Entity(botX, 100, 'enemy', Math.floor(Math.random()*3)));
+                enemyElixir = 0;
             }
         }
 
-        function update() {
-            // Эликсир
-            if (elixir < maxElixir) elixir += 0.008;
-            if (enemyElixir < maxElixir) enemyElixir += 0.007;
+        function loop() {
+            if (!gameActive) return;
 
-            elixirFill.style.width = (elixir / maxElixir) * 100 + '%';
-            elixirText.innerText = Math.floor(elixir);
-
-            units = units.filter(u => u.hp > 0);
-            towers.forEach(t => { if(t.hp <= 0) t.alive = false; });
-            projectiles = projectiles.filter(p => p.alive);
-
-            units.forEach(u => u.update());
-            towers.forEach(t => t.update());
-            projectiles.forEach(p => p.update());
-
-            enemyAI();
-        }
-
-        function draw() {
+            ctx.clearRect(0,0,400,700);
             drawArena();
-            towers.forEach(t => t.draw());
-            units.forEach(u => u.draw());
-            projectiles.forEach(p => p.draw());
+
+            // Эликсир игрока
+            if (elixir < 10) elixir += 0.012;
+            document.getElementById('elixir-bar').style.width = (elixir * 10) + "%";
+
+            botLogic();
+
+            // Лучи башен (визуализация выстрела)
+            particles = particles.filter(p => p.age < 10);
+            particles.forEach(p => {
+                ctx.strokeStyle = "yellow";
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.tx, p.ty); ctx.stroke();
+                p.age++;
+            });
+
+            entities = entities.filter(e => e.alive);
+            entities.forEach(e => {
+                e.update();
+                e.draw();
+            });
+
+            requestAnimationFrame(loop);
         }
 
-        function gameLoop() {
-            update();
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
-
-        initGame();
-        gameLoop();
+        // Инициализация меню
+        setCard(0);
     </script>
 </body>
 </html>
