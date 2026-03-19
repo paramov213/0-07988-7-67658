@@ -3,86 +3,558 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nitro Messenger</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="/socket.io/socket.io.js"></script>
+    <title>Nitro Messenger | Full Access</title>
+    <!-- Подключаем Socket.io (если сервера нет, скрипт просто выдаст ворнинг, но интерфейс не упадет) -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <style>
+        :root {
+            --dark-black: #111214;
+            --bg-dark: #1e1f22;
+            --bg-main: #313338;
+            --bg-sidebar: #2b2d31;
+            --accent: #5865f2;
+            --accent-hover: #4752c4;
+            --text-white: #f2f3f5;
+            --text-muted: #b5bac1;
+            --green: #23a55a;
+            --red: #f23f43;
+            --input-bg: #1e1f22;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--dark-black);
+            color: var(--text-white);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s ease;
+        }
+
+        .hidden {
+            display: none !important;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* --- ЛОУДЕР --- */
+        .loader-content {
+            text-align: center;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- АВТОРИЗАЦИЯ --- */
+        .auth-card {
+            background: var(--bg-main);
+            padding: 32px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+            text-align: center;
+        }
+
+        h2 { margin-bottom: 8px; font-size: 24px; }
+        .subtitle { color: var(--text-muted); margin-bottom: 20px; }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            background: var(--input-bg);
+            border: none;
+            padding: 10px;
+            color: white;
+            border-radius: 3px;
+            outline: none;
+            font-size: 16px;
+        }
+
+        input:focus {
+            box-shadow: 0 0 0 2px var(--accent);
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 3px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .auth-footer {
+            margin-top: 16px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .link {
+            color: #00a8fc;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .link:hover { text-decoration: underline; }
+
+        /* --- ГЛАВНЫЙ ЭКРАН --- */
+        #app-screen {
+            display: flex;
+            align-items: stretch;
+            justify-content: flex-start;
+            background: var(--bg-main);
+        }
+
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .sidebar-header {
+            padding: 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .search-box {
+            background: var(--dark-black);
+            border-radius: 4px;
+            padding: 4px 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-box input {
+            background: transparent;
+            font-size: 13px;
+            padding: 4px;
+        }
+
+        .user-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 8px;
+        }
+
+        .user-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 2px;
+            transition: background 0.1s;
+        }
+
+        .user-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .user-item.active {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--accent);
+            margin-right: 12px;
+            position: relative;
+        }
+
+        .status-dot {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid var(--bg-sidebar);
+            background: var(--green);
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-main);
+        }
+
+        .chat-header {
+            height: 48px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(0,0,0,0.2);
+            font-weight: bold;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .message-content {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message-user {
+            font-size: 14px;
+            font-weight: 500;
+            color: white;
+            margin-bottom: 4px;
+        }
+
+        .message-text {
+            font-size: 15px;
+            color: #dbdee1;
+        }
+
+        .chat-input-container {
+            padding: 0 16px 24px;
+        }
+
+        .input-wrapper {
+            background: #383a40;
+            border-radius: 8px;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper input {
+            background: transparent;
+            padding: 0;
+        }
+
+        .sidebar-footer {
+            background: #232428;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .my-info {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .my-name { font-size: 13px; font-weight: bold; }
+        .my-id { font-size: 11px; color: var(--text-muted); }
+
+    </style>
 </head>
 <body>
 
-    <!-- Экран загрузки и автовхода -->
-    <div id="loading-screen" class="screen">
-        <div class="loader-box">
+    <!-- ЭКРАН ЗАГРУЗКИ -->
+    <div id="screen-loading" class="screen">
+        <div class="loader-content">
             <div class="spinner"></div>
-            <p>Проверка сессии...</p>
+            <p id="loading-text">Инициализация Nitro...</p>
         </div>
     </div>
 
-    <!-- Экран авторизации -->
-    <div id="auth-screen" class="screen hidden">
+    <!-- ЭКРАН АВТОРИЗАЦИИ -->
+    <div id="screen-auth" class="screen hidden">
         <div class="auth-card">
-            <h2 id="auth-header">С возвращением!</h2>
-            <p id="auth-subheader" class="subtitle">Мы так рады видеть вас снова!</p>
+            <h2 id="auth-title">С возвращением!</h2>
+            <p id="auth-subtitle" class="subtitle">Мы так рады видеть вас снова!</p>
             
-            <div class="input-group">
+            <div class="form-group">
                 <label>ИМЯ ПОЛЬЗОВАТЕЛЯ</label>
-                <input type="text" id="auth-username" spellcheck="false">
+                <input type="text" id="input-username" spellcheck="false">
             </div>
             
-            <div class="input-group">
+            <div class="form-group">
                 <label>ПАРОЛЬ</label>
-                <input type="password" id="auth-password">
+                <input type="password" id="input-password">
             </div>
-            
-            <button id="auth-submit-btn">Вход</button>
+
+            <button class="btn-primary" id="btn-auth-submit">Вход</button>
             
             <p class="auth-footer">
-                <span id="auth-footer-text">Нужен аккаунт?</span> 
-                <span id="auth-toggle-link">Зарегистрироваться</span>
+                <span id="footer-text">Нужен аккаунт?</span> 
+                <span class="link" id="btn-toggle-mode">Зарегистрироваться</span>
             </p>
         </div>
     </div>
 
-    <!-- Главный экран приложения -->
-    <div id="app-screen" class="screen hidden">
+    <!-- ЭКРАН ПРИЛОЖЕНИЯ -->
+    <div id="screen-app" class="screen hidden">
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="profile-preview" id="open-profile-settings">
-                    <img src="" id="user-avatar-top" alt="Avatar">
-                    <div class="status-dot online"></div>
-                </div>
-                <div class="search-container">
-                    <input type="text" id="user-search-input" placeholder="Найти друга...">
+                <div class="search-box">
+                    <input type="text" id="user-search" placeholder="Поиск или начало беседы">
                 </div>
             </div>
-            <div id="chat-list" class="chat-list-container">
-                <!-- Сюда динамически добавляются активные контакты -->
+
+            <div class="user-list" id="contacts-container">
+                <!-- Контакты появятся тут -->
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="avatar">
+                    <div class="status-dot"></div>
+                </div>
+                <div class="my-info">
+                    <div class="my-name" id="display-my-name">User</div>
+                    <div class="my-id">#0001</div>
+                </div>
+                <button id="btn-logout" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">Выход</button>
             </div>
         </aside>
 
-        <main class="chat-window">
-            <header id="chat-header" class="chat-header hidden">
-                <div class="active-user-info">
-                    <h3 id="current-chat-name">Имя пользователя</h3>
-                    <span id="current-chat-status" class="status-indicator">в сети</span>
-                </div>
+        <main class="chat-area">
+            <header class="chat-header">
+                <span id="active-chat-name">Выберите собеседника</span>
             </header>
-            
-            <div id="messages-display" class="messages-display">
-                <div class="welcome-screen">
-                    <h3>Добро пожаловать в Nitro</h3>
-                    <p>Выберите собеседника, чтобы начать общение.</p>
+
+            <div class="messages" id="messages-container">
+                <div style="text-align: center; color: var(--text-muted); margin-top: 50px;">
+                    У вас нет открытых диалогов
                 </div>
             </div>
-            
-            <footer id="chat-input-area" class="chat-input-area hidden">
-                <div class="input-bar-wrapper">
-                    <input type="text" id="message-input-field" placeholder="Написать сообщение...">
-                    <button id="send-msg-btn">➤</button>
+
+            <div class="chat-input-container">
+                <div class="input-wrapper">
+                    <input type="text" id="input-message" placeholder="Написать сообщение...">
                 </div>
-            </footer>
+            </div>
         </main>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        // --- КОНФИГУРАЦИЯ ---
+        const API_URL = window.location.origin; // Путь к вашему серверу
+        let isRegisterMode = false;
+        let currentUser = null;
+        let socket = null;
+
+        // Элементы
+        const sLoading = document.getElementById('screen-loading');
+        const sAuth = document.getElementById('screen-auth');
+        const sApp = document.getElementById('screen-app');
+        
+        const btnAuth = document.getElementById('btn-auth-submit');
+        const btnToggle = document.getElementById('btn-toggle-mode');
+        const btnLogout = document.getElementById('btn-logout');
+
+        const inputUser = document.getElementById('input-username');
+        const inputPass = document.getElementById('input-password');
+
+        // --- ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ЭКРАНОВ ---
+        function showScreen(screenId) {
+            [sLoading, sAuth, sApp].forEach(s => s.classList.add('hidden'));
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        // --- АВТОВХОД (LocalStorage + JWT) ---
+        async function checkAutoLogin() {
+            const token = localStorage.getItem('nitro_token');
+            if (!token) {
+                showScreen('screen-auth');
+                return;
+            }
+
+            try {
+                // Имитация запроса к /api/auth/me
+                const response = await fetch(`${API_URL}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const user = await response.json();
+                    loginSuccess(user, token);
+                } else {
+                    throw new Error('Сессия истекла');
+                }
+            } catch (err) {
+                console.warn("Автовход не удался, вход через форму.");
+                localStorage.removeItem('nitro_token');
+                showScreen('screen-auth');
+            }
+        }
+
+        // --- ОБРАБОТЧИКИ КНОПОК АВТОРИЗАЦИИ ---
+        btnToggle.onclick = () => {
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('auth-title').innerText = isRegisterMode ? 'Создать аккаунт' : 'С возвращением!';
+            btnAuth.innerText = isRegisterMode ? 'Зарегистрироваться' : 'Вход';
+            btnToggle.innerText = isRegisterMode ? 'Войти' : 'Зарегистрироваться';
+            document.getElementById('footer-text').innerText = isRegisterMode ? 'Уже есть аккаунт?' : 'Нужен аккаунт?';
+        };
+
+        btnAuth.onclick = async () => {
+            const username = inputUser.value.trim();
+            const password = inputPass.value.trim();
+
+            if (!username || !password) {
+                alert("Заполните все поля!");
+                return;
+            }
+
+            btnAuth.disabled = true;
+            btnAuth.innerText = "Загрузка...";
+
+            const path = isRegisterMode ? '/api/auth/register' : '/api/auth/login';
+
+            try {
+                const response = await fetch(`${API_URL}${path}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    loginSuccess(data.user, data.token);
+                } else {
+                    alert(data.error || "Ошибка авторизации");
+                }
+            } catch (err) {
+                alert("Ошибка: Сервер не отвечает. Убедитесь, что server.js запущен.");
+                console.error(err);
+            } finally {
+                btnAuth.disabled = false;
+                btnAuth.innerText = isRegisterMode ? 'Зарегистрироваться' : 'Вход';
+            }
+        };
+
+        function loginSuccess(user, token) {
+            currentUser = user;
+            localStorage.setItem('nitro_token', token);
+            document.getElementById('display-my-name').innerText = user.username;
+            
+            showScreen('screen-app');
+            initSocket(token);
+            loadInitialData();
+        }
+
+        btnLogout.onclick = () => {
+            localStorage.removeItem('nitro_token');
+            location.reload();
+        };
+
+        // --- СОКЕТЫ И ДАННЫЕ ---
+        function initSocket(token) {
+            if (typeof io !== 'undefined') {
+                socket = io(API_URL);
+                socket.emit('authenticate', token);
+                
+                socket.on('newMessage', (msg) => {
+                    appendMessage(msg);
+                });
+            }
+        }
+
+        function loadInitialData() {
+            // Здесь можно загрузить список друзей
+            const container = document.getElementById('contacts-container');
+            container.innerHTML = `
+                <div class="user-item active">
+                    <div class="avatar"><div class="status-dot"></div></div>
+                    <span>Общий чат</span>
+                </div>
+            `;
+        }
+
+        function appendMessage(msg) {
+            const container = document.getElementById('messages-container');
+            const div = document.createElement('div');
+            div.className = 'message-row';
+            div.innerHTML = `
+                <div class="avatar"></div>
+                <div class="message-content">
+                    <div class="message-user">${msg.username || 'User'}</div>
+                    <div class="message-text">${msg.text}</div>
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Отправка сообщения на Enter
+        document.getElementById('input-message').onkeydown = (e) => {
+            if (e.key === 'Enter' && e.target.value.trim()) {
+                const text = e.target.value;
+                if (socket) {
+                    socket.emit('sendMessage', { text, username: currentUser.username });
+                } else {
+                    // Если сокета нет, просто имитируем
+                    appendMessage({ text, username: currentUser.username });
+                }
+                e.target.value = '';
+            }
+        };
+
+        // Запуск
+        window.onload = () => {
+            setTimeout(checkAutoLogin, 1000); // Небольшая задержка для красоты лоудера
+        };
+    </script>
 </body>
 </html>
