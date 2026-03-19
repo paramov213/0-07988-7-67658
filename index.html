@@ -10,30 +10,31 @@
     <meta name="format-detection" content="telephone=no">
     <meta name="msapplication-tap-highlight" content="no">
     
-    <title>Celestra OS v8.0 — Enterprise Eternal Engine</title>
+    <title>Celestra OS v10.0 — Pure Communication Engine</title>
     
     <style>
-        /* --- [1. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И ТОКЕНЫ СИСТЕМЫ] --- */
+        /* --- [1. СИСТЕМНЫЕ ПЕРЕМЕННЫЕ (DESIGN TOKENS)] --- */
         :root {
             --ios-blue: #007aff;
             --ios-blue-light: #58a6ff;
             --ios-green: #34c759;
             --ios-red: #ff3b30;
-            --ios-orange: #ff9500;
             --ios-gray: #8e8e93;
             --ios-bg: #000000;
             --ios-panel: #1c1c1e;
             --ios-secondary-panel: #2c2c2e;
             --ios-text: #ffffff;
             --ios-text-muted: #a1a1a6;
-            --border-glow: rgba(0, 122, 255, 0.4);
             --safe-top: env(safe-area-inset-top);
             --safe-bottom: env(safe-area-inset-bottom);
-            --glass-blur: blur(40px);
-            --transition-main: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            --glass-blur: blur(50px);
+            --transition-speed: 0.5s;
+            --transition-curve: cubic-bezier(0.16, 1, 0.3, 1);
+            --border-radius-main: 28px;
+            --shadow-main: 0 15px 45px rgba(0, 0, 0, 0.5);
         }
 
-        /* --- [2. ГЛОБАЛЬНЫЙ СБРОС И БАЗОВЫЕ ПРАВИЛА] --- */
+        /* --- [2. ГЛОБАЛЬНЫЙ СБРОС (CSS RESET)] --- */
         * { 
             box-sizing: border-box; 
             margin: 0; 
@@ -43,7 +44,7 @@
             -moz-osx-font-smoothing: grayscale;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
-            -webkit-user-drag: none;
+            -webkit-touch-callout: none;
         }
 
         html, body {
@@ -55,12 +56,11 @@
             overflow: hidden;
             position: fixed;
             touch-action: none;
-            cursor: default;
         }
 
-        /* --- [3. СИСТЕМА АНИМАЦИЙ И ЭФФЕКТОВ] --- */
+        /* --- [3. СИСТЕМА АНИМАЦИЙ (ANIMATION ENGINE)] --- */
         @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.97) translateY(15px); }
+            from { opacity: 0; transform: scale(0.96) translateY(20px); }
             to { opacity: 1; transform: scale(1) translateY(0); }
         }
 
@@ -69,296 +69,319 @@
             to { transform: translateY(0); }
         }
 
-        @keyframes pulseGlow {
-            0% { box-shadow: 0 0 10px rgba(0, 122, 255, 0.2); }
-            50% { box-shadow: 0 0 25px rgba(0, 122, 255, 0.5); }
-            100% { box-shadow: 0 0 10px rgba(0, 122, 255, 0.2); }
+        @keyframes messagePop {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
         }
 
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
+        @keyframes spinnerRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
-        .fade-in { animation: fadeIn 0.7s cubic-bezier(0.23, 1, 0.32, 1) both; }
-        .slide-up { animation: slideUp 0.55s cubic-bezier(0.19, 1, 0.22, 1) both; }
+        .fade-in { animation: fadeIn 0.8s var(--transition-curve) both; }
+        .slide-up { animation: slideUp 0.6s var(--transition-curve) both; }
+        .msg-anim { animation: messagePop 0.4s var(--transition-curve) both; }
 
-        /* --- [4. ЭКРАН АВТОРИЗАЦИИ: MAXIMUM PERSISTENCE] --- */
+        /* --- [4. ЭКРАН АВТОРИЗАЦИИ (AUTH MODULE)] --- */
         #auth-portal {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(circle at 50% 50%, #1c1c1e 0%, #000000 100%);
+            background: radial-gradient(circle at center, #2c2c2e 0%, #000000 100%);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 10000;
-            transition: opacity 0.8s ease-in-out, visibility 0.8s;
+            transition: opacity 0.8s ease, visibility 0.8s;
         }
 
         .auth-card {
-            width: 88%;
+            width: 90%;
             max-width: 440px;
+            padding: 40px;
             text-align: center;
-            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border-radius: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: var(--shadow-main);
         }
 
-        .brand-logo-large {
-            font-size: 92px;
+        .brand-header {
+            font-size: 88px;
             font-weight: 900;
             letter-spacing: -7px;
             color: var(--ios-blue);
-            text-shadow: 0 0 80px rgba(0, 122, 255, 0.7);
-            margin-bottom: 60px;
-            display: inline-block;
+            text-shadow: 0 0 70px rgba(0, 122, 255, 0.6);
+            margin-bottom: 45px;
             user-select: none;
-            filter: drop-shadow(0 0 10px rgba(0,122,255,0.4));
         }
 
-        .auth-field-group {
+        .input-group {
             position: relative;
             margin-bottom: 25px;
             width: 100%;
         }
 
-        .ios-input-premium {
+        .ios-input-field {
             width: 100%;
             padding: 24px 30px;
             background: var(--ios-panel);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 28px;
-            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            color: #ffffff;
             font-size: 20px;
             font-weight: 500;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
         }
 
-        .ios-input-premium:focus {
+        .ios-input-field:focus {
             border-color: var(--ios-blue);
             background: var(--ios-secondary-panel);
-            box-shadow: 0 0 0 5px rgba(0, 122, 255, 0.18), inset 0 2px 4px rgba(0,0,0,0.5);
-            transform: translateY(-2px);
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.2);
         }
 
-        .ios-btn-main {
+        .btn-primary {
             width: 100%;
             padding: 24px;
-            border-radius: 28px;
+            border-radius: 25px;
             border: none;
+            background: var(--ios-blue);
+            color: #ffffff;
             font-size: 22px;
             font-weight: 800;
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            background: var(--ios-blue);
-            color: #fff;
-            box-shadow: 0 18px 45px rgba(0, 122, 255, 0.4);
-            margin-top: 20px;
+            box-shadow: 0 15px 35px rgba(0, 122, 255, 0.4);
+            margin-top: 15px;
         }
 
-        .ios-btn-main:active { transform: scale(0.94); opacity: 0.9; }
+        .btn-primary:active { transform: scale(0.95); opacity: 0.9; }
 
-        .ios-btn-ghost {
+        .btn-ghost-action {
+            width: 100%;
             background: transparent;
+            border: none;
             color: var(--ios-gray);
-            margin-top: 30px;
             font-size: 18px;
             font-weight: 600;
-            border: none;
+            margin-top: 30px;
             cursor: pointer;
             transition: color 0.3s;
         }
 
-        .ios-btn-ghost:hover { color: var(--ios-text); }
+        .btn-ghost-action:hover { color: #ffffff; }
 
-        /* --- [5. ГЛАВНЫЙ ИНТЕРФЕЙС ПРИЛОЖЕНИЯ] --- */
+        /* --- [5. ГЛАВНОЕ ПРИЛОЖЕНИЕ (APPLICATION SHELL)] --- */
         #app-shell {
             width: 100%;
             height: 100%;
             display: none;
             flex-direction: column;
             opacity: 0;
-            transition: opacity 0.8s var(--transition-main);
-            background: var(--ios-bg);
+            transition: opacity 0.8s var(--transition-curve);
         }
 
-        .nav-bar-top {
-            height: calc(120px + var(--safe-top));
+        .header-navigation {
+            height: calc(110px + var(--safe-top));
             padding: var(--safe-top) 25px 0 25px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: rgba(10, 10, 10, 0.8);
+            background: rgba(18, 18, 18, 0.85);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             z-index: 1000;
-            position: relative;
         }
 
-        .user-profile-trigger {
-            width: 62px;
-            height: 62px;
+        .avatar-container {
+            width: 58px;
+            height: 58px;
             border-radius: 50%;
             border: 3px solid var(--ios-blue);
-            overflow: hidden;
-            background: #222;
+            padding: 2px;
             cursor: pointer;
             transition: transform 0.3s;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
         }
 
-        .user-profile-trigger:active { transform: scale(0.9); }
-        .user-profile-trigger img { width: 100%; height: 100%; object-fit: cover; }
+        .avatar-container:active { transform: scale(0.9); }
 
-        .app-title-central { 
-            font-size: 38px; 
-            font-weight: 900; 
-            letter-spacing: -2.5px; 
-            background: linear-gradient(180deg, #fff 0%, #aaa 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .avatar-container img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #222;
         }
 
-        .economy-pill {
-            background: var(--ios-green);
-            color: #000;
-            padding: 12px 24px;
-            border-radius: 28px;
+        .app-title {
+            font-size: 34px;
             font-weight: 900;
-            font-size: 17px;
-            box-shadow: 0 10px 30px rgba(52, 199, 89, 0.35);
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            letter-spacing: -2px;
+            color: #ffffff;
         }
 
-        /* --- [6. СПИСОК ЧАТОВ И ПОИСК] --- */
-        .search-container {
-            padding: 25px;
+        .search-module {
+            padding: 20px 25px;
             background: var(--ios-bg);
         }
 
-        .search-input-field {
+        .search-bar {
             width: 100%;
+            padding: 18px 25px;
             background: var(--ios-panel);
             border-radius: 20px;
             border: none;
-            padding: 18px 25px;
-            color: #fff;
+            color: #ffffff;
             font-size: 18px;
             font-weight: 500;
         }
 
-        .chats-scroller {
+        /* --- [6. СПИСОК ЧАТОВ (DIALOG LIST)] --- */
+        .dialogs-viewport {
             flex: 1;
             overflow-y: scroll;
-            padding-bottom: 140px;
+            padding-bottom: 120px;
             -webkit-overflow-scrolling: touch;
         }
 
-        .chat-row-item {
-            padding: 26px 25px;
+        .dialog-item-row {
+            padding: 24px 25px;
             display: flex;
             align-items: center;
-            gap: 22px;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
-            transition: background 0.3s;
+            gap: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
             cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .dialog-item-row:active { background: var(--ios-panel); }
+
+        .dialog-avatar-frame {
             position: relative;
+            width: 76px;
+            height: 76px;
+            flex-shrink: 0;
         }
 
-        .chat-row-item:active { background: var(--ios-panel); }
-
-        .chat-avatar-frame {
-            position: relative;
-            width: 82px;
-            height: 82px;
+        .dialog-avatar-frame img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            background: var(--ios-secondary-panel);
         }
 
-        .chat-avatar-img { 
-            width: 100%; height: 100%; 
-            border-radius: 50%; 
-            object-fit: cover; 
-            background: var(--ios-secondary-panel); 
-        }
-
-        .online-status-dot {
+        .online-dot {
             position: absolute;
             bottom: 4px;
             right: 4px;
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             background: var(--ios-green);
-            border: 4px solid var(--ios-bg);
+            border: 3px solid #000000;
             border-radius: 50%;
         }
 
-        .chat-row-body { flex: 1; min-width: 0; }
-        .chat-row-body h4 { font-size: 21px; font-weight: 700; margin-bottom: 6px; color: #fff; }
-        .chat-row-body p { font-size: 18px; color: var(--ios-gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        /* --- [7. ОКНО ЧАТА: EXECUTIVE FULLSCREEN] --- */
-        #chat-overlay {
-            position: fixed;
-            top: 0; left: 100%; width: 100%; height: 100%;
-            background: #000;
-            z-index: 5000;
-            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-            display: flex;
-            flex-direction: column;
+        .dialog-body-content {
+            flex: 1;
+            min-width: 0;
         }
 
-        #chat-overlay.active { transform: translateX(-100%); }
+        .dialog-body-content h4 {
+            font-size: 21px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #ffffff;
+        }
 
-        .messages-viewport {
+        .dialog-body-content p {
+            font-size: 17px;
+            color: var(--ios-gray);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 400;
+        }
+
+        /* --- [7. ОКНО ЧАТА (EXECUTIVE MESSAGING OVERLAY)] --- */
+        #chat-window-overlay {
+            position: fixed;
+            top: 0;
+            left: 100%;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            z-index: 5000;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.5s var(--transition-curve);
+        }
+
+        #chat-window-overlay.is-visible { transform: translateX(-100%); }
+
+        .chat-header {
+            height: calc(110px + var(--safe-top));
+            padding: var(--safe-top) 25px 0 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(20, 20, 20, 0.9);
+            backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .back-button {
+            background: none;
+            border: none;
+            color: var(--ios-blue);
+            font-size: 20px;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 10px 0;
+        }
+
+        .messages-scroll-box {
             flex: 1;
             padding: 30px 25px;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 22px;
-            overflow-y: auto;
             background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
-            background-blend-mode: color-burn;
+            background-blend-mode: overlay;
             background-color: #080808;
+            -webkit-overflow-scrolling: touch;
         }
 
         .message-bubble {
-            max-width: 85%;
-            padding: 20px 26px;
-            border-radius: 30px;
+            max-width: 82%;
+            padding: 18px 24px;
+            border-radius: 28px;
             font-size: 19px;
-            line-height: 1.55;
+            line-height: 1.5;
             position: relative;
             word-wrap: break-word;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            animation: messagePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         }
 
-        @keyframes messagePop {
-            from { transform: scale(0.8); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-
-        .message-bubble.me {
+        .message-bubble.is-me {
             background: linear-gradient(135deg, var(--ios-blue) 0%, #0056b3 100%);
-            color: #fff;
+            color: #ffffff;
             align-self: flex-end;
-            border-bottom-right-radius: 5px;
+            border-bottom-right-radius: 4px;
         }
 
-        .message-bubble.other {
+        .message-bubble.is-other {
             background: var(--ios-panel);
-            color: #fff;
+            color: #ffffff;
             align-self: flex-start;
-            border-bottom-left-radius: 5px;
+            border-bottom-left-radius: 4px;
         }
 
-        .message-timestamp {
-            font-size: 13px;
+        .message-meta {
+            font-size: 12px;
             opacity: 0.6;
             margin-top: 10px;
             display: block;
@@ -366,499 +389,454 @@
             font-weight: 600;
         }
 
-        /* --- [8. ПАНЕЛЬ ВВОДА В ЧАТЕ] --- */
-        .chat-input-toolbar {
+        /* --- [8. ПАНЕЛЬ ВВОДА (INPUT CONTROLLER)] --- */
+        .input-panel-wrapper {
             padding: 20px 25px;
             padding-bottom: calc(20px + var(--safe-bottom));
             background: var(--ios-panel);
             display: flex;
             align-items: center;
-            gap: 18px;
-            border-top: 1px solid rgba(255,255,255,0.06);
+            gap: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        .toolbar-btn {
-            background: none; border: none; font-size: 32px; cursor: pointer; transition: transform 0.2s;
-        }
-        .toolbar-btn:active { transform: scale(0.85); }
-
-        .chat-main-input {
+        .text-input-field {
             flex: 1;
             background: var(--ios-secondary-panel);
             border: none;
-            padding: 20px 28px;
-            border-radius: 32px;
-            color: #fff;
+            padding: 18px 26px;
+            border-radius: 30px;
+            color: #ffffff;
             font-size: 19px;
             font-weight: 500;
         }
 
-        /* --- [9. МОДАЛЬНОЕ ОКНО ПРОФИЛЯ] --- */
-        .profile-fullview {
+        .send-button-icon {
+            background: none;
+            border: none;
+            font-size: 32px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .send-button-icon:active { transform: scale(0.85); }
+
+        /* --- [9. МОДАЛЬНОЕ ОКНО ПРОФИЛЯ (PROFILE CONTROLLER)] --- */
+        .profile-modal-overlay {
             position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.98);
-            backdrop-filter: blur(30px);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.98);
+            backdrop-filter: blur(35px);
             z-index: 9000;
             display: none;
             flex-direction: column;
             align-items: center;
-            padding-top: 140px;
+            padding-top: 120px;
         }
 
-        .profile-avatar-big {
-            width: 220px; height: 220px;
+        .profile-avatar-giant {
+            width: 200px;
+            height: 200px;
             border-radius: 50%;
-            border: 7px solid var(--ios-blue);
-            margin-bottom: 45px;
+            border: 6px solid var(--ios-blue);
+            margin-bottom: 40px;
             object-fit: cover;
-            box-shadow: 0 0 70px rgba(0, 122, 255, 0.5);
-            animation: pulseGlow 3s infinite;
+            box-shadow: 0 0 60px rgba(0, 122, 255, 0.4);
         }
 
-        .profile-name-title { font-size: 44px; font-weight: 900; margin-bottom: 12px; }
-        .profile-id-sub { color: var(--ios-gray); margin-bottom: 60px; font-size: 20px; letter-spacing: 1px; }
+        .profile-username-text { font-size: 42px; font-weight: 900; margin-bottom: 10px; }
+        .profile-id-subtext { color: var(--ios-gray); margin-bottom: 50px; font-size: 20px; }
 
-        /* --- [10. СИСТЕМНЫЕ ИНДИКАТОРЫ] --- */
-        .system-toaster {
+        /* --- [10. СИСТЕМНЫЙ ЛОГ (STATUS MONITOR)] --- */
+        .system-status-indicator {
             position: fixed;
-            bottom: 50px;
+            bottom: 45px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(40, 40, 40, 0.9);
-            padding: 14px 32px;
-            border-radius: 40px;
-            font-size: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px 28px;
+            border-radius: 35px;
+            font-size: 13px;
             font-weight: 800;
             letter-spacing: 2px;
             text-transform: uppercase;
-            color: var(--ios-text-muted);
+            color: var(--ios-gray);
             pointer-events: none;
             z-index: 15000;
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
         }
-
-        /* --- [11. ИНДИКАТОР ЗАГРУЗКИ] --- */
-        .spinner {
-            width: 24px; height: 24px;
-            border: 3px solid rgba(255,255,255,0.1);
-            border-top-color: var(--ios-blue);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
 
     </style>
 </head>
 <body>
 
-    <!-- [ФРЕЙМ АВТОРИЗАЦИИ] -->
+    <!-- [AUTH PORTAL LAYER] -->
     <div id="auth-portal">
         <div class="auth-card fade-in">
-            <div class="brand-logo-large">CELESTRA</div>
-            <div class="auth-field-group">
-                <input type="text" id="auth-username" class="ios-input-premium" placeholder="ID Аккаунта" autocomplete="off" autocorrect="off">
+            <div class="brand-header">CELESTRA</div>
+            <div class="input-group">
+                <input type="text" id="id-input-field" class="ios-input-field" placeholder="ID Аккаунта" autocomplete="off" autocorrect="off">
             </div>
-            <div class="auth-field-group">
-                <input type="password" id="auth-password" class="ios-input-premium" placeholder="Мастер-ключ" autocomplete="off">
+            <div class="input-group">
+                <input type="password" id="key-input-field" class="ios-input-field" placeholder="Секретный ключ">
             </div>
-            <button onclick="handleSystemAuth('login')" class="ios-btn-main">
-                <span>ВОЙТИ В СИСТЕМУ</span>
-                <div id="login-spinner" class="spinner" style="display:none;"></div>
-            </button>
-            <button onclick="handleSystemAuth('reg')" class="ios-btn-ghost">Создать зашифрованный профиль</button>
+            <button onclick="handleAuthAction('login')" class="btn-primary">ВХОД В СИСТЕМУ</button>
+            <button onclick="handleAuthAction('reg')" class="btn-ghost-action">Создать новую зашифрованную личность</button>
         </div>
     </div>
 
-    <!-- [ГЛАВНОЕ ПРИЛОЖЕНИЕ] -->
+    <!-- [MAIN APPLICATION CORE LAYER] -->
     <div id="app-shell">
-        <header class="nav-bar-top">
-            <div class="user-profile-trigger" onclick="openProfileView()">
-                <img id="my-avatar-top" src="https://via.placeholder.com/150">
+        <header class="header-navigation">
+            <div class="avatar-container" onclick="openProfileController()">
+                <img id="my-profile-avatar" src="">
             </div>
-            <div class="app-title-central">Celestra</div>
-            <div class="economy-pill">
-                <span id="my-wallet-val">0</span> 💰
-            </div>
+            <div class="app-title">Celestra</div>
+            <div style="width: 58px;"></div>
         </header>
 
-        <div class="search-container">
-            <input type="text" class="search-input-field" placeholder="Поиск по контактам и ID..." oninput="filterChatList(this.value)">
+        <div class="search-module">
+            <input type="text" class="search-bar" placeholder="Поиск по контактам..." oninput="filterDialogList(this.value)">
         </div>
 
-        <div id="dialogs-master-list" class="chats-scroller">
-            <!-- Сюда вставляются чаты через JS -->
+        <div id="dialogs-list-root" class="dialogs-viewport">
+            <!-- Динамический рендеринг чатов -->
         </div>
     </div>
 
-    <!-- [ОКНО ЧАТА С ПОЛНЫМ ФУНКЦИОНАЛОМ] -->
-    <div id="chat-overlay">
-        <header class="nav-bar-top">
-            <button onclick="closeChatOverlay()" style="background:none; border:none; color:var(--ios-blue); font-size:22px; font-weight:700; cursor:pointer;">Назад</button>
-            <div id="active-chat-name" style="font-size:24px; font-weight:900; letter-spacing:-1px;">...</div>
-            <div style="width:60px"></div>
+    <!-- [CHAT OVERLAY LAYER] -->
+    <div id="chat-window-overlay">
+        <header class="chat-header">
+            <button onclick="closeChatController()" class="back-button">Назад</button>
+            <div id="active-peer-display-name" style="font-size: 22px; font-weight: 800;">Загрузка...</div>
+            <div style="width: 60px;"></div>
         </header>
         
-        <div id="messages-scroll-area" class="messages-viewport">
-            <!-- Сообщения -->
+        <div id="messages-display-feed" class="messages-scroll-box">
+            <!-- Динамический рендеринг сообщений -->
         </div>
 
-        <div class="chat-input-toolbar">
-            <button class="toolbar-btn">📎</button>
-            <input type="text" id="chat-input-field" class="chat-main-input" placeholder="Ваше сообщение..." onkeydown="if(event.key==='Enter') dispatchOutgoingMsg()">
-            <button onclick="dispatchOutgoingMsg()" class="toolbar-btn">🚀</button>
+        <div class="input-panel-wrapper">
+            <button class="send-button-icon">📎</button>
+            <input type="text" id="main-chat-input" class="text-input-field" placeholder="Cообщение..." onkeydown="if(event.key==='Enter') executeMessageDispatch()">
+            <button onclick="executeMessageDispatch()" class="send-button-icon">🚀</button>
         </div>
     </div>
 
-    <!-- [ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ] -->
-    <div id="modal-profile-view" class="profile-fullview slide-up">
-        <img id="profile-big-ava" src="" class="profile-avatar-big">
-        <h2 id="profile-big-name" class="profile-name-title"></h2>
-        <p id="profile-big-id" class="profile-id-sub"></p>
+    <!-- [PROFILE MODAL LAYER] -->
+    <div id="profile-modal-controller" class="profile-modal-overlay slide-up">
+        <img id="profile-modal-avatar" src="" class="profile-avatar-giant">
+        <h2 id="profile-modal-nick" class="profile-username-text">...</h2>
+        <p id="profile-modal-id" class="profile-id-subtext">@id000000</p>
         
-        <div style="width:88%; max-width:380px; display:flex; flex-direction:column; gap:15px;">
-            <button onclick="closeProfileView()" class="ios-btn-main" style="background:#222; box-shadow:none;">ВЕРНУТЬСЯ</button>
-            <button onclick="executeSystemLogout()" class="ios-btn-ghost" style="color:var(--ios-red); font-size:20px;">ВЫЙТИ ИЗ АККАУНТА</button>
+        <div style="width: 85%; max-width: 360px;">
+            <button onclick="closeProfileController()" class="btn-primary" style="background: #2c2c2e; box-shadow: none;">ЗАКРЫТЬ ПРОФИЛЬ</button>
+            <button onclick="executeSystemLogout()" class="btn-ghost-action" style="color: var(--ios-red); font-size: 20px; font-weight: 800;">ВЫЙТИ ИЗ СИСТЕМЫ</button>
         </div>
-        <p style="margin-top:auto; padding-bottom:60px; color:#444; font-size:15px; font-weight:800; letter-spacing:3px;">SECURITY CORE v8.0.1 ALPHA</p>
+        <p style="margin-top: auto; padding-bottom: 50px; color: #333; font-size: 14px; font-weight: 800;">SECURITY CORE v10.0.4 ABSOLUTE</p>
     </div>
 
-    <div id="global-system-toaster" class="system-toaster">Система готова</div>
+    <!-- [STATUS BAR] -->
+    <div id="system-status-text" class="system-status-indicator">Ready</div>
 
-    <!-- [ЛОГИКА SENIOR DEV: MAXIMUM REDUNDANCY] -->
+    <!-- [SYSTEM SCRIPTS - LOGIC MONOLITH] -->
     <script src="/socket.io/socket.io.js"></script>
     <script>
         /**
-         * @license Celestra Enterprise
-         * @author Senior AI Architecture
-         * Описание: Реализация системы с гарантированной персистентностью данных.
+         * @file Celestra Core Monolith
+         * @version 10.0 Enterprise
+         * @description Полная реализация мессенджера с персистентным хранилищем.
          */
 
         const socket = io({
             reconnection: true,
             reconnectionAttempts: Infinity,
             reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
             timeout: 25000
         });
 
-        // --- СОСТОЯНИЕ ПРИЛОЖЕНИЯ (STATE MANAGEMENT) ---
+        // --- GLOBAL APP STATE ---
         const APP_STATE = {
-            currentUser: null,
-            activeChatPeer: null,
-            dataStore: {
-                messages: {}, // { username: [msg_objects] }
-                profiles: {}, // { username: { nick, ava } }
-                registry: []  // Список ID активных диалогов
-            },
-            isInitialLoad: true
+            self: null,
+            activePeerID: null,
+            vault: {
+                messages: {}, // { peer_id: [message_objects] }
+                profiles: {}, // { peer_id: profile_object }
+                contacts: []  // Array of peer IDs
+            }
         };
 
-        // --- ССЫЛКИ НА DOM-ЭЛЕМЕНТЫ ---
-        const ELEMENTS = {
+        // --- DOM REFERENCE ENGINE ---
+        const DOM_MAP = {
             auth: document.getElementById('auth-portal'),
-            app: document.getElementById('app-shell'),
-            chat: document.getElementById('chat-overlay'),
-            feed: document.getElementById('messages-scroll-area'),
-            list: document.getElementById('dialogs-master-list'),
-            toast: document.getElementById('global-system-toaster'),
-            input: document.getElementById('chat-input-field')
+            shell: document.getElementById('app-shell'),
+            chat: document.getElementById('chat-window-overlay'),
+            feed: document.getElementById('messages-display-feed'),
+            list: document.getElementById('dialogs-list-root'),
+            status: document.getElementById('system-status-text'),
+            input: document.getElementById('main-chat-input')
         };
 
-        // --- 1. СИСТЕМА ВОССТАНОВЛЕНИЯ СЕССИИ (PERSISTENCE LAYER) ---
-        
-        function bootSystem() {
-            const secureVault = localStorage.getItem('_celestra_enterprise_vault');
-            if (secureVault) {
+        // --- 1. СИСТЕМА ИНИЦИАЛИЗАЦИИ И СЕССИЙ ---
+
+        window.addEventListener('load', function() {
+            const secureData = localStorage.getItem('_celestra_enterprise_v10');
+            if (secureData) {
                 try {
-                    const decrypted = JSON.parse(atob(secureVault));
-                    updateSystemStatus("Восстановление сессии...");
+                    const decrypted = JSON.parse(atob(secureData));
+                    updateSystemStatus("Восстановление...");
                     socket.emit('auth', { 
                         login: decrypted.u, 
                         password: decrypted.p, 
                         type: 'login' 
                     });
-                } catch(err) {
-                    console.error("Vault Corruption:", err);
-                    localStorage.removeItem('_celestra_enterprise_vault');
+                } catch(error) {
+                    console.error("Vault Error:", error);
+                    localStorage.removeItem('_celestra_enterprise_v10');
                 }
             }
-        }
+        });
 
-        window.addEventListener('DOMContentLoaded', bootSystem);
-
-        // --- 2. ОБРАБОТКА АВТОРИЗАЦИИ ---
-
-        function handleSystemAuth(mode) {
-            const u = document.getElementById('auth-username').value.trim().toLowerCase();
-            const p = document.getElementById('auth-password').value.trim();
+        /**
+         * Основной обработчик авторизации.
+         * @param {string} mode - 'login' или 'reg'
+         */
+        function handleAuthAction(mode) {
+            const u = document.getElementById('id-input-field').value.trim().toLowerCase();
+            const p = document.getElementById('key-input-field').value.trim();
             
             if (!u || !p) {
-                showToast("Заполните все поля", "error");
+                alert("Пожалуйста, заполните все поля.");
                 return;
             }
 
-            document.getElementById('login-spinner').style.display = 'block';
             updateSystemStatus("Синхронизация...");
-
-            // Жесткое кэширование данных перед отправкой для исключения потерь
-            const sessionKey = btoa(JSON.stringify({ u: u, p: p }));
-            localStorage.setItem('_celestra_enterprise_vault', sessionKey);
-
+            
+            // Сохраняем учетные данные в Vault (Base64)
+            localStorage.setItem('_celestra_enterprise_v10', btoa(JSON.stringify({ u, p })));
+            
             socket.emit('auth', { login: u, password: p, type: mode });
         }
 
         socket.on('auth_ok', (userData) => {
-            APP_STATE.currentUser = userData;
+            APP_STATE.self = userData;
             
             // Плавный переход интерфейса
-            ELEMENTS.auth.style.opacity = '0';
+            DOM_MAP.auth.style.opacity = '0';
             setTimeout(() => {
-                ELEMENTS.auth.style.display = 'none';
-                ELEMENTS.app.style.display = 'flex';
-                setTimeout(() => ELEMENTS.app.style.opacity = '1', 50);
+                DOM_MAP.auth.style.display = 'none';
+                DOM_MAP.shell.style.display = 'flex';
+                setTimeout(() => DOM_MAP.shell.style.opacity = '1', 50);
             }, 800);
 
-            // Обновление UI данными пользователя
-            document.getElementById('my-avatar-top').src = userData.prof.ava;
-            document.getElementById('my-wallet-val').innerText = userData.econ.coins;
-
-            // Восстановление реестра чатов из локального хранилища
-            const savedRegistry = JSON.parse(localStorage.getItem('_celestra_chat_registry') || "[]");
-            APP_STATE.dataStore.registry = savedRegistry;
+            // Инициализация профиля
+            document.getElementById('my-profile-avatar').src = userData.prof.ava;
             
-            savedRegistry.forEach(peerId => {
-                socket.emit('get_h', peerId);
-            });
-
+            // Загрузка реестра контактов из LocalStorage
+            const storedRegistry = JSON.parse(localStorage.getItem('_celestra_registry_v10') || "[]");
+            APP_STATE.vault.contacts = storedRegistry;
+            
+            // Запрашиваем историю для каждого контакта
+            storedRegistry.forEach(peer => socket.emit('get_h', peer));
+            
             updateSystemStatus("Online");
-            showToast("Доступ разрешен", "success");
         });
 
-        socket.on('auth_err', (errorMessage) => {
-            document.getElementById('login-spinner').style.display = 'none';
-            alert("Ошибка входа: " + errorMessage);
-            localStorage.removeItem('_celestra_enterprise_vault');
+        socket.on('auth_err', (msg) => {
+            alert("Ошибка доступа: " + msg);
+            localStorage.removeItem('_celestra_enterprise_v10');
             updateSystemStatus("Access Denied");
         });
 
-        // --- 3. ДВИЖОК СООБЩЕНИЙ (MESSAGE ENGINE) ---
+        // --- 2. ДВИЖОК ОБРАБОТКИ СООБЩЕНИЙ ---
 
-        function dispatchOutgoingMsg() {
-            const text = ELEMENTS.input.value.trim();
-            if (!text || !APP_STATE.activeChatPeer) return;
+        function executeMessageDispatch() {
+            const rawText = DOM_MAP.input.value.trim();
+            if (!rawText || !APP_STATE.activePeerID) return;
 
-            const payload = {
-                to: APP_STATE.activeChatPeer,
-                txt: text,
+            const messagePacket = {
+                to: APP_STATE.activePeerID,
+                txt: rawText,
                 type: 'text',
-                timestamp: Date.now()
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
 
-            socket.emit('msg', payload);
-            ELEMENTS.input.value = '';
-            
-            // Тактильный фидбек для мобильных (если поддерживается)
-            if (window.navigator.vibrate) window.navigator.vibrate(10);
+            socket.emit('msg', messagePacket);
+            DOM_MAP.input.value = '';
         }
 
-        socket.on('receive', (incoming) => {
-            // Определяем, кто является собеседником в данном пакете данных
-            const peerId = (incoming.msg.f === APP_STATE.currentUser.un) ? incoming.room : incoming.msg.f;
+        socket.on('receive', (payload) => {
+            // Определяем ID собеседника (может быть отправителем или получателем)
+            const peer = (payload.msg.f === APP_STATE.self.un) ? payload.room : payload.msg.f;
             
-            // Инициализация хранилища для этого чата
-            if (!APP_STATE.dataStore.messages[peerId]) {
-                APP_STATE.dataStore.messages[peerId] = [];
-            }
+            // Структурирование данных в кэше
+            if (!APP_STATE.vault.messages[peer]) APP_STATE.vault.messages[peer] = [];
+            APP_STATE.vault.messages[peer].push(payload.msg);
             
-            // Добавление сообщения в кэш
-            APP_STATE.dataStore.messages[peerId].push(incoming.msg);
-            
-            // Обновление кэша профиля собеседника
-            if (incoming.senderProf) {
-                APP_STATE.dataStore.profiles[peerId] = incoming.senderProf;
+            if (payload.senderProf) {
+                APP_STATE.vault.profiles[peer] = payload.senderProf;
             }
 
-            // Синхронизация реестра
-            syncRegistry(peerId);
-
-            // Если чат открыт в данный момент — рендерим сообщение
-            if (APP_STATE.activeChatPeer === peerId) {
-                renderMessagesToViewport();
+            // Обновляем реестр контактов
+            updateLocalRegistry(peer);
+            
+            // Если этот чат открыт — мгновенный рендер
+            if (APP_STATE.activePeerID === peer) {
+                renderChatFeed();
             }
-
-            // В любом случае обновляем главный список
-            refreshChatListUI();
+            
+            // Обновляем главный список
+            renderDialogList();
         });
 
-        socket.on('h_res', (response) => {
-            APP_STATE.dataStore.messages[response.target] = response.msgs;
-            APP_STATE.dataStore.profiles[response.target] = response.prof;
+        socket.on('h_res', (data) => {
+            APP_STATE.vault.messages[data.target] = data.msgs;
+            APP_STATE.vault.profiles[data.target] = data.prof;
             
-            if (APP_STATE.activeChatPeer === response.target) {
-                renderMessagesToViewport();
+            if (APP_STATE.activePeerID === data.target) {
+                renderChatFeed();
             }
-            refreshChatListUI();
+            renderDialogList();
         });
 
-        // --- 4. ОРИСОВКА ИНТЕРФЕЙСА (DOM RENDERING) ---
+        // --- 3. СИСТЕМА РЕНДЕРИНГА (UI CONTROLLERS) ---
 
-        function refreshChatListUI() {
-            ELEMENTS.list.innerHTML = '';
+        /**
+         * Перерисовывает список всех диалогов на главном экране.
+         */
+        function renderDialogList() {
+            DOM_MAP.list.innerHTML = '';
             
-            // Сортируем чаты по времени последнего сообщения
-            const sortedPeers = Object.keys(APP_STATE.dataStore.messages).sort((a, b) => {
-                const msgsA = APP_STATE.dataStore.messages[a];
-                const msgsB = APP_STATE.dataStore.messages[b];
-                const lastA = msgsA[msgsA.length - 1]?.time || 0;
-                const lastB = msgsB[msgsB.length - 1]?.time || 0;
-                return lastB.localeCompare(lastA);
-            });
-
-            sortedPeers.forEach(peerId => {
-                const profile = APP_STATE.dataStore.profiles[peerId] || { nick: peerId, ava: '' };
-                const history = APP_STATE.dataStore.messages[peerId];
+            const activePeers = Object.keys(APP_STATE.vault.messages);
+            
+            activePeers.forEach(id => {
+                const profile = APP_STATE.vault.profiles[id] || { nick: id, ava: '' };
+                const history = APP_STATE.vault.messages[id];
                 const lastMsg = history[history.length - 1];
 
                 const row = document.createElement('div');
-                row.className = 'chat-row-item fade-in';
-                row.onclick = () => openChatOverlay(peerId);
+                row.className = 'dialog-item-row fade-in';
+                row.onclick = () => openChatController(id);
                 
                 row.innerHTML = `
-                    <div class="chat-avatar-frame">
-                        <img src="${profile.ava}" class="chat-avatar-img">
-                        <div class="online-status-dot"></div>
+                    <div class="dialog-avatar-frame">
+                        <img src="${profile.ava}">
+                        <div class="online-dot"></div>
                     </div>
-                    <div class="chat-row-body">
+                    <div class="dialog-body-content">
                         <h4>${profile.nick}</h4>
                         <p>${lastMsg ? lastMsg.txt : 'История пуста'}</p>
                     </div>
-                    <div style="font-size:12px; color:var(--ios-gray);">${lastMsg ? lastMsg.time : ''}</div>
                 `;
-                ELEMENTS.list.appendChild(row);
+                DOM_MAP.list.appendChild(row);
             });
         }
 
-        function renderMessagesToViewport() {
-            ELEMENTS.feed.innerHTML = '';
-            const messageStack = APP_STATE.dataStore.messages[APP_STATE.activeChatPeer] || [];
+        /**
+         * Отрисовывает сообщения внутри открытого чата.
+         */
+        function renderChatFeed() {
+            DOM_MAP.feed.innerHTML = '';
+            const messages = APP_STATE.vault.messages[APP_STATE.activePeerID] || [];
             
-            messageStack.forEach(msg => {
-                const isMe = (msg.f === APP_STATE.currentUser.un);
+            messages.forEach(m => {
+                const isMe = (m.f === APP_STATE.self.un);
                 const bubble = document.createElement('div');
-                bubble.className = `message-bubble ${isMe ? 'me' : 'other'}`;
+                bubble.className = `message-bubble msg-anim ${isMe ? 'is-me' : 'is-other'}`;
                 
                 bubble.innerHTML = `
-                    <div class="text-content">${msg.txt}</div>
-                    <span class="message-timestamp">${msg.time}</span>
+                    ${m.txt}
+                    <span class="message-meta">${m.time || ''}</span>
                 `;
-                ELEMENTS.feed.appendChild(bubble);
+                DOM_MAP.feed.appendChild(bubble);
             });
             
-            // Скролл вниз с плавной прокруткой
-            ELEMENTS.feed.scrollTo({
-                top: ELEMENTS.feed.scrollHeight,
-                behavior: 'smooth'
-            });
+            // Прокрутка к последнему сообщению
+            DOM_MAP.feed.scrollTop = DOM_MAP.feed.scrollHeight;
         }
 
-        // --- 5. НАВИГАЦИЯ И МОДАЛЬНЫЕ ОКНА ---
+        // --- 4. НАВИГАЦИЯ И УПРАВЛЕНИЕ ОКНАМИ ---
 
-        function openChatOverlay(peerId) {
-            APP_STATE.activeChatPeer = peerId;
-            const profile = APP_STATE.dataStore.profiles[peerId] || { nick: peerId };
+        function openChatController(peerID) {
+            APP_STATE.activePeerID = peerID;
+            const profile = APP_STATE.vault.profiles[peerID] || { nick: peerID };
             
-            document.getElementById('active-chat-name').innerText = profile.nick;
-            ELEMENTS.chat.classList.add('active');
+            document.getElementById('active-peer-display-name').innerText = profile.nick;
+            DOM_MAP.chat.classList.add('is-visible');
             
-            // Принудительно запрашиваем свежую историю при входе
-            socket.emit('get_h', peerId);
-            renderMessagesToViewport();
+            renderChatFeed();
+            // Фокус на поле ввода (только для десктопа, чтобы не дергать клавиатуру на iOS)
+            if (window.innerWidth > 1024) DOM_MAP.input.focus();
         }
 
-        function closeChatOverlay() {
-            APP_STATE.activeChatPeer = null;
-            ELEMENTS.chat.classList.remove('active');
+        function closeChatController() {
+            APP_STATE.activePeerID = null;
+            DOM_MAP.chat.classList.remove('is-visible');
         }
 
-        function openProfileView() {
-            const modal = document.getElementById('modal-profile-view');
-            const user = APP_STATE.currentUser;
+        function openProfileController() {
+            const modal = document.getElementById('profile-modal-controller');
+            const self = APP_STATE.self;
             
-            document.getElementById('profile-big-ava').src = user.prof.ava;
-            document.getElementById('profile-big-name').innerText = user.prof.nick;
-            document.getElementById('profile-big-id').innerText = '@' + user.un;
+            document.getElementById('profile-modal-avatar').src = self.prof.ava;
+            document.getElementById('profile-modal-nick').innerText = self.prof.nick;
+            document.getElementById('profile-modal-id').innerText = '@' + self.un;
             
             modal.style.display = 'flex';
         }
 
-        function closeProfileView() {
-            document.getElementById('modal-profile-view').style.display = 'none';
-        }
-
-        // --- 6. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (UTILS) ---
-
-        function syncRegistry(id) {
-            let reg = JSON.parse(localStorage.getItem('_celestra_chat_registry') || "[]");
-            if (!reg.includes(id)) {
-                reg.push(id);
-                localStorage.setItem('_celestra_chat_registry', JSON.stringify(reg));
-            }
+        function closeProfileController() {
+            document.getElementById('profile-modal-controller').style.display = 'none';
         }
 
         function executeSystemLogout() {
-            if (confirm("ВНИМАНИЕ: Все локальные данные и сессия будут безвозвратно удалены. Продолжить?")) {
+            if (confirm("Выход удалит закэшированные данные на этом устройстве. Продолжить?")) {
                 localStorage.clear();
                 window.location.reload();
             }
         }
 
+        // --- 5. ВСПОМОГАТЕЛЬНЫЕ УТИЛИТЫ ---
+
+        function updateLocalRegistry(id) {
+            let reg = JSON.parse(localStorage.getItem('_celestra_registry_v10') || "[]");
+            if (!reg.includes(id)) {
+                reg.push(id);
+                localStorage.setItem('_celestra_registry_v10', JSON.stringify(reg));
+                APP_STATE.vault.contacts = reg;
+            }
+        }
+
         function updateSystemStatus(text) {
-            ELEMENTS.toast.innerText = text;
+            DOM_MAP.status.innerText = text;
         }
 
-        function showToast(text, type) {
-            const originalText = ELEMENTS.toast.innerText;
-            ELEMENTS.toast.innerText = text;
-            ELEMENTS.toast.style.color = (type === 'error') ? 'var(--ios-red)' : 'var(--ios-green)';
-            
-            setTimeout(() => {
-                ELEMENTS.toast.innerText = originalText;
-                ELEMENTS.toast.style.color = 'var(--ios-text-muted)';
-            }, 3000);
-        }
-
-        function filterChatList(query) {
+        function filterDialogList(query) {
             const q = query.toLowerCase();
-            const rows = document.querySelectorAll('.chat-row-item');
+            const items = document.querySelectorAll('.dialog-item-row');
             
-            rows.forEach(row => {
-                const name = row.querySelector('h4').innerText.toLowerCase();
-                if (name.includes(q)) {
-                    row.style.display = 'flex';
-                } else {
-                    row.style.display = 'none';
-                }
+            items.forEach(item => {
+                const name = item.querySelector('h4').innerText.toLowerCase();
+                item.style.display = name.includes(q) ? 'flex' : 'none';
             });
         }
 
-        // --- 7. ОБРАБОТКА ЖИЗНЕННОГО ЦИКЛА СОЕДИНЕНИЯ ---
+        // --- 6. SOCKET EVENT MONITORING ---
 
         socket.on('connect', () => {
             updateSystemStatus("Online");
-            if (APP_STATE.currentUser) {
-                // Если мы уже были залогинены, перепроверяем статус
-                socket.emit('auth', { 
-                    login: APP_STATE.currentUser.un, 
-                    type: 'check' 
-                });
-            }
         });
 
         socket.on('disconnect', () => {
-            updateSystemStatus("Connecting...");
-            showToast("Связь потеряна", "error");
+            updateSystemStatus("Reconnecting...");
+        });
+
+        // Обработка потери фокуса для экономии ресурсов
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && socket.disconnected) {
+                socket.connect();
+            }
         });
 
     </script>
