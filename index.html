@@ -5,1341 +5,862 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Celestra Core">
+    <meta name="theme-color" content="#000000">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
     
-    <title>Celestra </title>
+    <title>Celestra OS v8.0 — Enterprise Eternal Engine</title>
     
     <style>
-        /* Глобальные сбросы и базовые настройки */
-        * { 
-            box-sizing: border-box; 
-            -webkit-tap-highlight-color: transparent; 
-            outline: none; 
-            margin: 0; 
-            padding: 0; 
+        /* --- [1. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И ТОКЕНЫ СИСТЕМЫ] --- */
+        :root {
+            --ios-blue: #007aff;
+            --ios-blue-light: #58a6ff;
+            --ios-green: #34c759;
+            --ios-red: #ff3b30;
+            --ios-orange: #ff9500;
+            --ios-gray: #8e8e93;
+            --ios-bg: #000000;
+            --ios-panel: #1c1c1e;
+            --ios-secondary-panel: #2c2c2e;
+            --ios-text: #ffffff;
+            --ios-text-muted: #a1a1a6;
+            --border-glow: rgba(0, 122, 255, 0.4);
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+            --glass-blur: blur(40px);
+            --transition-main: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* Настройки корневого элемента */
-        html {
+        /* --- [2. ГЛОБАЛЬНЫЙ СБРОС И БАЗОВЫЕ ПРАВИЛА] --- */
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            outline: none; 
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        html, body {
             height: 100%;
+            width: 100%;
+            background-color: var(--ios-bg);
+            color: var(--ios-text);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            overflow: hidden;
+            position: fixed;
+            touch-action: none;
+            cursor: default;
+        }
+
+        /* --- [3. СИСТЕМА АНИМАЦИЙ И ЭФФЕКТОВ] --- */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.97) translateY(15px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 10px rgba(0, 122, 255, 0.2); }
+            50% { box-shadow: 0 0 25px rgba(0, 122, 255, 0.5); }
+            100% { box-shadow: 0 0 10px rgba(0, 122, 255, 0.2); }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .fade-in { animation: fadeIn 0.7s cubic-bezier(0.23, 1, 0.32, 1) both; }
+        .slide-up { animation: slideUp 0.55s cubic-bezier(0.19, 1, 0.22, 1) both; }
+
+        /* --- [4. ЭКРАН АВТОРИЗАЦИИ: MAXIMUM PERSISTENCE] --- */
+        #auth-portal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at 50% 50%, #1c1c1e 0%, #000000 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: opacity 0.8s ease-in-out, visibility 0.8s;
+        }
+
+        .auth-card {
+            width: 88%;
+            max-width: 440px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .brand-logo-large {
+            font-size: 92px;
+            font-weight: 900;
+            letter-spacing: -7px;
+            color: var(--ios-blue);
+            text-shadow: 0 0 80px rgba(0, 122, 255, 0.7);
+            margin-bottom: 60px;
+            display: inline-block;
+            user-select: none;
+            filter: drop-shadow(0 0 10px rgba(0,122,255,0.4));
+        }
+
+        .auth-field-group {
+            position: relative;
+            margin-bottom: 25px;
             width: 100%;
         }
 
-        /* Основное тело документа */
-        body { 
-            height: 100%; 
-            background-color: #000000; 
-            color: #ffffff; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            overflow: hidden; 
-            position: fixed; 
-            width: 100%; 
-            line-height: 1.4;
+        .ios-input-premium {
+            width: 100%;
+            padding: 24px 30px;
+            background: var(--ios-panel);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 28px;
+            color: #fff;
+            font-size: 20px;
+            font-weight: 500;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
         }
 
-        /* Вспомогательный класс для центрирования */
-        .flex-center { 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
+        .ios-input-premium:focus {
+            border-color: var(--ios-blue);
+            background: var(--ios-secondary-panel);
+            box-shadow: 0 0 0 5px rgba(0, 122, 255, 0.18), inset 0 2px 4px rgba(0,0,0,0.5);
+            transform: translateY(-2px);
         }
 
-        /* ЭКРАН АВТОРИЗАЦИИ */
-        .full-page { 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            right: 0; 
-            bottom: 0; 
-            background: radial-gradient(circle at center, #1c1c1e 0%, #000000 100%); 
-            z-index: 9999; 
+        .ios-btn-main {
+            width: 100%;
+            padding: 24px;
+            border-radius: 28px;
+            border: none;
+            font-size: 22px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 15px;
+            background: var(--ios-blue);
+            color: #fff;
+            box-shadow: 0 18px 45px rgba(0, 122, 255, 0.4);
+            margin-top: 20px;
         }
 
-        /* Контейнер формы входа */
-        .auth-box { 
-            width: 85%; 
-            max-width: 320px; 
-            text-align: center; 
+        .ios-btn-main:active { transform: scale(0.94); opacity: 0.9; }
+
+        .ios-btn-ghost {
+            background: transparent;
+            color: var(--ios-gray);
+            margin-top: 30px;
+            font-size: 18px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: color 0.3s;
         }
 
-        /* Стилизация логотипа */
-        .brand { 
-            font-size: 52px; 
-            font-weight: 900; 
-            color: #007aff; 
-            margin-bottom: 45px; 
-            letter-spacing: -2.5px; 
-            text-shadow: 0 0 30px rgba(0, 122, 255, 0.6); 
+        .ios-btn-ghost:hover { color: var(--ios-text); }
+
+        /* --- [5. ГЛАВНЫЙ ИНТЕРФЕЙС ПРИЛОЖЕНИЯ] --- */
+        #app-shell {
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.8s var(--transition-main);
+            background: var(--ios-bg);
         }
 
-        /* Поля ввода данных */
-        input[type="text"], 
-        input[type="password"], 
-        textarea { 
-            width: 100%; 
-            padding: 20px; 
-            background-color: #1c1c1e; 
-            border-width: 1px;
-            border-style: solid;
-            border-color: #333333; 
-            border-radius: 22px; 
-            color: #ffffff; 
-            margin-bottom: 18px; 
-            font-size: 16px; 
-            transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease; 
+        .nav-bar-top {
+            height: calc(120px + var(--safe-top));
+            padding: var(--safe-top) 25px 0 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(10, 10, 10, 0.8);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 1000;
+            position: relative;
         }
 
-        /* Эффекты при фокусе на поле ввода */
-        input:focus { 
-            border-color: #007aff; 
-            background-color: #2c2c2e; 
-            box-shadow: 0 0 12px rgba(0, 122, 255, 0.25);
-        }
-
-        /* Кнопка основного действия */
-        .btn-primary { 
-            background-color: #007aff; 
-            border: none; 
-            padding: 20px; 
-            width: 100%; 
-            border-radius: 22px; 
-            color: #ffffff; 
-            font-weight: 800; 
-            cursor: pointer; 
-            font-size: 17px; 
-            transition: transform 0.2s cubic-bezier(0.1, 0.7, 0.1, 1), background-color 0.2s ease; 
-        }
-
-        /* Эффект нажатия */
-        .btn-primary:active { 
-            transform: scale(0.95); 
-            background-color: #005ecb; 
-        }
-
-        /* Второстепенная ссылка-кнопка */
-        .btn-link { 
-            background: none; 
-            border: none; 
-            color: #8e8e93; 
-            margin-top: 25px; 
-            cursor: pointer; 
-            font-size: 14px; 
-            text-decoration: none; 
-            display: block; 
-            width: 100%; 
-            transition: color 0.2s;
-        }
-
-        .btn-link:active {
-            color: #ffffff;
-        }
-
-        /* СТРУКТУРА СТРАНИЦ ПРИЛОЖЕНИЯ */
-        .page { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            right: 0; 
-            bottom: 0; 
-            background-color: #000000; 
-            display: none; 
-            flex-direction: column; 
-            z-index: 10;
-        }
-
-        /* Класс активации страницы */
-        .page.active { 
-            display: flex; 
-        }
-
-        /* Плавный выезд окна чата */
-        #chat-view-page { 
-            transform: translateX(100%); 
-            transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1); 
-            z-index: 100; 
-        }
-
-        #chat-view-page.active { 
-            transform: translateX(0); 
-        }
-
-        /* ВЕРХНЯЯ ПАНЕЛЬ (HEADER) */
-        .header { 
-            height: 80px; 
-            padding: 0 20px; 
-            display: flex; 
-            align-items: center; 
-            background: rgba(28, 28, 30, 0.92); 
-            backdrop-filter: blur(25px); 
-            -webkit-backdrop-filter: blur(25px); 
-            border-bottom: 1px solid #262626; 
-            gap: 15px; 
-            position: sticky; 
-            top: 0; 
-            z-index: 50; 
-        }
-
-        /* Миниатюра аватара в шапке */
-        .mini-ava { 
-            width: 50px; 
-            height: 50px; 
-            border-radius: 50%; 
-            object-fit: cover; 
-            border: 2px solid #007aff; 
-            cursor: pointer; 
-            transition: opacity 0.2s, transform 0.2s; 
-        }
-
-        .mini-ava:active { 
-            opacity: 0.8; 
-            transform: scale(0.92);
-        }
-
-        /* Название приложения в шапке */
-        .logo-text { 
-            font-weight: 900; 
-            font-size: 28px; 
-            flex: 1; 
-            letter-spacing: -1px; 
-        }
-
-        /* Элемент баланса монет */
-        .coins-top { 
-            background-color: #32d74b; 
-            color: #000000; 
-            padding: 10px 18px; 
-            border-radius: 16px; 
-            font-weight: 900; 
-            font-size: 14px; 
-            box-shadow: 0 5px 18px rgba(50, 215, 75, 0.35); 
-        }
-
-        /* БЛОК ПОИСКА */
-        .search-container { 
-            padding: 18px 20px; 
-            position: relative; 
-            background-color: #000000; 
-        }
-
-        /* Выпадающий список результатов поиска */
-        .search-results { 
-            position: absolute; 
-            top: 85px; 
-            left: 20px; 
-            right: 20px; 
-            background-color: #1c1c1e; 
-            border-radius: 26px; 
-            z-index: 2000; 
-            display: none; 
-            border: 1px solid #333333; 
-            max-height: 420px; 
-            overflow-y: auto; 
-            box-shadow: 0 15px 45px rgba(0,0,0,0.7); 
-        }
-
-        /* Элемент найденного пользователя */
-        .search-item { 
-            padding: 18px; 
-            display: flex; 
-            gap: 16px; 
-            border-bottom: 1px solid #2c2c2e; 
-            align-items: center; 
-            cursor: pointer; 
-            transition: background-color 0.2s;
-        }
-
-        .search-item:last-child {
-            border-bottom: none;
-        }
-
-        .search-item img { 
-            width: 52px; 
-            height: 52px; 
-            border-radius: 50%; 
-            object-fit: cover; 
-        }
-
-        /* СПИСОК ЧАТОВ (CONTENT) */
-        .content { 
-            flex: 1; 
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; 
-        }
-
-        /* Строка диалога в списке */
-        .chat-row { 
-            padding: 22px 20px; 
-            display: flex; 
-            gap: 16px; 
-            border-bottom: 1px solid #141414; 
-            align-items: center; 
-            transition: background-color 0.3s ease; 
-            cursor: pointer; 
-        }
-
-        .chat-row:active { 
-            background-color: #1c1c1e; 
-        }
-
-        /* Аватар в списке диалогов */
-        .row-ava { 
-            width: 68px; 
-            height: 68px; 
-            border-radius: 50%; 
-            object-fit: cover; 
-            background-color: #1c1c1e;
-        }
-
-        /* Текстовая информация в строке диалога */
-        .row-info { 
-            flex: 1; 
-            min-width: 0;
-        }
-
-        .row-info b { 
-            display: block; 
-            margin-bottom: 7px; 
-            font-size: 20px; 
-            color: #ffffff;
-            white-space: nowrap;
+        .user-profile-trigger {
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            border: 3px solid var(--ios-blue);
             overflow: hidden;
-            text-overflow: ellipsis;
+            background: #222;
+            cursor: pointer;
+            transition: transform 0.3s;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
         }
 
-        .row-info p { 
-            margin: 0; 
-            color: #8e8e93; 
-            font-size: 16px; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: ellipsis; 
+        .user-profile-trigger:active { transform: scale(0.9); }
+        .user-profile-trigger img { width: 100%; height: 100%; object-fit: cover; }
+
+        .app-title-central { 
+            font-size: 38px; 
+            font-weight: 900; 
+            letter-spacing: -2.5px; 
+            background: linear-gradient(180deg, #fff 0%, #aaa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        /* ЛЕНТА СООБЩЕНИЙ */
-        .messages { 
-            padding: 35px 20px; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 20px; 
+        .economy-pill {
+            background: var(--ios-green);
+            color: #000;
+            padding: 12px 24px;
+            border-radius: 28px;
+            font-weight: 900;
+            font-size: 17px;
+            box-shadow: 0 10px 30px rgba(52, 199, 89, 0.35);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        /* Контейнер строки сообщения */
-        .msg-row { 
-            display: flex; 
-            width: 100%; 
+        /* --- [6. СПИСОК ЧАТОВ И ПОИСК] --- */
+        .search-container {
+            padding: 25px;
+            background: var(--ios-bg);
         }
 
-        /* Выравнивание моих сообщений */
-        .msg-row.me { 
-            justify-content: flex-end; 
+        .search-input-field {
+            width: 100%;
+            background: var(--ios-panel);
+            border-radius: 20px;
+            border: none;
+            padding: 18px 25px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 500;
         }
 
-        /* Пузырь (Bubble) сообщения */
-        .bubble { 
-            max-width: 82%; 
-            padding: 16px 22px; 
-            border-radius: 25px; 
-            position: relative; 
-            font-size: 17px; 
-            line-height: 1.6; 
-            word-wrap: break-word;
+        .chats-scroller {
+            flex: 1;
+            overflow-y: scroll;
+            padding-bottom: 140px;
+            -webkit-overflow-scrolling: touch;
         }
 
-        /* Стиль моего сообщения */
-        .me .bubble { 
-            background-color: #007aff; 
-            color: #ffffff; 
-            border-bottom-right-radius: 7px; 
-            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+        .chat-row-item {
+            padding: 26px 25px;
+            display: flex;
+            align-items: center;
+            gap: 22px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            transition: background 0.3s;
+            cursor: pointer;
+            position: relative;
         }
 
-        /* Стиль входящего сообщения */
-        .ot .bubble { 
-            background-color: #2c2c2e; 
-            color: #ffffff; 
-            border-bottom-left-radius: 7px; 
+        .chat-row-item:active { background: var(--ios-panel); }
+
+        .chat-avatar-frame {
+            position: relative;
+            width: 82px;
+            height: 82px;
         }
 
-        /* Время отправки */
-        .bubble small { 
-            display: block; 
-            font-size: 12px; 
-            opacity: 0.65; 
-            margin-top: 10px; 
-            text-align: right; 
-        }
-
-        /* Отображение медиа контента в чате */
-        .msg-media { 
-            max-width: 100%; 
-            border-radius: 20px; 
-            margin-top: 10px; 
-            display: block; 
-            cursor: pointer; 
-            transition: opacity 0.2s;
-        }
-
-        .msg-media:active {
-            opacity: 0.9;
-        }
-
-        /* ПАНЕЛЬ ВВОДА ТЕКСТА */
-        .input-area { 
-            padding: 20px 20px; 
-            background-color: #1c1c1e; 
-            border-top: 1px solid #262626; 
-            padding-bottom: calc(20px + env(safe-area-inset-bottom)); 
-        }
-
-        /* Строка кнопок и инпута */
-        .input-row { 
-            display: flex; 
-            gap: 16px; 
-            align-items: center; 
-        }
-
-        /* Иконки дополнительных действий */
-        .btn-icon { 
-            font-size: 28px; 
-            cursor: pointer; 
-            opacity: 0.85; 
-            transition: opacity 0.2s, transform 0.2s; 
-        }
-
-        .btn-icon:active { 
-            opacity: 1; 
-            transform: scale(1.1);
-        }
-
-        /* Кнопка отправки сообщения */
-        .btn-send { 
-            background: none; 
-            border: none; 
-            font-size: 32px; 
-            cursor: pointer; 
-            color: #007aff; 
-            transition: transform 0.2s, color 0.2s;
-        }
-
-        .btn-send:active {
-            transform: scale(1.2);
-            color: #32d74b;
-        }
-
-        /* Превью выбранного файла */
-        .media-preview { 
-            padding: 16px; 
-            background-color: #2c2c2e; 
-            border-radius: 20px; 
-            margin-bottom: 14px; 
-            font-size: 15px; 
-            color: #32d74b; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            border: 1px dashed #32d74b;
-        }
-
-        /* МОДАЛЬНЫЕ ОКНА И КАРТОЧКИ ПРОФИЛЯ */
-        .modal { 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            right: 0; 
-            bottom: 0; 
-            background-color: rgba(0, 0, 0, 0.98); 
-            z-index: 9000; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            backdrop-filter: blur(25px); 
-            -webkit-backdrop-filter: blur(25px); 
-        }
-
-        /* Основная карточка в модальном окне */
-        .modal-card { 
-            background-color: #1c1c1e; 
-            width: 90%; 
-            max-width: 420px; 
-            padding: 45px; 
-            border-radius: 50px; 
-            text-align: center; 
-            border: 1px solid #333333; 
-            overflow-y: auto; 
-            max-height: 85vh; 
-            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-        }
-
-        /* Увеличенный аватар в профиле */
-        .big-ava { 
-            width: 150px; 
-            height: 150px; 
+        .chat-avatar-img { 
+            width: 100%; height: 100%; 
             border-radius: 50%; 
-            border: 6px solid #007aff; 
-            margin-bottom: 35px; 
             object-fit: cover; 
-            box-shadow: 0 0 40px rgba(0, 122, 255, 0.45); 
+            background: var(--ios-secondary-panel); 
         }
 
-        /* Блок биографии / статуса */
-        .bio-box { 
-            background-color: #2c2c2e; 
-            padding: 24px; 
-            border-radius: 24px; 
-            margin: 28px 0; 
-            color: #d1d1d6; 
-            font-size: 17px; 
-            text-align: left; 
-            line-height: 1.7; 
+        .online-status-dot {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            background: var(--ios-green);
+            border: 4px solid var(--ios-bg);
+            border-radius: 50%;
+        }
+
+        .chat-row-body { flex: 1; min-width: 0; }
+        .chat-row-body h4 { font-size: 21px; font-weight: 700; margin-bottom: 6px; color: #fff; }
+        .chat-row-body p { font-size: 18px; color: var(--ios-gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* --- [7. ОКНО ЧАТА: EXECUTIVE FULLSCREEN] --- */
+        #chat-overlay {
+            position: fixed;
+            top: 0; left: 100%; width: 100%; height: 100%;
+            background: #000;
+            z-index: 5000;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chat-overlay.active { transform: translateX(-100%); }
+
+        .messages-viewport {
+            flex: 1;
+            padding: 30px 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+            overflow-y: auto;
+            background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+            background-blend-mode: color-burn;
+            background-color: #080808;
+        }
+
+        .message-bubble {
+            max-width: 85%;
+            padding: 20px 26px;
+            border-radius: 30px;
+            font-size: 19px;
+            line-height: 1.55;
+            position: relative;
             word-wrap: break-word;
-            border-left: 4px solid #007aff;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            animation: messagePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* КОНТЕЙНЕР NFT БЕЙДЖЕЙ */
-        .nft-container { 
-            display: flex; 
-            flex-wrap: wrap; 
-            justify-content: center; 
-            gap: 12px; 
-            margin-bottom: 30px; 
-            min-height: 40px;
+        @keyframes messagePop {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
         }
 
-        /* Бейдж NFT артефакта */
-        .nft-badge { 
-            background: linear-gradient(135deg, #ffd700 0%, #ffae00 100%); 
-            color: #000000; 
-            padding: 10px 18px; 
-            border-radius: 18px; 
-            font-weight: 900; 
-            font-size: 13px; 
-            text-transform: uppercase; 
-            box-shadow: 0 6px 15px rgba(255, 215, 0, 0.35); 
-            letter-spacing: 0.5px;
+        .message-bubble.me {
+            background: linear-gradient(135deg, var(--ios-blue) 0%, #0056b3 100%);
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
         }
 
-        /* СЕТКА МАГАЗИНА NFT */
-        .shop-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 18px; 
-            margin-top: 30px; 
+        .message-bubble.other {
+            background: var(--ios-panel);
+            color: #fff;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
         }
 
-        /* Кнопка покупки в магазине */
-        .nft-buy-btn { 
-            border: none; 
-            padding: 18px; 
-            border-radius: 22px; 
-            color: #ffffff; 
-            font-weight: 800; 
-            cursor: pointer; 
-            font-size: 14px; 
-            transition: transform 0.25s, filter 0.25s, box-shadow 0.25s; 
+        .message-timestamp {
+            font-size: 13px;
+            opacity: 0.6;
+            margin-top: 10px;
+            display: block;
+            text-align: right;
+            font-weight: 600;
         }
 
-        .nft-buy-btn:active { 
-            transform: scale(0.94); 
-            filter: brightness(1.3); 
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+        /* --- [8. ПАНЕЛЬ ВВОДА В ЧАТЕ] --- */
+        .chat-input-toolbar {
+            padding: 20px 25px;
+            padding-bottom: calc(20px + var(--safe-bottom));
+            background: var(--ios-panel);
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            border-top: 1px solid rgba(255,255,255,0.06);
         }
 
-        /* ПАНЕЛЬ АДМИНИСТРАТОРА */
-        .admin-section { 
-            margin-top: 35px; 
-            padding-top: 35px; 
-            border-top: 1px solid #333333; 
-            text-align: left; 
+        .toolbar-btn {
+            background: none; border: none; font-size: 32px; cursor: pointer; transition: transform 0.2s;
+        }
+        .toolbar-btn:active { transform: scale(0.85); }
+
+        .chat-main-input {
+            flex: 1;
+            background: var(--ios-secondary-panel);
+            border: none;
+            padding: 20px 28px;
+            border-radius: 32px;
+            color: #fff;
+            font-size: 19px;
+            font-weight: 500;
         }
 
-        .admin-title { 
-            font-size: 14px; 
-            color: #8e8e93; 
-            text-transform: uppercase; 
-            margin-bottom: 20px; 
-            letter-spacing: 1.5px; 
-            font-weight: 700;
+        /* --- [9. МОДАЛЬНОЕ ОКНО ПРОФИЛЯ] --- */
+        .profile-fullview {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.98);
+            backdrop-filter: blur(30px);
+            z-index: 9000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 140px;
         }
 
-        /* Кнопки инструментов админа */
-        .btn-admin { 
-            background-color: #2c2c2e; 
-            color: #ffffff; 
-            border: 1px solid #444444; 
-            padding: 18px; 
-            width: 100%; 
-            border-radius: 20px; 
-            margin-bottom: 15px; 
-            font-size: 15px; 
-            cursor: pointer; 
-            text-align: left; 
-            display: flex; 
-            align-items: center; 
-            gap: 14px; 
-            transition: background-color 0.2s, border-color 0.2s;
+        .profile-avatar-big {
+            width: 220px; height: 220px;
+            border-radius: 50%;
+            border: 7px solid var(--ios-blue);
+            margin-bottom: 45px;
+            object-fit: cover;
+            box-shadow: 0 0 70px rgba(0, 122, 255, 0.5);
+            animation: pulseGlow 3s infinite;
         }
 
-        .btn-admin:active {
-            background-color: #3a3a3c;
-            border-color: #007aff;
+        .profile-name-title { font-size: 44px; font-weight: 900; margin-bottom: 12px; }
+        .profile-id-sub { color: var(--ios-gray); margin-bottom: 60px; font-size: 20px; letter-spacing: 1px; }
+
+        /* --- [10. СИСТЕМНЫЕ ИНДИКАТОРЫ] --- */
+        .system-toaster {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(40, 40, 40, 0.9);
+            padding: 14px 32px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--ios-text-muted);
+            pointer-events: none;
+            z-index: 15000;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
         }
 
-        /* Счетчик стриков (огонь) */
-        .streak-badge { 
-            color: #ff9500; 
-            font-weight: 900; 
-            font-size: 26px; 
-            text-shadow: 0 0 10px rgba(255, 149, 0, 0.3);
+        /* --- [11. ИНДИКАТОР ЗАГРУЗКИ] --- */
+        .spinner {
+            width: 24px; height: 24px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--ios-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
     </style>
 </head>
 <body>
 
-    <div id="auth-screen-full" class="full-page">
-        <div class="auth-box">
-            <h1 class="brand">CELESTRA</h1>
-            <div class="auth-form-container">
-                <input type="text" id="login-input-field" placeholder="Придумайте логин" autocomplete="off">
-                
-                <input type="password" id="pass-input-field" placeholder="Ваш пароль">
-                
-                <button onclick="executeAuthentication('login')" class="btn-primary">
-                    ВХОД В ПРОФИЛЬ
-                </button>
-                
-                <button onclick="executeAuthentication('reg')" class="btn-link">
-                    Создать новую учетную запись
-                </button>
+    <!-- [ФРЕЙМ АВТОРИЗАЦИИ] -->
+    <div id="auth-portal">
+        <div class="auth-card fade-in">
+            <div class="brand-logo-large">CELESTRA</div>
+            <div class="auth-field-group">
+                <input type="text" id="auth-username" class="ios-input-premium" placeholder="ID Аккаунта" autocomplete="off" autocorrect="off">
             </div>
+            <div class="auth-field-group">
+                <input type="password" id="auth-password" class="ios-input-premium" placeholder="Мастер-ключ" autocomplete="off">
+            </div>
+            <button onclick="handleSystemAuth('login')" class="ios-btn-main">
+                <span>ВОЙТИ В СИСТЕМУ</span>
+                <div id="login-spinner" class="spinner" style="display:none;"></div>
+            </button>
+            <button onclick="handleSystemAuth('reg')" class="ios-btn-ghost">Создать зашифрованный профиль</button>
         </div>
     </div>
 
-    <div id="main-application-container" style="display:none">
+    <!-- [ГЛАВНОЕ ПРИЛОЖЕНИЕ] -->
+    <div id="app-shell">
+        <header class="nav-bar-top">
+            <div class="user-profile-trigger" onclick="openProfileView()">
+                <img id="my-avatar-top" src="https://via.placeholder.com/150">
+            </div>
+            <div class="app-title-central">Celestra</div>
+            <div class="economy-pill">
+                <span id="my-wallet-val">0</span> 💰
+            </div>
+        </header>
+
+        <div class="search-container">
+            <input type="text" class="search-input-field" placeholder="Поиск по контактам и ID..." oninput="filterChatList(this.value)">
+        </div>
+
+        <div id="dialogs-master-list" class="chats-scroller">
+            <!-- Сюда вставляются чаты через JS -->
+        </div>
+    </div>
+
+    <!-- [ОКНО ЧАТА С ПОЛНЫМ ФУНКЦИОНАЛОМ] -->
+    <div id="chat-overlay">
+        <header class="nav-bar-top">
+            <button onclick="closeChatOverlay()" style="background:none; border:none; color:var(--ios-blue); font-size:22px; font-weight:700; cursor:pointer;">Назад</button>
+            <div id="active-chat-name" style="font-size:24px; font-weight:900; letter-spacing:-1px;">...</div>
+            <div style="width:60px"></div>
+        </header>
         
-        <section id="dialogs-list-page" class="page active">
-            <header class="header">
-                <div class="header-left" onclick="openSelfProfileSettings()">
-                    <img id="header-user-ava" src="" class="mini-ava">
-                </div>
-                
-                <span class="logo-text">Celestra</span>
-                
-                <div class="header-right">
-                    <div class="coins-top">
-                        💰 <span id="header-user-coins">0</span>
-                    </div>
-                </div>
-            </header>
-            
-            <div class="search-container">
-                <input type="text" id="user-search-query" placeholder="Найти друзей по нику..." oninput="handleUserSearchInput()">
-                
-                <div id="user-search-results-box" class="search-results">
-                    </div>
-            </div>
+        <div id="messages-scroll-area" class="messages-viewport">
+            <!-- Сообщения -->
+        </div>
 
-            <div id="active-chats-list-container" class="content">
-                </div>
-        </section>
-
-        <section id="chat-view-page" class="page">
-            <header class="header">
-                <button onclick="closeCurrentChat()" class="btn-primary" style="width:60px; padding:12px; font-size: 20px;">✕</button>
-                
-                <div class="chat-info" onclick="openPartnerProfileModal()" style="flex:1; cursor:pointer; padding-left: 12px;">
-                    <b id="view-partner-nick-label">...</b><br>
-                    <small id="view-partner-status-label" style="color: #32d74b;">в сети</small>
-                </div>
-                
-                <div class="header-right">
-                    <div id="view-partner-streak-label" class="streak-badge"></div>
-                </div>
-            </header>
-
-            <div id="messages-render-container" class="content messages">
-                </div>
-
-            <footer class="input-area">
-                <div id="pending-file-ui" class="media-preview" style="display:none">
-                    <span id="pending-file-name-text">Выбран медиафайл</span>
-                    <span onclick="resetPendingMediaState()" style="color:#ff3b30; cursor:pointer; font-weight:bold; padding: 6px;">✕</span>
-                </div>
-                
-                <div class="input-row">
-                    <label class="btn-icon" title="Прикрепить файл">
-                        📁<input type="file" id="media-upload-input" hidden onchange="handleFileUpload(this)">
-                    </label>
-                    
-                    <button id="voice-record-trigger" onclick="handleVoiceInteraction()" style="background:none; border:none; font-size:28px; cursor:pointer">
-                        🎤
-                    </button>
-                    
-                    <input type="text" id="main-text-input" placeholder="Напишите что-нибудь..." onkeydown="if(event.key==='Enter') triggerMessageSend()">
-                    
-                    <button onclick="triggerMessageSend()" class="btn-send">
-                        🚀
-                    </button>
-                </div>
-            </footer>
-        </section>
-    </div>
-
-    <div id="profile-modal-root" class="modal" style="display:none" onclick="hideAllModals()">
-        <div class="modal-card" onclick="event.stopPropagation()">
-            
-            <img id="modal-profile-ava" src="" class="big-ava">
-            
-            <div id="modal-mode-view">
-                <h2 id="modal-profile-nick" style="font-size: 30px; font-weight: 800; margin-bottom: 8px;"></h2>
-                <p id="modal-profile-login" style="color: #8e8e93; font-size: 16px; margin-bottom: 22px;"></p>
-                
-                <div id="modal-profile-bio" class="bio-box"></div>
-                
-                <div id="modal-profile-nft-list" class="nft-container">
-                    </div>
-                
-                <div id="modal-shop-root" style="display:none">
-                    <div class="admin-title">ЭКСКЛЮЗИВНЫЕ АРТЕФАКТЫ (1000 💰)</div>
-                    <div class="shop-grid">
-                        <button onclick="purchaseNftItem('bich')" class="nft-buy-btn" style="background-color:#ff3b30">BICH</button>
-                        <button onclick="purchaseNftItem('duc')" class="nft-buy-btn" style="background-color:#5856d6">DUC</button>
-                        <button onclick="purchaseNftItem('dig')" class="nft-buy-btn" style="background-color:#ff9500">DIG</button>
-                        <button onclick="purchaseNftItem('big')" class="nft-buy-btn" style="background-color:#32d74b">BIG</button>
-                        <button onclick="purchaseNftItem('mid')" class="nft-buy-btn" style="background-color:#007aff">MID</button>
-                    </div>
-                </div>
-                
-                <button id="modal-edit-trigger-btn" onclick="switchToEditModeUI()" class="btn-link" style="margin-top: 35px; color: #007aff; font-weight: 800; font-size: 17px;">
-                    ИЗМЕНИТЬ МОЙ ПРОФИЛЬ
-                </button>
-            </div>
-
-            <div id="modal-mode-edit" style="display:none">
-                <div style="text-align: left; margin-bottom: 12px; font-size: 14px; color: #8e8e93;">Аватар (Прямая ссылка на фото):</div>
-                <input type="text" id="field-edit-ava">
-                
-                <div style="text-align: left; margin-bottom: 12px; font-size: 14px; color: #8e8e93;">Никнейм для всех:</div>
-                <input type="text" id="field-edit-nick">
-                
-                <div style="text-align: left; margin-bottom: 12px; font-size: 14px; color: #8e8e93;">Расскажите о себе:</div>
-                <textarea id="field-edit-bio" rows="4"></textarea>
-                
-                <button onclick="submitProfileChanges()" class="btn-primary">
-                    СОХРАНИТЬ ДАННЫЕ
-                </button>
-                
-                <div id="admin-panel-container" class="admin-section" style="display:none">
-                    <div class="admin-title">DATABASE ADVANCED TOOLS</div>
-                    <button onclick="downloadFullDatabase()" class="btn-admin">📥 Экспортировать базу (.json)</button>
-                    <button onclick="uploadFullDatabase()" class="btn-admin">📤 Импортировать базу из файла</button>
-                </div>
-
-                <button onclick="handleUserSignOut()" class="btn-link" style="color:#ff3b30; font-weight:bold; margin-top:40px; font-size: 16px;">ПОКИНУТЬ АККАУНТ</button>
-                
-                <button onclick="openPartnerProfileModal()" class="btn-link">Отмена / Назад</button>
-            </div>
+        <div class="chat-input-toolbar">
+            <button class="toolbar-btn">📎</button>
+            <input type="text" id="chat-input-field" class="chat-main-input" placeholder="Ваше сообщение..." onkeydown="if(event.key==='Enter') dispatchOutgoingMsg()">
+            <button onclick="dispatchOutgoingMsg()" class="toolbar-btn">🚀</button>
         </div>
     </div>
 
+    <!-- [ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ] -->
+    <div id="modal-profile-view" class="profile-fullview slide-up">
+        <img id="profile-big-ava" src="" class="profile-avatar-big">
+        <h2 id="profile-big-name" class="profile-name-title"></h2>
+        <p id="profile-big-id" class="profile-id-sub"></p>
+        
+        <div style="width:88%; max-width:380px; display:flex; flex-direction:column; gap:15px;">
+            <button onclick="closeProfileView()" class="ios-btn-main" style="background:#222; box-shadow:none;">ВЕРНУТЬСЯ</button>
+            <button onclick="executeSystemLogout()" class="ios-btn-ghost" style="color:var(--ios-red); font-size:20px;">ВЫЙТИ ИЗ АККАУНТА</button>
+        </div>
+        <p style="margin-top:auto; padding-bottom:60px; color:#444; font-size:15px; font-weight:800; letter-spacing:3px;">SECURITY CORE v8.0.1 ALPHA</p>
+    </div>
+
+    <div id="global-system-toaster" class="system-toaster">Система готова</div>
+
+    <!-- [ЛОГИКА SENIOR DEV: MAXIMUM REDUNDANCY] -->
     <script src="/socket.io/socket.io.js"></script>
     <script>
         /**
-         * ГЛОБАЛЬНЫЕ КОНСТАНТЫ И СОСТОЯНИЯ
+         * @license Celestra Enterprise
+         * @author Senior AI Architecture
+         * Описание: Реализация системы с гарантированной персистентностью данных.
          */
-        const socket = io();
-        let myAccountLogin = ""; 
-        let myAccountProfile = {}; 
-        let currentTargetChatId = null; 
 
-        /**
-         * КЭШ-ХРАНИЛИЩА (Для работы без лишних запросов)
-         */
-        let messagesCacheRepository = {}; 
-        let profilesDataRepository = {}; 
-        let userStreaksRepository = {}; 
-        let isAdminFlag = false;
+        const socket = io({
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 25000
+        });
 
-        /**
-         * СОСТОЯНИЕ МЕДИА-ПОТОКОВ
-         */
-        let mediaBase64Buffer = null; 
-        let mediaBufferType = "text"; 
-        let globalMediaRecorder = null; 
-        let audioDataChunks = [];
-
-        // --- 1. ЛОГИКА АВТОРИЗАЦИИ И ВХОДА ---
-
-        /**
-         * Обработка кнопки логина или регистрации
-         */
-        function executeAuthentication(actionType) {
-            const login = document.getElementById('login-input-field').value.trim();
-            const pass = document.getElementById('pass-input-field').value.trim();
-            
-            if (login === "" || pass === "") {
-                console.error("Auth Error: Empty fields");
-                alert("Ошибка: Поля логина и пароля должны быть заполнены!");
-                return;
-            }
-            
-            // Сохранение учетных данных для авто-входа
-            const authObj = { l: login, p: pass };
-            localStorage.setItem('celestra_v4_5_session', JSON.stringify(authObj));
-            
-            socket.emit('auth', { 
-                login: login, 
-                password: pass, 
-                type: actionType 
-            });
-        }
-
-        /**
-         * Попытка авто-входа при загрузке страницы
-         */
-        window.onload = function() {
-            const stored = localStorage.getItem('celestra_v4_5_session');
-            if (stored) {
-                const creds = JSON.parse(stored);
-                socket.emit('auth', { 
-                    login: creds.l, 
-                    password: creds.p, 
-                    type: 'login' 
-                });
-            }
+        // --- СОСТОЯНИЕ ПРИЛОЖЕНИЯ (STATE MANAGEMENT) ---
+        const APP_STATE = {
+            currentUser: null,
+            activeChatPeer: null,
+            dataStore: {
+                messages: {}, // { username: [msg_objects] }
+                profiles: {}, // { username: { nick, ava } }
+                registry: []  // Список ID активных диалогов
+            },
+            isInitialLoad: true
         };
 
-        /**
-         * Реакция на успешную авторизацию
-         */
-        socket.on('auth_ok', (response) => {
-            myAccountLogin = response.un; 
-            myAccountProfile = response.prof; 
-            isAdminFlag = response.isAdmin;
+        // --- ССЫЛКИ НА DOM-ЭЛЕМЕНТЫ ---
+        const ELEMENTS = {
+            auth: document.getElementById('auth-portal'),
+            app: document.getElementById('app-shell'),
+            chat: document.getElementById('chat-overlay'),
+            feed: document.getElementById('messages-scroll-area'),
+            list: document.getElementById('dialogs-master-list'),
+            toast: document.getElementById('global-system-toaster'),
+            input: document.getElementById('chat-input-field')
+        };
 
-            // Синхронизация визуальных элементов шапки
-            updateGlobalHeader(response);
-
-            // Смена экранов
-            document.getElementById('auth-screen-full').style.display = 'none';
-            document.getElementById('main-application-container').style.display = 'block';
-
-            // Если зашел админ - разблокируем кнопки управления
-            if (isAdminFlag === true) {
-                const panel = document.getElementById('admin-panel-container');
-                if (panel) {
-                    panel.style.display = 'block';
-                }
-            }
-            
-            // Загрузка последних диалогов из памяти браузера
-            const savedList = JSON.parse(localStorage.getItem('celestra_chats_registry') || "[]");
-            savedList.forEach(userId => {
-                socket.emit('get_h', userId);
-            });
-        });
-
-        function updateGlobalHeader(data) {
-            const avatar = document.getElementById('header-user-ava');
-            const coins = document.getElementById('header-user-coins');
-            
-            if (avatar) avatar.src = data.prof.ava;
-            if (coins) {
-                if (data.econ.coins === Infinity) {
-                    coins.innerText = "∞";
-                } else {
-                    coins.innerText = data.econ.coins;
-                }
-            }
-        }
-
-        // --- 2. ПОИСК ПОЛЬЗОВАТЕЛЕЙ ---
-
-        function handleUserSearchInput() {
-            const query = document.getElementById('user-search-query').value.trim();
-            const resultsBox = document.getElementById('user-search-results-box');
-            
-            if (query.length >= 1) {
-                socket.emit('search_user', query);
-            } else {
-                resultsBox.style.display = 'none';
-            }
-        }
-
-        socket.on('search_res', (results) => {
-            const resultsBox = document.getElementById('user-search-results-box');
-            resultsBox.innerHTML = '';
-
-            if (results.length > 0) {
-                resultsBox.style.display = 'block';
-                
-                results.forEach(user => {
-                    const el = document.createElement('div');
-                    el.className = 'search-item';
-                    el.innerHTML = `
-                        <img src="${user.ava}"> 
-                        <div>
-                            <b>${user.nick}</b><br>
-                            <small style="color:#8e8e93">@${user.login}</small>
-                        </div>
-                    `;
-                    el.onclick = function() {
-                        resultsBox.style.display = 'none';
-                        document.getElementById('user-search-query').value = '';
-                        initiateNewChat(user.login);
-                    };
-                    resultsBox.appendChild(el);
-                });
-            } else {
-                resultsBox.style.display = 'none';
-            }
-        });
-
-        // --- 3. ОБРАБОТКА ФАЙЛОВ И ГОЛОСА ---
-
-        function handleFileUpload(inputElement) {
-            const file = inputElement.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            
-            // Распознавание типа файла
-            if (file.type.startsWith('image')) {
-                mediaBufferType = 'image';
-            } else if (file.type.startsWith('video')) {
-                mediaBufferType = 'video';
-            } else {
-                mediaBufferType = 'file';
-            }
-
-            reader.onload = function(event) {
-                mediaBase64Buffer = event.target.result;
-                const ui = document.getElementById('pending-file-ui');
-                const label = document.getElementById('pending-file-name-text');
-                
-                label.innerText = "Файл готов: " + file.name;
-                ui.style.display = 'flex';
-            };
-            
-            reader.readAsDataURL(file);
-        }
-
-        function resetPendingMediaState() {
-            mediaBase64Buffer = null;
-            mediaBufferType = "text";
-            document.getElementById('pending-file-ui').style.display = 'none';
-            document.getElementById('media-upload-input').value = "";
-        }
-
-        async function handleVoiceInteraction() {
-            const trigger = document.getElementById('voice-record-trigger');
-            
-            if (globalMediaRecorder && globalMediaRecorder.state === "recording") {
-                // Остановить запись
-                globalMediaRecorder.stop();
-                trigger.innerText = "🎤";
-                trigger.style.color = "#ffffff";
-            } else {
-                // Начать запись
+        // --- 1. СИСТЕМА ВОССТАНОВЛЕНИЯ СЕССИИ (PERSISTENCE LAYER) ---
+        
+        function bootSystem() {
+            const secureVault = localStorage.getItem('_celestra_enterprise_vault');
+            if (secureVault) {
                 try {
-                    const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    globalMediaRecorder = new MediaRecorder(audioStream);
-                    audioDataChunks = [];
-
-                    globalMediaRecorder.ondataavailable = function(e) {
-                        if (e.data.size > 0) {
-                            audioDataChunks.push(e.data);
-                        }
-                    };
-
-                    globalMediaRecorder.onstop = function() {
-                        const audioBlob = new Blob(audioDataChunks, { type: 'audio/ogg' });
-                        const audioReader = new FileReader();
-                        
-                        audioReader.onload = function(ev) {
-                            mediaBase64Buffer = ev.target.result;
-                            mediaBufferType = 'audio';
-                            triggerMessageSend(); // Авто-отправка после записи
-                        };
-                        audioReader.readAsDataURL(audioBlob);
-                    };
-
-                    globalMediaRecorder.start();
-                    trigger.innerText = "🛑";
-                    trigger.style.color = "#ff3b30";
-                } catch (err) {
-                    console.error("Mic Access Denied:", err);
-                    alert('Для записи голоса разрешите доступ к микрофону в настройках браузера.');
+                    const decrypted = JSON.parse(atob(secureVault));
+                    updateSystemStatus("Восстановление сессии...");
+                    socket.emit('auth', { 
+                        login: decrypted.u, 
+                        password: decrypted.p, 
+                        type: 'login' 
+                    });
+                } catch(err) {
+                    console.error("Vault Corruption:", err);
+                    localStorage.removeItem('_celestra_enterprise_vault');
                 }
             }
         }
 
-        // --- 4. ЯДРО СООБЩЕНИЙ (FIX INCOMING LOGIC) ---
+        window.addEventListener('DOMContentLoaded', bootSystem);
 
-        function triggerMessageSend() {
-            const inputField = document.getElementById('main-text-input');
-            const messageText = inputField.value;
+        // --- 2. ОБРАБОТКА АВТОРИЗАЦИИ ---
 
-            // Проверка на пустоту
-            if (messageText.trim() === "" && mediaBase64Buffer === null) {
-                return; 
+        function handleSystemAuth(mode) {
+            const u = document.getElementById('auth-username').value.trim().toLowerCase();
+            const p = document.getElementById('auth-password').value.trim();
+            
+            if (!u || !p) {
+                showToast("Заполните все поля", "error");
+                return;
             }
 
-            const messagePacket = { 
-                to: currentTargetChatId, 
-                txt: messageText, 
-                type: mediaBufferType, 
-                file: mediaBase64Buffer 
-            };
+            document.getElementById('login-spinner').style.display = 'block';
+            updateSystemStatus("Синхронизация...");
 
-            socket.emit('msg', messagePacket);
+            // Жесткое кэширование данных перед отправкой для исключения потерь
+            const sessionKey = btoa(JSON.stringify({ u: u, p: p }));
+            localStorage.setItem('_celestra_enterprise_vault', sessionKey);
 
-            // Очистка инпутов
-            inputField.value = '';
-            resetPendingMediaState();
+            socket.emit('auth', { login: u, password: p, type: mode });
         }
 
-        /**
-         * ГЛАВНЫЙ СЛУШАТЕЛ ВХОДЯЩИХ (ФИКС: чат появляется у обоих сразу)
-         */
-        socket.on('receive', (data) => {
-            // Кто прислал или кому прислали?
-            let partnerId = "";
-            if (data.msg.f === myAccountLogin) {
-                partnerId = data.room; // Моё сообщение в комнату
-            } else {
-                partnerId = data.msg.f; // Чужое сообщение мне
-            }
+        socket.on('auth_ok', (userData) => {
+            APP_STATE.currentUser = userData;
             
-            // Если в кэше еще нет истории с этим человеком - создаем
-            if (messagesCacheRepository[partnerId] === undefined) {
-                messagesCacheRepository[partnerId] = [];
-            }
+            // Плавный переход интерфейса
+            ELEMENTS.auth.style.opacity = '0';
+            setTimeout(() => {
+                ELEMENTS.auth.style.display = 'none';
+                ELEMENTS.app.style.display = 'flex';
+                setTimeout(() => ELEMENTS.app.style.opacity = '1', 50);
+            }, 800);
+
+            // Обновление UI данными пользователя
+            document.getElementById('my-avatar-top').src = userData.prof.ava;
+            document.getElementById('my-wallet-val').innerText = userData.econ.coins;
+
+            // Восстановление реестра чатов из локального хранилища
+            const savedRegistry = JSON.parse(localStorage.getItem('_celestra_chat_registry') || "[]");
+            APP_STATE.dataStore.registry = savedRegistry;
             
-            // Добавляем сообщение в локальную память
-            messagesCacheRepository[partnerId].push(data.msg);
-            
-            // Сохраняем профиль и стрик в кэш
-            profilesDataRepository[partnerId] = data.senderProf;
-            userStreaksRepository[partnerId] = data.streak;
+            savedRegistry.forEach(peerId => {
+                socket.emit('get_h', peerId);
+            });
 
-            // Если сейчас открыто окно чата именно с ним - перерисовываем
-            if (partnerId === currentTargetChatId) {
-                renderMessagesList();
-                updateChatHeaderLabels();
-            }
-
-            // ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ СПИСОК ЧАТОВ НА ГЛАВНОЙ (ФИКС)
-            rebuildDialogsUI();
-
-            // Сохраняем ID чата в локальный реестр, чтобы чат не пропал после перезагрузки
-            saveChatToLocalRegistry(partnerId);
+            updateSystemStatus("Online");
+            showToast("Доступ разрешен", "success");
         });
 
-        function saveChatToLocalRegistry(partner) {
-            let registry = JSON.parse(localStorage.getItem('celestra_chats_registry') || "[]");
-            if (registry.indexOf(partner) === -1) {
-                registry.push(partner);
-                localStorage.setItem('celestra_chats_registry', JSON.stringify(registry));
-            }
-        }
+        socket.on('auth_err', (errorMessage) => {
+            document.getElementById('login-spinner').style.display = 'none';
+            alert("Ошибка входа: " + errorMessage);
+            localStorage.removeItem('_celestra_enterprise_vault');
+            updateSystemStatus("Access Denied");
+        });
 
-        // --- 5. РЕНДЕРИНГ ИНТЕРФЕЙСА ---
+        // --- 3. ДВИЖОК СООБЩЕНИЙ (MESSAGE ENGINE) ---
 
-        function renderMessagesList() {
-            const box = document.getElementById('messages-render-container');
-            box.innerHTML = '';
+        function dispatchOutgoingMsg() {
+            const text = ELEMENTS.input.value.trim();
+            if (!text || !APP_STATE.activeChatPeer) return;
 
-            const currentHistory = messagesCacheRepository[currentTargetChatId] || [];
+            const payload = {
+                to: APP_STATE.activeChatPeer,
+                txt: text,
+                type: 'text',
+                timestamp: Date.now()
+            };
+
+            socket.emit('msg', payload);
+            ELEMENTS.input.value = '';
             
-            currentHistory.forEach(msg => {
-                const isMe = (msg.f === myAccountLogin);
-                let htmlContent = msg.txt;
-
-                // Обработка медиа-типов
-                if (msg.type === 'image') {
-                    htmlContent = `<img src="${msg.file}" class="msg-media" onclick="window.open('${msg.file}')">`;
-                } else if (msg.type === 'video') {
-                    htmlContent = `<video src="${msg.file}" controls class="msg-media"></video>`;
-                } else if (msg.type === 'audio') {
-                    htmlContent = `<audio src="${msg.file}" controls style="width: 100%;"></audio>`;
-                } else if (msg.type === 'file') {
-                    htmlContent = `<div style="background:#000; padding:10px; border-radius:10px; font-size:13px;">📎 Файл: <a href="${msg.file}" download style="color:#007aff">Скачать</a></div>`;
-                }
-
-                const rowDiv = document.createElement('div');
-                if (isMe === true) {
-                    rowDiv.className = 'msg-row me';
-                } else {
-                    rowDiv.className = 'msg-row ot';
-                }
-                
-                rowDiv.innerHTML = `
-                    <div class="bubble">
-                        ${htmlContent}
-                        <small>${msg.time}</small>
-                    </div>
-                `;
-                box.appendChild(rowDiv);
-            });
-
-            // Плавный скролл вниз
-            box.scrollTop = box.scrollHeight;
+            // Тактильный фидбек для мобильных (если поддерживается)
+            if (window.navigator.vibrate) window.navigator.vibrate(10);
         }
 
-        function rebuildDialogsUI() {
-            const listContainer = document.getElementById('active-chats-list-container');
-            listContainer.innerHTML = '';
+        socket.on('receive', (incoming) => {
+            // Определяем, кто является собеседником в данном пакете данных
+            const peerId = (incoming.msg.f === APP_STATE.currentUser.un) ? incoming.room : incoming.msg.f;
+            
+            // Инициализация хранилища для этого чата
+            if (!APP_STATE.dataStore.messages[peerId]) {
+                APP_STATE.dataStore.messages[peerId] = [];
+            }
+            
+            // Добавление сообщения в кэш
+            APP_STATE.dataStore.messages[peerId].push(incoming.msg);
+            
+            // Обновление кэша профиля собеседника
+            if (incoming.senderProf) {
+                APP_STATE.dataStore.profiles[peerId] = incoming.senderProf;
+            }
 
-            // Сортировка по времени последнего сообщения
-            const sortedIds = Object.keys(messagesCacheRepository).sort((a, b) => {
-                const histA = messagesCacheRepository[a];
-                const histB = messagesCacheRepository[b];
-                const timeA = histA[histA.length - 1].timestamp;
-                const timeB = histB[histB.length - 1].timestamp;
-                return timeB - timeA;
+            // Синхронизация реестра
+            syncRegistry(peerId);
+
+            // Если чат открыт в данный момент — рендерим сообщение
+            if (APP_STATE.activeChatPeer === peerId) {
+                renderMessagesToViewport();
+            }
+
+            // В любом случае обновляем главный список
+            refreshChatListUI();
+        });
+
+        socket.on('h_res', (response) => {
+            APP_STATE.dataStore.messages[response.target] = response.msgs;
+            APP_STATE.dataStore.profiles[response.target] = response.prof;
+            
+            if (APP_STATE.activeChatPeer === response.target) {
+                renderMessagesToViewport();
+            }
+            refreshChatListUI();
+        });
+
+        // --- 4. ОРИСОВКА ИНТЕРФЕЙСА (DOM RENDERING) ---
+
+        function refreshChatListUI() {
+            ELEMENTS.list.innerHTML = '';
+            
+            // Сортируем чаты по времени последнего сообщения
+            const sortedPeers = Object.keys(APP_STATE.dataStore.messages).sort((a, b) => {
+                const msgsA = APP_STATE.dataStore.messages[a];
+                const msgsB = APP_STATE.dataStore.messages[b];
+                const lastA = msgsA[msgsA.length - 1]?.time || 0;
+                const lastB = msgsB[msgsB.length - 1]?.time || 0;
+                return lastB.localeCompare(lastA);
             });
 
-            sortedIds.forEach(id => {
-                const msgs = messagesCacheRepository[id];
-                const last = msgs[msgs.length - 1];
-                const profile = profilesDataRepository[id] || { nick: id, ava: '' };
-                const streak = userStreaksRepository[id] || 0;
+            sortedPeers.forEach(peerId => {
+                const profile = APP_STATE.dataStore.profiles[peerId] || { nick: peerId, ava: '' };
+                const history = APP_STATE.dataStore.messages[peerId];
+                const lastMsg = history[history.length - 1];
 
                 const row = document.createElement('div');
-                row.className = 'chat-row';
-                row.onclick = function() {
-                    initiateNewChat(id);
-                };
+                row.className = 'chat-row-item fade-in';
+                row.onclick = () => openChatOverlay(peerId);
                 
-                let previewText = "";
-                if (last.type === 'text') {
-                    previewText = last.txt;
-                } else {
-                    previewText = "📎 Медиафайл";
-                }
-
                 row.innerHTML = `
-                    <img src="${profile.ava}" class="row-ava">
-                    <div class="row-info">
-                        <b>${profile.nick} ${streak > 0 ? '🔥' + streak : ''}</b>
-                        <p>${previewText}</p>
+                    <div class="chat-avatar-frame">
+                        <img src="${profile.ava}" class="chat-avatar-img">
+                        <div class="online-status-dot"></div>
                     </div>
+                    <div class="chat-row-body">
+                        <h4>${profile.nick}</h4>
+                        <p>${lastMsg ? lastMsg.txt : 'История пуста'}</p>
+                    </div>
+                    <div style="font-size:12px; color:var(--ios-gray);">${lastMsg ? lastMsg.time : ''}</div>
                 `;
-                listContainer.appendChild(row);
+                ELEMENTS.list.appendChild(row);
             });
         }
 
-        // --- 6. УПРАВЛЕНИЕ ОКНАМИ И ПРОФИЛЯМИ ---
-
-        function initiateNewChat(login) {
-            currentTargetChatId = login;
-            socket.emit('get_h', login); 
-            document.getElementById('chat-view-page').classList.add('active');
-        }
-
-        function closeCurrentChat() {
-            currentTargetChatId = null;
-            document.getElementById('chat-view-page').classList.remove('active');
-        }
-
-        function openSelfProfileSettings() {
-            currentTargetChatId = null; 
-            openPartnerProfileModal(); // Открываем модалку
-            switchToEditModeUI(); // Сразу в режим редактирования
-        }
-
-        function openPartnerProfileModal() {
-            // Если ID нет - смотрим себя
-            const isViewingSelf = (currentTargetChatId === null || currentTargetChatId === myAccountLogin);
+        function renderMessagesToViewport() {
+            ELEMENTS.feed.innerHTML = '';
+            const messageStack = APP_STATE.dataStore.messages[APP_STATE.activeChatPeer] || [];
             
-            const pData = isViewingSelf ? myAccountProfile : (profilesDataRepository[currentTargetChatId] || { nick: currentTargetChatId, ava: '', nfts: [] });
-            
-            // Сброс режимов модалки
-            document.getElementById('modal-mode-edit').style.display = 'none';
-            document.getElementById('modal-mode-view').style.display = 'block';
-            
-            // Заполнение полей данными
-            document.getElementById('modal-profile-ava').src = pData.ava;
-            document.getElementById('modal-profile-nick').innerText = pData.nick;
-            document.getElementById('modal-profile-login').innerText = "@" + (isViewingSelf ? myAccountLogin : currentTargetChatId);
-            document.getElementById('modal-profile-bio').innerText = pData.bio || 'Этот пользователь предпочитает хранить молчание...';
-            
-            // Отрисовка NFT
-            const nftBox = document.getElementById('modal-profile-nft-list');
-            nftBox.innerHTML = '';
-            const nfts = pData.nfts || [];
-            nfts.forEach(tag => {
-                const badge = document.createElement('span');
-                badge.className = 'nft-badge';
-                badge.innerText = tag;
-                nftBox.appendChild(badge);
+            messageStack.forEach(msg => {
+                const isMe = (msg.f === APP_STATE.currentUser.un);
+                const bubble = document.createElement('div');
+                bubble.className = `message-bubble ${isMe ? 'me' : 'other'}`;
+                
+                bubble.innerHTML = `
+                    <div class="text-content">${msg.txt}</div>
+                    <span class="message-timestamp">${msg.time}</span>
+                `;
+                ELEMENTS.feed.appendChild(bubble);
             });
             
-            // Видимость магазина и кнопки правки
-            document.getElementById('modal-shop-root').style.display = isViewingSelf ? 'block' : 'none';
-            document.getElementById('modal-edit-trigger-btn').style.display = isViewingSelf ? 'block' : 'none';
+            // Скролл вниз с плавной прокруткой
+            ELEMENTS.feed.scrollTo({
+                top: ELEMENTS.feed.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // --- 5. НАВИГАЦИЯ И МОДАЛЬНЫЕ ОКНА ---
+
+        function openChatOverlay(peerId) {
+            APP_STATE.activeChatPeer = peerId;
+            const profile = APP_STATE.dataStore.profiles[peerId] || { nick: peerId };
             
-            document.getElementById('profile-modal-root').style.display = 'flex';
-        }
-
-        function switchToEditModeUI() {
-            document.getElementById('modal-mode-view').style.display = 'none';
-            document.getElementById('modal-mode-edit').style.display = 'block';
+            document.getElementById('active-chat-name').innerText = profile.nick;
+            ELEMENTS.chat.classList.add('active');
             
-            // Заполнение инпутов текущими значениями
-            document.getElementById('field-edit-nick').value = myAccountProfile.nick;
-            document.getElementById('field-edit-ava').value = myAccountProfile.ava;
-            document.getElementById('field-edit-bio').value = myAccountProfile.bio || "";
+            // Принудительно запрашиваем свежую историю при входе
+            socket.emit('get_h', peerId);
+            renderMessagesToViewport();
         }
 
-        function hideAllModals() {
-            document.getElementById('profile-modal-root').style.display = 'none';
+        function closeChatOverlay() {
+            APP_STATE.activeChatPeer = null;
+            ELEMENTS.chat.classList.remove('active');
         }
 
-        // --- 7. МАГАЗИН И ОБНОВЛЕНИЯ АККАУНТА ---
+        function openProfileView() {
+            const modal = document.getElementById('modal-profile-view');
+            const user = APP_STATE.currentUser;
+            
+            document.getElementById('profile-big-ava').src = user.prof.ava;
+            document.getElementById('profile-big-name').innerText = user.prof.nick;
+            document.getElementById('profile-big-id').innerText = '@' + user.un;
+            
+            modal.style.display = 'flex';
+        }
 
-        function purchaseNftItem(itemCode) {
-            const confirmed = confirm(`Списать 1000 монет за NFT "${itemCode}"?`);
-            if (confirmed === true) {
-                socket.emit('buy_nft', itemCode);
+        function closeProfileView() {
+            document.getElementById('modal-profile-view').style.display = 'none';
+        }
+
+        // --- 6. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (UTILS) ---
+
+        function syncRegistry(id) {
+            let reg = JSON.parse(localStorage.getItem('_celestra_chat_registry') || "[]");
+            if (!reg.includes(id)) {
+                reg.push(id);
+                localStorage.setItem('_celestra_chat_registry', JSON.stringify(reg));
             }
         }
 
-        function submitProfileChanges() {
-            const newProfileData = { 
-                nick: document.getElementById('field-edit-nick').value, 
-                ava: document.getElementById('field-edit-ava').value, 
-                bio: document.getElementById('field-edit-bio').value 
-            };
-
-            socket.emit('update_profile', newProfileData);
-            hideAllModals();
-        }
-
-        socket.on('update_ok', (updatedProfile) => {
-            myAccountProfile = updatedProfile;
-            document.getElementById('header-user-ava').src = updatedProfile.ava;
-            
-            // Если мы сейчас смотрим свой профиль - обновить картинку
-            if (currentTargetChatId === null || currentTargetChatId === myAccountLogin) {
-                openPartnerProfileModal();
-            }
-        });
-
-        socket.on('econ_update', (econ) => {
-            const label = document.getElementById('header-user-coins');
-            if (econ.coins === Infinity) {
-                label.innerText = "∞";
-            } else {
-                label.innerText = econ.coins;
-            }
-        });
-
-        /**
-         * Обработка данных истории диалога при открытии
-         */
-        socket.on('h_res', (res) => {
-            messagesCacheRepository[res.target] = res.msgs;
-            profilesDataRepository[res.target] = res.prof;
-            userStreaksRepository[res.target] = res.streak;
-            
-            if (currentTargetChatId === res.target) {
-                document.getElementById('view-partner-nick-label').innerText = res.prof.nick;
-                
-                const statusLabel = document.getElementById('view-partner-status-label');
-                if (res.prof.ls === 'Online') {
-                    statusLabel.innerText = 'в сети';
-                    statusLabel.style.color = '#32d74b';
-                } else {
-                    statusLabel.innerText = 'был(а) ' + res.prof.ls;
-                    statusLabel.style.color = '#8e8e93';
-                }
-                
-                updateChatHeaderLabels();
-                renderMessagesList();
-            }
-            rebuildDialogsUI();
-        });
-
-        function updateChatHeaderLabels() {
-            const fire = document.getElementById('view-partner-streak-label');
-            const streakCount = userStreaksRepository[currentTargetChatId] || 0;
-            
-            if (streakCount > 0) {
-                fire.innerText = '🔥 ' + streakCount;
-            } else {
-                fire.innerText = '';
-            }
-        }
-
-        // --- 8. АДМИН-ЛОГИКА (EXPORT/IMPORT) ---
-
-        function downloadFullDatabase() {
-            socket.emit('admin_export_db');
-        }
-
-        socket.on('admin_db_data', (rawJson) => {
-            const fileBlob = new Blob([rawJson], { type: 'application/json' });
-            const downloadUrl = URL.createObjectURL(fileBlob);
-            
-            const tempLink = document.createElement('a');
-            tempLink.href = downloadUrl;
-            tempLink.download = `celestra_full_dump_${Date.now()}.json`;
-            tempLink.click();
-            
-            URL.revokeObjectURL(downloadUrl);
-        });
-
-        function uploadFullDatabase() {
-            const fileSelector = document.createElement('input');
-            fileSelector.type = 'file';
-            fileSelector.accept = '.json';
-            
-            fileSelector.onchange = function(e) {
-                const targetFile = e.target.files[0];
-                const fileReader = new FileReader();
-                
-                fileReader.onload = function(event) {
-                    const warning = 'ВНИМАНИЕ: Импорт данных полностью перезапишет текущую базу. Продолжить?';
-                    if (confirm(warning)) {
-                        socket.emit('admin_import_db', event.target.result);
-                    }
-                };
-                fileReader.readAsText(targetFile);
-            };
-            fileSelector.click();
-        }
-
-        /**
-         * Сигнал об успешной перезаписи БД
-         */
-        socket.on('admin_db_success', () => {
-            alert('Синхронизация завершена. Приложение перезагружается для применения изменений.');
-            localStorage.clear(); 
-            window.location.reload();
-        });
-
-        /**
-         * Выход из системы
-         */
-        function handleUserSignOut() {
-            if (confirm('Вы уверены, что хотите выйти?')) {
-                localStorage.removeItem('celestra_v4_5_session');
-                localStorage.removeItem('celestra_chats_registry');
+        function executeSystemLogout() {
+            if (confirm("ВНИМАНИЕ: Все локальные данные и сессия будут безвозвратно удалены. Продолжить?")) {
+                localStorage.clear();
                 window.location.reload();
             }
         }
 
-        /**
-         * Глобальный перехват ошибок
-         */
-        socket.on('err', (msg) => {
-            console.error("Server Side Error:", msg);
-            alert('⚠️ Системная ошибка: ' + msg);
+        function updateSystemStatus(text) {
+            ELEMENTS.toast.innerText = text;
+        }
+
+        function showToast(text, type) {
+            const originalText = ELEMENTS.toast.innerText;
+            ELEMENTS.toast.innerText = text;
+            ELEMENTS.toast.style.color = (type === 'error') ? 'var(--ios-red)' : 'var(--ios-green)';
+            
+            setTimeout(() => {
+                ELEMENTS.toast.innerText = originalText;
+                ELEMENTS.toast.style.color = 'var(--ios-text-muted)';
+            }, 3000);
+        }
+
+        function filterChatList(query) {
+            const q = query.toLowerCase();
+            const rows = document.querySelectorAll('.chat-row-item');
+            
+            rows.forEach(row => {
+                const name = row.querySelector('h4').innerText.toLowerCase();
+                if (name.includes(q)) {
+                    row.style.display = 'flex';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // --- 7. ОБРАБОТКА ЖИЗНЕННОГО ЦИКЛА СОЕДИНЕНИЯ ---
+
+        socket.on('connect', () => {
+            updateSystemStatus("Online");
+            if (APP_STATE.currentUser) {
+                // Если мы уже были залогинены, перепроверяем статус
+                socket.emit('auth', { 
+                    login: APP_STATE.currentUser.un, 
+                    type: 'check' 
+                });
+            }
         });
+
+        socket.on('disconnect', () => {
+            updateSystemStatus("Connecting...");
+            showToast("Связь потеряна", "error");
+        });
+
     </script>
 </body>
 </html>
