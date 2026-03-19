@@ -13,19 +13,17 @@ const io = new Server(server, {
     cors: { origin: "*" }
 });
 
-// Конфигурационные константы
+// Конфигурация окружения
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = 'discord_nitro_ultra_secret_2026_key';
-// ВНИМАНИЕ: Для локальной разработки используйте localhost, для деплоя — строку MongoDB Atlas
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/messenger_db';
 
-// Настройка Middleware
+// Настройка промежуточного ПО
 app.use(cors());
 app.use(express.json());
-// Указываем Express отдавать статику прямо из корня проекта
 app.use(express.static(__dirname));
 
-// Схемы данных MongoDB
+// Схемы базы данных MongoDB
 const UserSchema = new mongoose.Schema({
     username: { type: String, unique: true, required: true },
     password: { type: String, required: true },
@@ -42,33 +40,49 @@ const MessageSchema = new mongoose.Schema({
     sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     text: { type: String, required: true },
-    timestamp: { type: Date, default: Date.now },
-    read: { type: Boolean, default: false }
-});
-
-const StreakSchema = new mongoose.Schema({
-    users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    count: { type: Number, default: 1 },
-    lastInteraction: { type: Date, default: Date.now }
+    timestamp: { type: Date, default: Date.now }
 });
 
 const User = mongoose.model('User', UserSchema);
 const Message = mongoose.model('Message', MessageSchema);
-const Streak = mongoose.model('Streak', StreakSchema);
 
 // Подключение к базе данных
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('Успешное подключение к MongoDB'))
-    .catch(err => console.error('Ошибка подключения к БД:', err));
+    .catch(err => console.error('Ошибка подключения к базе данных:', err));
 
-// API Маршруты
+// Middleware для авторизации
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.sendStatus(401);
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+};
+
+// API: Проверка текущего пользователя (Автовход)
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// API: Регистрация
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
+        if (!username || !password) return res.status(400).json({ error: 'Заполните все поля' });
+        
         const existingUser = await User.findOne({ username });
-        if (existingUser) {
-            return res.status(400).json({ error: 'Это имя пользователя уже занято' });
-        }
+        if (existingUser) return res.status(400).json({ error: 'Имя пользователя уже занято' });
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ 
@@ -81,42 +95,28 @@ app.post('/api/auth/register', async (req, res) => {
         const token = jwt.sign({ id: newUser._id }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user: newUser });
     } catch (err) {
-        res.status(500).json({ error: 'Ошибка сервера при регистрации' });
+        res.status(500).json({ error: 'Ошибка при регистрации' });
     }
 });
 
+// API: Вход
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
         const user = await User.findOne({ username });
-        if (!user) {
-            return res.status(400).json({ error: 'Пользователь не найден' });
-        }
+        if (!user) return res.status(400).json({ error: 'Пользователь не найден' });
 
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ error: 'Неверный пароль' });
-        }
+        if (!isMatch) return res.status(400).json({ error: 'Неверный пароль' });
 
         const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user });
     } catch (err) {
-        res.status(500).json({ error: 'Ошибка сервера при входе' });
+        res.status(500).json({ error: 'Ошибка при входе' });
     }
 });
 
-app.get('/api/users/search', async (req, res) => {
-    try {
-        const { q } = req.query;
-        if (!q) return res.json([]);
-        const users = await User.find({ username: new RegExp(q, 'i') }).limit(10);
-        res.json(users);
-    } catch (err) {
-        res.status(500).json({ error: 'Ошибка поиска' });
-    }
-});
-
-// Socket.io Логика в реальном времени
+// Socket.io: Логика реального времени
 const activeConnections = new Map();
 
 io.on('connection', (socket) => {
@@ -130,7 +130,6 @@ io.on('connection', (socket) => {
                 activeConnections.set(user._id.toString(), socket.id);
                 socket.userId = user._id.toString();
                 io.emit('userStatusUpdate', { userId: user._id, isOnline: true });
-                console.log(`Пользователь ${user.username} подключился`);
             }
         } catch (err) {
             console.log('Ошибка аутентификации сокета');
@@ -139,7 +138,7 @@ io.on('connection', (socket) => {
 
     socket.on('sendMessage', async (data) => {
         const { receiverId, text } = data;
-        if (!socket.userId) return;
+        if (!socket.userId || !text) return;
 
         const newMessage = new Message({
             sender: socket.userId,
@@ -148,30 +147,9 @@ io.on('connection', (socket) => {
         });
         await newMessage.save();
 
-        // Логика Огней (Streaks)
-        let streak = await Streak.findOne({
-            users: { $all: [socket.userId, receiverId] }
-        });
-
-        if (!streak) {
-            streak = new Streak({ users: [socket.userId, receiverId], count: 1 });
-            await streak.save();
-        } else {
-            const now = new Date();
-            const timeDiff = (now - streak.lastInteraction) / (1000 * 60 * 60);
-            if (timeDiff >= 24 && timeDiff < 48) {
-                streak.count += 1;
-            } else if (timeDiff >= 48) {
-                streak.count = 1;
-            }
-            streak.lastInteraction = now;
-            await streak.save();
-        }
-
         const receiverSocketId = activeConnections.get(receiverId);
         if (receiverSocketId) {
             io.to(receiverSocketId).emit('newMessage', newMessage);
-            io.to(receiverSocketId).emit('updateStreak', { streak, partnerId: socket.userId });
         }
         socket.emit('newMessage', newMessage);
     });
@@ -194,24 +172,12 @@ io.on('connection', (socket) => {
     });
 });
 
-// Пинг-система для предотвращения сна сервера
-app.get('/ping', (req, res) => res.send('Система активна'));
+// Пинг для предотвращения сна сервера (Render/Railway)
+app.get('/ping', (req, res) => res.send('pong'));
 setInterval(() => {
-    http.get(`http://localhost:${PORT}/ping`, (res) => {
-        console.log('Самопроверка активности выполнена');
-    });
-}, 600000); // 10 минут
-
-// Роутинг для SPA
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Глобальная обработка ошибок для предотвращения падения (Status 1)
-process.on('uncaughtException', (err) => {
-    console.error('КРИТИЧЕСКАЯ ОШИБКА:', err);
-});
+    http.get(`http://localhost:${PORT}/ping`);
+}, 600000);
 
 server.listen(PORT, () => {
-    console.log(`Сервер мессенджера запущен на порту: ${PORT}`);
+    console.log(`Сервер мессенджера запущен на порту ${PORT}`);
 });
