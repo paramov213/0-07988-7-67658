@@ -1,276 +1,413 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const cors = require('cors');
-const path = require('path');
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
-
-/**
- * СЕРВЕРНАЯ ЧАСТЬ (BACKEND)
- */
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
-
-const PORT = process.env.PORT || 3000;
-const JWT_SECRET = 'nitro_ultra_secret_2026';
-
-app.use(cors());
-app.use(express.json());
-
-let db;
-
-// Инициализация базы данных SQLite (Файл создастся сам в корне проекта)
-(async () => {
-    db = await open({
-        filename: './database.sqlite',
-        driver: sqlite3.Database
-    });
-
-    await db.exec(`
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            password TEXT,
-            avatar TEXT DEFAULT 'https://i.imgur.com/6VBx3io.png'
-        )
-    `);
-    console.log('--- База данных SQLite успешно инициализирована ---');
-})();
-
-// Маршруты API
-app.get('/api/auth/me', async (req, res) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Токен отсутствует' });
-
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        const user = await db.get('SELECT id, username, avatar FROM users WHERE id = ?', [decoded.id]);
-        if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
-        res.json(user);
-    } catch (err) {
-        res.status(401).json({ error: 'Сессия истекла' });
-    }
-});
-
-app.post('/api/auth/register', async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'Введите имя и пароль' });
-
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const result = await db.run(
-            'INSERT INTO users (username, password) VALUES (?, ?)',
-            [username, hashedPassword]
-        );
-        const userId = result.lastID;
-        const token = jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token, user: { id: userId, username } });
-    } catch (err) {
-        if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'Это имя уже занято' });
-        res.status(500).json({ error: 'Ошибка БД' });
-    }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-    const { username, password } = req.body;
-    try {
-        const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
-        if (!user) return res.status(400).json({ error: 'Пользователь не найден' });
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ error: 'Неверный пароль' });
-
-        const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token, user: { id: user.id, username, avatar: user.avatar } });
-    } catch (err) {
-        res.status(500).json({ error: 'Ошибка сервера' });
-    }
-});
-
-// Отдача фронтенда (HTML)
-app.get('/', (req, res) => {
-    res.send(`
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nitro Messenger | Full Edition</title>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <title>Clash Royale Web Clone - Full Version</title>
     <style>
-        :root {
-            --bg-dark: #1e1f22;
-            --bg-main: #313338;
-            --bg-sidebar: #2b2d31;
-            --accent: #5865f2;
-            --text-white: #f2f3f5;
-            --text-muted: #b5bac1;
-            --input-bg: #1e1f22;
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            color: white;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Whitney', 'Helvetica Neue', sans-serif; }
-        body { background-color: #111214; color: var(--text-white); height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-        .screen { position: absolute; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-        .hidden { display: none !important; }
 
-        /* Auth UI */
-        .auth-card { background: var(--bg-main); padding: 32px; border-radius: 8px; width: 100%; max-width: 420px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); text-align: center; }
-        .form-group { text-align: left; margin-bottom: 20px; }
-        label { display: block; font-size: 12px; font-weight: bold; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; }
-        input { width: 100%; background: var(--input-bg); border: none; padding: 12px; color: white; border-radius: 4px; outline: none; }
-        input:focus { box-shadow: 0 0 0 2px var(--accent); }
-        button { width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #4752c4; }
-        .link { color: #00a8fc; cursor: pointer; text-decoration: none; font-size: 14px; margin-top: 16px; display: inline-block; }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            border: 4px solid #34495e;
+        }
 
-        /* Main UI */
-        #screen-app { display: flex; align-items: stretch; justify-content: flex-start; }
-        .sidebar { width: 260px; background: var(--bg-sidebar); border-right: 1px solid rgba(0,0,0,0.2); display: flex; flex-direction: column; }
-        .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-main); }
-        .messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .message { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; }
-        .input-box { padding: 20px; background: var(--bg-main); }
-        .input-box input { background: #383a40; padding: 15px; border-radius: 8px; }
-        .user-tag { background: #232428; padding: 10px; display: flex; align-items: center; gap: 10px; }
+        canvas {
+            background-color: #7cfc00;
+            display: block;
+            cursor: crosshair;
+        }
+
+        #ui-layer {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        #elixir-bar-container {
+            width: 80%;
+            height: 20px;
+            background: #444;
+            border: 2px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        #elixir-fill {
+            height: 100%;
+            width: 50%;
+            background: linear-gradient(90deg, #c018d4, #ff00ff);
+            transition: width 0.1s linear;
+        }
+
+        #cards-container {
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .card {
+            width: 70px;
+            height: 90px;
+            background: #ecf0f1;
+            border-radius: 8px;
+            border: 3px solid #bdc3c7;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #2c3e50;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            user-select: none;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            background: #fff;
+        }
+
+        .card.active {
+            border-color: #e67e22;
+            background: #fdebd0;
+        }
+
+        #stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.6);
+            padding: 5px 10px;
+            border-radius: 5px;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
-    <div id="screen-loading" class="screen"><h2>Синхронизация Nitro...</h2></div>
 
-    <div id="screen-auth" class="screen hidden">
-        <div class="auth-card">
-            <h2 id="auth-title">С возвращением!</h2>
-            <p style="color:var(--text-muted); margin-bottom: 20px;">Мы так рады видеть вас снова!</p>
-            <div class="form-group">
-                <label>Имя пользователя</label>
-                <input type="text" id="username">
+    <div id="game-container">
+        <div id="stats">Эликсир: <span id="elixir-text">5</span></div>
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui-layer">
+            <div id="elixir-bar-container">
+                <div id="elixir-fill"></div>
             </div>
-            <div class="form-group">
-                <label>Пароль</label>
-                <input type="password" id="password">
-            </div>
-            <button id="btn-submit">Вход</button>
-            <span class="link" id="btn-toggle">Нужен аккаунт? Зарегистрироваться</span>
-        </div>
-    </div>
-
-    <div id="screen-app" class="screen hidden">
-        <div class="sidebar">
-            <div style="padding: 15px; font-weight: bold; font-size: 18px;">Nitro Messenger</div>
-            <div style="flex: 1; padding: 10px; color: var(--text-muted);">Каналы и друзья...</div>
-            <div class="user-tag">
-                <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent);"></div>
-                <div id="display-name" style="font-weight: bold;">User</div>
-                <button id="btn-logout" style="width: auto; padding: 5px; background: transparent; color: var(--text-muted); font-size: 12px;">Выйти</button>
-            </div>
-        </div>
-        <div class="chat-area">
-            <div class="messages" id="messages"></div>
-            <div class="input-box">
-                <input type="text" id="msg-input" placeholder="Написать сообщение...">
+            <div id="cards-container">
+                <div class="card" onclick="selectCard(0, this)">Рыцарь<br>(3)</div>
+                <div class="card" onclick="selectCard(1, this)">Лучник<br>(2)</div>
+                <div class="card" onclick="selectCard(2, this)">Гигант<br>(5)</div>
             </div>
         </div>
     </div>
 
     <script>
-        const API = window.location.origin;
-        let isRegister = false;
-        let socket;
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const elixirFill = document.getElementById('elixir-fill');
+        const elixirText = document.getElementById('elixir-text');
 
-        function show(id) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-            document.getElementById(id).classList.remove('hidden');
-        }
+        // Настройки экрана
+        canvas.width = 400;
+        canvas.height = 700;
 
-        async function init() {
-            const token = localStorage.getItem('nitro_token');
-            if (!token) return show('screen-auth');
-            try {
-                const res = await fetch(API + '/api/auth/me', { headers: {'Authorization': 'Bearer ' + token} });
-                if (res.ok) loginSuccess(await res.json(), token);
-                else show('screen-auth');
-            } catch (e) { show('screen-auth'); }
-        }
+        // Состояние игры
+        let elixir = 5;
+        let enemyElixir = 5;
+        const maxElixir = 10;
+        let selectedCardIndex = 0;
+        
+        const cardData = [
+            { name: "Рыцарь", cost: 3, hp: 600, range: 40, damage: 10, speed: 1.2, color: '#3498db' },
+            { name: "Лучник", cost: 2, hp: 250, range: 150, damage: 15, speed: 1.0, color: '#9b59b6' },
+            { name: "Гигант", cost: 5, hp: 2000, range: 30, damage: 20, speed: 0.6, color: '#f1c40f' }
+        ];
 
-        document.getElementById('btn-toggle').onclick = () => {
-            isRegister = !isRegister;
-            document.getElementById('auth-title').innerText = isRegister ? 'Создать аккаунт' : 'С возвращением!';
-            document.getElementById('btn-submit').innerText = isRegister ? 'Зарегистрироваться' : 'Вход';
-            document.getElementById('btn-toggle').innerText = isRegister ? 'Уже есть аккаунт? Войти' : 'Нужен аккаунт? Зарегистрироваться';
-        };
+        let units = [];
+        let towers = [];
+        let projectiles = [];
 
-        document.getElementById('btn-submit').onclick = async () => {
-            const u = document.getElementById('username').value;
-            const p = document.getElementById('password').value;
-            if(!u || !p) return alert('Заполни поля!');
-            
-            const path = isRegister ? '/api/auth/register' : '/api/auth/login';
-            try {
-                const res = await fetch(API + path, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username: u, password: p})
-                });
-                const data = await res.json();
-                if (res.ok) loginSuccess(data.user, data.token);
-                else alert(data.error);
-            } catch (e) { alert('Ошибка сети'); }
-        };
-
-        function loginSuccess(user, token) {
-            localStorage.setItem('nitro_token', token);
-            document.getElementById('display-name').innerText = user.username;
-            show('screen-app');
-            socket = io(API);
-            socket.emit('authenticate', token);
-            socket.on('newMessage', m => {
-                const div = document.createElement('div');
-                div.className = 'message';
-                div.innerHTML = '<b>' + m.username + ':</b> ' + m.text;
-                document.getElementById('messages').appendChild(div);
-                document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
-            });
-        }
-
-        document.getElementById('btn-logout').onclick = () => {
-            localStorage.removeItem('nitro_token');
-            location.reload();
-        };
-
-        document.getElementById('msg-input').onkeydown = (e) => {
-            if (e.key === 'Enter' && e.target.value) {
-                socket.emit('sendMessage', { text: e.target.value });
-                e.target.value = '';
+        class Tower {
+            constructor(x, y, side, isKing) {
+                this.x = x;
+                this.y = y;
+                this.side = side; // 'player' или 'enemy'
+                this.isKing = isKing;
+                this.hp = isKing ? 3000 : 1500;
+                this.maxHp = this.hp;
+                this.range = 200;
+                this.fireRate = 60; // кадры между выстрелами
+                this.timer = 0;
+                this.radius = isKing ? 30 : 22;
+                this.alive = true;
             }
-        };
 
-        init();
+            draw() {
+                if (!this.alive) return;
+                ctx.fillStyle = this.side === 'player' ? '#2980b9' : '#c0392b';
+                ctx.beginPath();
+                ctx.roundRect(this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2, 5);
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // HP Bar
+                const barWidth = 50;
+                ctx.fillStyle = '#444';
+                ctx.fillRect(this.x - 25, this.y - 40, barWidth, 6);
+                ctx.fillStyle = '#2ecc71';
+                ctx.fillRect(this.x - 25, this.y - 40, (this.hp / this.maxHp) * barWidth, 6);
+            }
+
+            update() {
+                if (!this.alive) return;
+                this.timer++;
+                if (this.timer >= this.fireRate) {
+                    let target = this.findNearestEnemy();
+                    if (target) {
+                        projectiles.push(new Projectile(this.x, this.y, target, this.side));
+                        this.timer = 0;
+                    }
+                }
+            }
+
+            findNearestEnemy() {
+                let nearest = null;
+                let minDist = this.range;
+                units.forEach(u => {
+                    if (u.side !== this.side) {
+                        let d = Math.hypot(u.x - this.x, u.y - this.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            nearest = u;
+                        }
+                    }
+                });
+                return nearest;
+            }
+        }
+
+        class Unit {
+            constructor(x, y, side, config) {
+                this.x = x;
+                this.y = y;
+                this.side = side;
+                this.hp = config.hp;
+                this.maxHp = config.hp;
+                this.range = config.range;
+                this.damage = config.damage;
+                this.speed = config.speed;
+                this.color = config.color;
+                this.radius = 12;
+                this.alive = true;
+                this.attackTimer = 0;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = this.side === 'player' ? 'blue' : 'red';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // HP Bar
+                ctx.fillStyle = 'red';
+                ctx.fillRect(this.x - 12, this.y - 20, 24, 4);
+                ctx.fillStyle = 'lime';
+                ctx.fillRect(this.x - 12, this.y - 20, (this.hp / this.maxHp) * 24, 4);
+            }
+
+            update() {
+                let target = this.findTarget();
+                if (target) {
+                    let dist = Math.hypot(target.x - this.x, target.y - this.y);
+                    if (dist > this.range) {
+                        let angle = Math.atan2(target.y - this.y, target.x - this.x);
+                        this.x += Math.cos(angle) * this.speed;
+                        this.y += Math.sin(angle) * this.speed;
+                    } else {
+                        // Атака
+                        this.attackTimer++;
+                        if (this.attackTimer >= 50) {
+                            target.hp -= this.damage;
+                            this.attackTimer = 0;
+                        }
+                    }
+                }
+            }
+
+            findTarget() {
+                // Сначала ищем ближайшего юнита
+                let nearest = null;
+                let minDist = 9999;
+                
+                units.concat(towers).forEach(obj => {
+                    if (obj.side !== this.side && obj.alive) {
+                        let d = Math.hypot(obj.x - this.x, obj.y - this.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            nearest = obj;
+                        }
+                    }
+                });
+                return nearest;
+            }
+        }
+
+        class Projectile {
+            constructor(x, y, target, side) {
+                this.x = x;
+                this.y = y;
+                this.target = target;
+                this.side = side;
+                this.speed = 5;
+                this.damage = 40;
+                this.alive = true;
+            }
+
+            update() {
+                if (!this.target.alive) { this.alive = false; return; }
+                let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+                this.x += Math.cos(angle) * this.speed;
+                this.y += Math.sin(angle) * this.speed;
+
+                if (Math.hypot(this.target.x - this.x, this.target.y - this.y) < 10) {
+                    this.target.hp -= this.damage;
+                    this.alive = false;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initGame() {
+            // Башни игрока
+            towers.push(new Tower(200, 630, 'player', true));
+            towers.push(new Tower(80, 530, 'player', false));
+            towers.push(new Tower(320, 530, 'player', false));
+
+            // Башни врага
+            towers.push(new Tower(200, 70, 'enemy', true));
+            towers.push(new Tower(80, 170, 'enemy', false));
+            towers.push(new Tower(320, 170, 'enemy', false));
+        }
+
+        function drawArena() {
+            // Трава
+            ctx.fillStyle = '#55a630';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Река
+            ctx.fillStyle = '#0077b6';
+            ctx.fillRect(0, canvas.height/2 - 25, canvas.width, 50);
+
+            // Мосты
+            ctx.fillStyle = '#795548';
+            ctx.fillRect(60, canvas.height/2 - 35, 60, 70);
+            ctx.fillRect(280, canvas.height/2 - 35, 60, 70);
+
+            // Сетка дорожек
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=40) {
+                ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            }
+        }
+
+        function selectCard(index, el) {
+            selectedCardIndex = index;
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Ограничение зоны высадки (только на своей половине)
+            if (y > canvas.height / 2 + 30) {
+                let cost = cardData[selectedCardIndex].cost;
+                if (elixir >= cost) {
+                    units.push(new Unit(x, y, 'player', cardData[selectedCardIndex]));
+                    elixir -= cost;
+                }
+            }
+        });
+
+        // БОТ: Простая логика противника
+        function enemyAI() {
+            if (enemyElixir >= 5) {
+                let randomCard = cardData[Math.floor(Math.random() * cardData.length)];
+                let spawnX = Math.random() * (canvas.width - 40) + 20;
+                let spawnY = Math.random() * 100 + 100;
+                units.push(new Unit(spawnX, spawnY, 'enemy', randomCard));
+                enemyElixir -= randomCard.cost;
+            }
+        }
+
+        function update() {
+            // Эликсир
+            if (elixir < maxElixir) elixir += 0.008;
+            if (enemyElixir < maxElixir) enemyElixir += 0.007;
+
+            elixirFill.style.width = (elixir / maxElixir) * 100 + '%';
+            elixirText.innerText = Math.floor(elixir);
+
+            units = units.filter(u => u.hp > 0);
+            towers.forEach(t => { if(t.hp <= 0) t.alive = false; });
+            projectiles = projectiles.filter(p => p.alive);
+
+            units.forEach(u => u.update());
+            towers.forEach(t => t.update());
+            projectiles.forEach(p => p.update());
+
+            enemyAI();
+        }
+
+        function draw() {
+            drawArena();
+            towers.forEach(t => t.draw());
+            units.forEach(u => u.draw());
+            projectiles.forEach(p => p.draw());
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        initGame();
+        gameLoop();
     </script>
 </body>
 </html>
-    `);
-});
-
-// Socket.io логика
-io.on('connection', (socket) => {
-    socket.on('authenticate', (token) => {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            socket.userId = decoded.id;
-        } catch (e) {}
-    });
-
-    socket.on('sendMessage', async (data) => {
-        if (!socket.userId) return;
-        const user = await db.get('SELECT username FROM users WHERE id = ?', [socket.userId]);
-        if (user) {
-            io.emit('newMessage', { text: data.text, username: user.username });
-        }
-    });
-});
-
-server.listen(PORT, () => console.log('СЕРВЕР РАБОТАЕТ НА ПОРТУ ' + PORT));
