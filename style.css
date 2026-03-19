@@ -1,156 +1,57 @@
 :root {
+    --bg-darker: #1e1f22;
     --bg-main: #313338;
     --bg-sidebar: #2b2d31;
-    --bg-input: #383a40;
-    --text-main: #dbdee1;
-    --text-muted: #949ba4;
     --accent: #5865f2;
     --accent-hover: #4752c4;
-    --danger: #f23f42;
-    --online: #23a559;
+    --text-white: #f2f3f5;
+    --text-muted: #b5bac1;
+    --online-green: #23a55a;
+    --input-bg: #383a40;
 }
 
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    font-family: 'gg sans', 'Noto Sans', sans-serif;
-    -webkit-tap-highlight-color: transparent;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 
-body, html {
-    background-color: var(--bg-main);
-    color: var(--text-main);
-    height: 100%;
-    overflow: hidden;
-    position: fixed; /* Фиксация для предотвращения скролла на iOS */
-    width: 100%;
-}
+body { background: var(--bg-darker); color: var(--text-white); height: 100vh; overflow: hidden; }
 
+.screen { height: 100vh; width: 100vw; display: flex; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; }
 .hidden { display: none !important; }
 
-/* Экран авторизации */
-.auth-card {
-    background: var(--bg-sidebar);
-    padding: 32px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 480px;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-    text-align: center;
-}
+/* Loader */
+.loader-box { text-align: center; }
+.spinner { width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.auth-card h2 { margin-bottom: 8px; color: white; }
-.auth-card .subtitle { color: var(--text-muted); margin-bottom: 20px; }
-
-input, textarea {
-    width: 100%;
-    background: #1e1f22;
-    border: none;
-    padding: 12px;
-    color: white;
-    border-radius: 4px;
-    margin-bottom: 15px;
-}
-
-button {
-    width: 100%;
-    padding: 12px;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 600;
-}
-
-button.secondary { background: transparent; margin-top: 10px; }
+/* Auth Card */
+.auth-card { background: var(--bg-main); padding: 40px; border-radius: 8px; width: 100%; max-width: 480px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); text-align: center; }
+.subtitle { color: var(--text-muted); margin-bottom: 25px; font-size: 15px; }
+.input-group { text-align: left; margin-bottom: 20px; }
+.input-group label { display: block; font-size: 12px; font-weight: bold; color: var(--text-muted); margin-bottom: 8px; }
+input { width: 100%; background: var(--bg-darker); border: none; padding: 14px; color: white; border-radius: 4px; outline: none; transition: 0.2s; }
+input:focus { box-shadow: 0 0 0 2px var(--accent); }
+button { width: 100%; padding: 14px; background: var(--accent); border: none; color: white; font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 10px; transition: 0.2s; }
 button:hover { background: var(--accent-hover); }
+.auth-footer { margin-top: 20px; font-size: 14px; color: var(--text-muted); }
+#auth-toggle-link { color: #00a8fc; cursor: pointer; text-decoration: none; }
+#auth-toggle-link:hover { text-decoration: underline; }
 
-/* Основной интерфейс */
-#app-screen {
-    display: flex;
-    height: 100vh;
-}
+/* Application Layout */
+#app-screen { display: flex; align-items: stretch; justify-content: flex-start; }
+.sidebar { width: 320px; background: var(--bg-sidebar); display: flex; flex-direction: column; border-right: 1px solid rgba(0,0,0,0.2); }
+.sidebar-header { padding: 20px; border-bottom: 1px solid rgba(0,0,0,0.1); display: flex; align-items: center; gap: 15px; }
+.profile-preview { position: relative; width: 45px; height: 45px; cursor: pointer; }
+.profile-preview img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.status-dot { position: absolute; bottom: 0; right: 0; width: 14px; height: 14px; border-radius: 50%; border: 3px solid var(--bg-sidebar); background: var(--online-green); }
 
-.sidebar {
-    width: 300px;
-    background: var(--bg-sidebar);
-    display: flex;
-    flex-direction: column;
-}
+.chat-window { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; }
+.messages-display { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.chat-input-area { padding: 20px; background: var(--bg-main); }
+.input-bar-wrapper { background: var(--input-bg); border-radius: 8px; display: flex; padding: 5px 15px; align-items: center; }
+.input-bar-wrapper input { background: transparent; padding: 10px; }
+.input-bar-wrapper input:focus { box-shadow: none; }
+#send-msg-btn { width: auto; margin: 0; background: transparent; font-size: 22px; color: var(--accent); }
 
-.sidebar-header {
-    padding: 15px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-.user-profile-trigger {
-    position: relative;
-    width: 40px;
-    height: 40px;
-    margin-bottom: 10px;
-    cursor: pointer;
-}
-
-.user-profile-trigger img {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-}
-
-.status-indicator {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 3px solid var(--bg-sidebar);
-    position: absolute;
-    bottom: -2px;
-    right: -2px;
-}
-
-.status-indicator.online { background: var(--online); }
-
-.chat-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-#chat-header {
-    padding: 15px;
-    background: var(--bg-main);
-    border-bottom: 1px solid rgba(0,0,0,0.2);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-#messages-container {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
-}
-
-.input-area {
-    padding: 0 20px 20px 20px;
-    display: flex;
-    gap: 10px;
-}
-
-/* Эффект свечения аватара (Nitro Style) */
-.glow-avatar {
-    box-shadow: 0 0 15px var(--glow-color);
-}
-
-/* Мобильная адаптивность */
-@media (max-width: 768px) {
-    .sidebar { width: 80px; }
-    .sidebar-header input, #chat-with-status { display: none; }
-    .chat-area { flex: 1; }
-}
+/* Message bubbles */
+.msg-bubble { padding: 10px 15px; border-radius: 18px; max-width: 70%; line-height: 1.4; word-wrap: break-word; }
+.msg-bubble.own { align-self: flex-end; background: var(--accent); color: white; border-bottom-right-radius: 4px; }
+.msg-bubble.other { align-self: flex-start; background: var(--input-bg); color: var(--text-white); border-bottom-left-radius: 4px; }
